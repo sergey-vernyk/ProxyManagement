@@ -5,17 +5,11 @@ import socket
 import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Optional, TypeAlias
+from typing import Optional, TypeAlias, TypeVar
 
 from dotenv import load_dotenv
 
-try:
-    if sys.version_info >= (3, 11):
-        from typing import Self
-except ImportError:
-    from typing import TypeVar
-
-    Self = TypeVar("Self", bound="SocketClient")
+Self = TypeVar("Self", bound="SocketClient")
 
 load_dotenv()
 
