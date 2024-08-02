@@ -2,11 +2,20 @@ import logging
 import os
 import selectors
 import socket
+import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Optional, Self, TypeAlias
+from typing import Optional, TypeAlias
 
 from dotenv import load_dotenv
+
+try:
+    if sys.version_info >= (3, 11):
+        from typing import Self
+except ImportError:
+    from typing import TypeVar
+
+    Self = TypeVar("Self", bound="SocketServer")
 
 load_dotenv()
 

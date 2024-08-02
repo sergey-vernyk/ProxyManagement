@@ -5,9 +5,17 @@ import socket
 import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Optional, Self, TypeAlias
+from typing import Optional, TypeAlias
 
 from dotenv import load_dotenv
+
+try:
+    if sys.version_info >= (3, 11):
+        from typing import Self
+except ImportError:
+    from typing import TypeVar
+
+    Self = TypeVar("Self", bound="SocketClient")
 
 load_dotenv()
 
@@ -40,7 +48,7 @@ class ClientConnectionData:
     outb: bytes = field(default_factory=bytes)
 
 
-class ClientSocket:
+class SocketClient:
     """
     Manages a non-blocking TCP client socket using the selectors module.
 
@@ -212,6 +220,6 @@ class ClientSocket:
 if __name__ == "__main__":
     sel = selectors.DefaultSelector()
     sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    with ClientSocket(host=os.getenv("HOST"), port=int(os.getenv("PORT")), socket=sock_obj, selector=sel) as client:
+    with SocketClient(host=os.getenv("HOST"), port=int(os.getenv("PORT")), socket=sock_obj, selector=sel) as client:
         client.compose_data_to_send("hello world!,How are you?,London is the capital of Great Britain")
         client.run_event_loop()
