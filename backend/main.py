@@ -1,16 +1,11 @@
-from fastapi import Depends, FastAPI, HTTPException
-from sqlalchemy.orm import Session
+from db_connection import Base, engine
+from fastapi import FastAPI
+from modems import router as modems_router
+from users import router as users_router
 
-from . import crud, models, schemas
-from .db_connection import engine
-from .dependencies import get_db
+Base.metadata.create_all(bind=engine)
 
-models.Base.metadata.create_all(bind=engine)
+app = FastAPI(title="Proxy Management With Sockets", version="0.1")
 
-app = FastAPI()
-
-
-@app.get("/")
-def root(db: Session = Depends(get_db)):
-    return {"message": "hello"}
-    
+app.include_router(users_router.router, tags=["users"])
+app.include_router(modems_router.router)

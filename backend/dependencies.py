@@ -1,6 +1,5 @@
+from db_connection import SessionLocal
 from sqlalchemy.orm import Session
-
-from .db_connection import SessionLocal
 
 
 def get_db():
