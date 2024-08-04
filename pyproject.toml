@@ -10,6 +10,11 @@ python = "^3.10"
 python-dotenv = "^1.0.1"
 click = "^8.1.7"
 fastapi = "^0.112.0"
+uvicorn = "^0.30.5"
+sqlalchemy = "^2.0.31"
+huawei-lte-api = "^1.9.3"
+alembic = "^1.13.2"
+email-validator = "^2.2.0"
 
 
 [build-system]

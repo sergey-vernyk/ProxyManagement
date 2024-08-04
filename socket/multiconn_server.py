@@ -4,11 +4,9 @@ import selectors
 import socket
 import traceback
 from dataclasses import dataclass, field
-from typing import Optional, TypeAlias, TypeVar
+from typing import Optional, TypeAlias
 
 from dotenv import load_dotenv
-
-Self = TypeVar("Self", bound="SocketServer")
 
 load_dotenv()
 
@@ -81,7 +79,7 @@ class SocketServer:
         self._connection_data: dict[Socket, ServerConnectionData] = {}
         self._initialized = False
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> "SocketServer":
         self.init_server()
         self._initialized = True
         return self

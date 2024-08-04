@@ -5,11 +5,9 @@ import socket
 import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Optional, TypeAlias, TypeVar
+from typing import Optional, TypeAlias
 
 from dotenv import load_dotenv
-
-Self = TypeVar("Self", bound="SocketClient")
 
 load_dotenv()
 
@@ -64,7 +62,7 @@ class SocketClient:
         self._selector = selector
         self._connection_data: dict[Socket, ClientConnectionData] = {}
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> "SocketClient":
         self.start_connection()
         return self
 
