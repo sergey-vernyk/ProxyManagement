@@ -1,32 +1,31 @@
-from pydantic import BaseModel, EmailStr, Field, IPvAnyAddress
-
-
-class CreateModem(BaseModel):
-    """
-    Class represents fields for creating modem.
-    """
-
-    modem_ip: IPvAnyAddress
-    token: str
-    bind_user_id: int
-    modem_username: str = Field(default=None)
-    modem_password: str = Field(default=None)
+from modems.schemas import ShowModemForUser
+from pydantic import BaseModel, EmailStr, Field
 
 
 class CreateUser(BaseModel):
     """
-    Class represents fields for creating a user.
+    Class represents fields for creating  a user.
     """
 
     email: EmailStr
     login: str
-    password: str
 
 
-class UserShow(BaseModel):
+class ShowUser(BaseModel):
     """
-    Class represents fields for displaying user
+    Class represents fields for displaying user.
     """
 
     id: int
     email: EmailStr
+    token: str = Field(max_length=32)
+    user_modems: list[ShowModemForUser]
+
+
+class UpdateUserCredentials(BaseModel):
+    """
+    Class for defining proxy credentials fields for updating.
+    """
+
+    login: str
+    password: str

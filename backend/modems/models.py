@@ -14,7 +14,7 @@ class Modem(Base):
 
     id = Column(Integer, primary_key=True)
     modem_ip = Column(String(16), nullable=False)
-    token = Column(String(32), nullable=False)
+    modem_port = Column(Integer, nullable=False)
     bind_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     modem_username = Column(String(20), nullable=True)
     modem_password = Column(String(20), nullable=True)
@@ -25,4 +25,4 @@ class Modem(Base):
     bind_user = relationship("User", back_populates="user_modems", lazy="selectin")
 
     def __repr__(self) -> str:
-        return f"{self.modem_ip}-{self.bind_user}"
+        return f"{self.modem_ip}:{self.modem_port}-{self.bind_user}"
