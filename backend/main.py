@@ -8,4 +8,4 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Proxy Management With Sockets", version="0.1")
 
 app.include_router(users_router.router, tags=["users"])
-app.include_router(modems_router.router)
+app.include_router(modems_router.router, tags=["modems"])

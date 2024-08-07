@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy.orm import Session
 
 from . import models, schemas
@@ -28,7 +30,7 @@ def get_user_by_id(db: Session, user_id: int) -> models.User | None:
 
 def get_user_by_email(db: Session, email: str) -> models.User | None:
     """
-    Returns user by given email.
+    Returns user by given `email`.
     """
     return db.query(models.User).filter(models.User.email == email).first()
 
@@ -40,7 +42,7 @@ def get_all_users(db: Session, offset: int = 0, limit: int = 100) -> list[models
     return db.query(models.User).offset(offset).limit(limit).all()
 
 
-def update_user_proxy_credentials(db: Session, instance: models.User, data_to_update: dict) -> models.User:
+def update_user_proxy_credentials(db: Session, instance: models.User, data_to_update: dict[Any, Any]) -> models.User:
     """
     Update user by its ID.
     """
@@ -50,9 +52,9 @@ def update_user_proxy_credentials(db: Session, instance: models.User, data_to_up
     return instance
 
 
-def delete_user(db: Session, user_email: str) -> None:
+def delete_user(db: Session, email: str) -> None:
     """
-    Remove user with `user_id` from database.
+    Remove user with `user_email` from database.
     """
-    db.query(models.User).filter(models.User.email == user_email).delete()
+    db.query(models.User).filter(models.User.email == email).delete()
     db.commit()

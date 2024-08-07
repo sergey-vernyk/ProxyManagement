@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, IPvAnyAddress
+from pydantic import BaseModel, EmailStr, Field, IPvAnyAddress
 
 
 class CreateModem(BaseModel):
@@ -8,11 +8,11 @@ class CreateModem(BaseModel):
     Class represents fields for creating modem.
     """
 
-    modem_ip: IPvAnyAddress
-    modem_port: int = Field(lt=65536, gt=49152)
-    bind_user_id: int
-    modem_username: str = Field(default=None)
-    modem_password: str = Field(default=None)
+    ip: IPvAnyAddress
+    port: int = Field(lt=65536, gt=49152)
+    bind_user_email: EmailStr
+    username: str = Field(default=None)
+    password: str = Field(default=None)
 
 
 class ShowModem(BaseModel):
@@ -21,12 +21,13 @@ class ShowModem(BaseModel):
     """
 
     id: int
-    modem_ip: IPvAnyAddress
-    modem_username: str
-    modem_password: str
-    rebooted: datetime
+    ip: IPvAnyAddress
+    port: int
+    username: str
+    password: str
+    rebooted: datetime | None
     created: datetime
-    updated: datetime
+    updated: datetime | None
 
 
 class UpdateModem(BaseModel):
@@ -34,10 +35,11 @@ class UpdateModem(BaseModel):
     Class represents fields for updating a modem.
     """
 
-    modem_ip: IPvAnyAddress
-    modem_username: str
-    modem_password: str
-    rebooted: datetime
+    ip: IPvAnyAddress
+    port: int = Field(lt=65536, gt=49152)
+    username: str
+    password: str
+    rebooted: datetime | None
 
 
 class ShowModemForUser(BaseModel):
@@ -45,6 +47,7 @@ class ShowModemForUser(BaseModel):
     Class represents modem info for displaying user info.
     """
 
-    modem_ip: IPvAnyAddress
-    rebooted: datetime
-    created: datetime
+    ip: IPvAnyAddress
+    port: int
+    rebooted: datetime | None
+    created: datetime | None

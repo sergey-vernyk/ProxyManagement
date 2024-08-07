@@ -17,7 +17,7 @@ async def create_user(user: schemas.CreateUser, db: DatabaseDependency) -> model
     """
     db_user = crud.get_user_by_email(db, user.email)
     if db_user:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with given email is already registered.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email is already registered.")
 
     token = token_urlsafe(32)[:32]
     password = token_urlsafe(32)[: random.randint(12, 20)]
@@ -26,7 +26,7 @@ async def create_user(user: schemas.CreateUser, db: DatabaseDependency) -> model
 
 
 @router.get("/users/", response_model=list[schemas.ShowUser], status_code=status.HTTP_200_OK)
-async def get_users(db: DatabaseDependency, skip: int = 0, limit: int = 100) -> list[models.User]:
+async def get_all_users(db: DatabaseDependency, skip: int = 0, limit: int = 100) -> list[models.User]:
     """
     Returns all users within `skip` and `limit` params.
     """
@@ -43,7 +43,7 @@ async def get_user(email: str, db: DatabaseDependency) -> models.User:
 
     db_user = crud.get_user_by_email(db, email)
     if db_user is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email is not exists.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
     return db_user
 
