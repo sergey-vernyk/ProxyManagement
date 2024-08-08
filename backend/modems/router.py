@@ -1,20 +1,20 @@
+import datetime
 import hashlib
 import selectors
 import socket
-from typing import Any, TypeAlias
+from typing import Annotated, Any, TypeAlias
 
 from config import get_settings
+from conn_utils import build_default_route_ip, send_data_to_socket_server
 from dependencies import DatabaseDependency
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Path, status
 from fastapi.responses import JSONResponse
 from pydantic import IPvAnyAddress
-from sockets import multiconn_client
 from users.models import User
 
 from . import crud, models, schemas
 
 settings = get_settings()
-
 
 router = APIRouter()
 
@@ -23,19 +23,7 @@ Selector: TypeAlias = selectors.DefaultSelector
 
 SOCKET_HOST: str = settings.socket_host
 SOCKET_PORT: int = settings.socket_port
-
-socket_obj: Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sel: Selector = selectors.DefaultSelector()
-
-
-def send_data_to_socket_server(data_to_send: str, socket_host: str, socket_port: int, selector: Selector) -> None:
-    """
-    The function creates socket client
-    and sends the given `data_to_send` data to the socket server.
-    """
-    with multiconn_client.SocketClient(socket_host, socket_port, socket_obj, selector) as client:
-        client.compose_data_to_send(data_to_send)
-        client.run_event_loop()
+ENCODING: str = settings.default_encoding
 
 
 @router.post("/modems/", response_model=schemas.ShowModem, status_code=status.HTTP_201_CREATED)
@@ -52,9 +40,10 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
     # must replace `bind_user_email` with `bind_user_id`, because `Modem` model does not have `bind_user_email` field
-    modem_data: dict[str, Any] = request.model_dump(exclude={"bind_user_email"})
+    modem_data: dict[str, Any] = request.model_dump(exclude={"bind_user_email", "ip"})
     modem_data["bind_user_id"] = bind_db_user.id
-    modem_data["hashed_value"] = hashlib.sha256(f"{bind_db_user.email}".encode("utf-8")).hexdigest()[::2]
+    modem_data["ip"] = str(request.ip)
+    modem_data["hashed_value"] = hashlib.sha256(f"{bind_db_user.email}{modem_data["ip"]}".encode(ENCODING)).hexdigest()[::2]
 
     return crud.create_modem(db, modem_data)
 
@@ -88,7 +77,8 @@ async def update_modem(ip: IPvAnyAddress, data: schemas.UpdateModem, db: Databas
     if db_modem is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exists.")
 
-    data_to_update: dict[str, Any] = data.model_dump()
+    data_to_update: dict[str, Any] = data.model_dump(exclude={"ip"})
+    data_to_update["ip"] = str(data.ip)
     return crud.update_modem(db, db_modem, data_to_update)
 
 
@@ -107,11 +97,14 @@ async def delete_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> None:
     responses={
         200: {"description": "IP changed"},
         404: {"description": "Modem not Found"},
-        400: {"description": "Incorrect token or hash value"},
-        406: {"description": "Problems on socket server side"},
+        406: {"description": ["Problems on socket server side", "Problems on modem side"]},
     },
 )
-async def change_ip(token: str, hashed_value: str, db: DatabaseDependency) -> JSONResponse:
+async def change_ip(
+    token: Annotated[str, Path(max_length=32, description="User token")],
+    hashed_value: Annotated[str, Path(max_length=32, description="Modem hashed value")],
+    db: DatabaseDependency
+) -> JSONResponse:
     """
     Change IP of a modem.
     - token (str): token from user data.
@@ -125,12 +118,26 @@ async def change_ip(token: str, hashed_value: str, db: DatabaseDependency) -> JS
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Requested modem is not found. Check token or hashed value.")
 
     ip = str(modem.ip)
-    port = str(modem.port)
     username = str(modem.username)
     password = str(modem.password)
-    data_to_send: str = ",".join([ip, port, username, password])
-    send_data_to_socket_server(data_to_send, SOCKET_HOST, SOCKET_PORT, sel)
+    default_route: str = build_default_route_ip(ip)
 
-    return JSONResponse(
-        {"ip": ip, "port": port, "username": username, "password": password}, status_code=status.HTTP_200_OK
-    )
+    socket_obj: Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sel: Selector = selectors.DefaultSelector()
+
+    data_to_send: str = ",".join([default_route, username, password])
+    received_data = send_data_to_socket_server(data_to_send, SOCKET_HOST, SOCKET_PORT, socket_obj, sel)
+    if received_data is not None:
+        str_recv_data: str = received_data.decode(ENCODING)
+        if received_data == b"Rebooted":
+            setattr(modem, "rebooted", datetime.datetime.now())
+            db.commit()
+            return JSONResponse({"message": "Modem rebooted successfully."}, status.HTTP_200_OK)
+        if received_data == b"Not rebooted":
+            return JSONResponse({"message": "Modem not rebooted. Try again."}, status.HTTP_200_OK)
+        if b"Error" in received_data:
+            return JSONResponse({"message": f"Modem side error:{str_recv_data[6:]}"}, status.HTTP_406_NOT_ACCEPTABLE)
+        if b"Errno" in received_data:
+            return JSONResponse({"message": f"Server side error: {str_recv_data}"}, status.HTTP_406_NOT_ACCEPTABLE)
+
+    return JSONResponse({"message": "No data received from the server."}, status.HTTP_200_OK)

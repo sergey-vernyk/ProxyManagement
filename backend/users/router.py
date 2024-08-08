@@ -3,6 +3,7 @@ from secrets import token_urlsafe
 
 from dependencies import DatabaseDependency
 from fastapi import APIRouter, HTTPException, status
+from pydantic import EmailStr
 from validators import validate_email_format
 
 from . import crud, models, schemas
@@ -38,10 +39,12 @@ async def get_user(email: str, db: DatabaseDependency) -> models.User:
     """
     Returns a user by its `email`.
     """
-    if validate_email_format(email) is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid email format.")
+    try:
+        valid_email = validate_email_format(email)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
-    db_user = crud.get_user_by_email(db, email)
+    db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
@@ -55,10 +58,12 @@ async def update_user_proxy_credentials(
     """
     Update user credentials for proxy.
     """
-    if validate_email_format(email) is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid email format.")
+    try:
+        valid_email = validate_email_format(email)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
-    db_user = crud.get_user_by_email(db, email)
+    db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email is not exists.")
 
@@ -67,11 +72,13 @@ async def update_user_proxy_credentials(
 
 
 @router.delete("/users/{email}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(email: str, db: DatabaseDependency) -> None:
+async def delete_user(email: EmailStr, db: DatabaseDependency) -> None:
     """
     Delete user with the given `email`.
     """
-    if validate_email_format(email) is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid email format.")
+    try:
+        valid_email = validate_email_format(email)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
-    crud.delete_user(db, email)
+    crud.delete_user(db, valid_email)

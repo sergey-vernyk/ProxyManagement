@@ -15,8 +15,9 @@ Selector: TypeAlias = selectors.DefaultSelector
 SelectorKey: TypeAlias = selectors.SelectorKey
 
 
-START_CONNECTION = settings.socket_start_connection_cond.encode("utf-8")
-STOP_CONNECTION = settings.socket_stop_connection_cond.encode("utf-8")
+ENCODING: str = settings.default_encoding
+START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
+STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -27,16 +28,18 @@ class ClientConnectionData:
     Holds the data related to the client connection.
 
     Attributes:
-        msg_total (int): Total message length to be sent.
-        recv_total (int): Total length of received data.
-        messages (list[bytes]): List of messages to be sent.
+        msg_total (int): Total length of messages to be sent to the server.
+        recv_total (int): Total length of data received from the server.
+        messages (list[bytes]): List of messages to be sent to the server.
         outb (bytes): Buffer for outgoing data.
+        inb (bytes): Buffer for incoming data.
     """
 
     msg_total: int = 0
     recv_total: int = 0
     messages: list[bytes] = field(default_factory=list)
     outb: bytes = field(default_factory=bytes)
+    inb: bytes = field(default_factory=bytes)
 
 
 class SocketClient:
@@ -52,6 +55,7 @@ class SocketClient:
         _socket (Socket): The client socket object.
         _selector (Selector): The selector object for monitoring I/O events.
         _connection_data (dict[Socket, ClientConnectionData]): Maps sockets to their connection data.
+        _received_data (Optional[bytes]): Buffer for data received from the server after connection is closed.
     """
 
     def __init__(self, host: str, port: int, socket: Socket, selector: Selector) -> None:
@@ -60,6 +64,7 @@ class SocketClient:
         self._socket = socket
         self._selector = selector
         self._connection_data: dict[Socket, ClientConnectionData] = {}
+        self._received_data = None
 
     def __enter__(self) -> "SocketClient":
         self.start_connection()
@@ -71,13 +76,29 @@ class SocketClient:
         self._selector.close()
         self._socket.close()
 
-    def _clean_up(self, sock: Socket) -> None:
+    @property
+    def received_data(self) -> bytes | None:
+        """
+        Gets the data received from the server after the connection has been closed.
+
+        Returns:
+            Optional[bytes]: The data received from the server, or None if no data was received.
+        """
+        return self._received_data
+
+    def _clean_up(self, sock: Socket, data: ClientConnectionData | None = None) -> None:
         """
         Cleans up the connection by unregistering the socket and closing it.
+        Optionally stores remaining data to be accessed after the connection is closed.
 
         Args:
             sock (Socket): The socket to clean up.
+            data (ClientConnectionData | None): The connection data associated with the socket, if any.
         """
+        if data is not None:
+            if data.inb:
+                self._received_data = data.inb
+
         self._selector.unregister(sock)
         sock.close()
         del self._connection_data[sock]
@@ -115,7 +136,7 @@ class SocketClient:
         Args:
             sending_data (str): The data to be sent to the server, separated by commas.
         """
-        messages: list[bytes] = [d.encode("utf-8") + b"\n" for d in sending_data.split(",")]
+        messages: list[bytes] = [d.encode(ENCODING) + b"\n" for d in sending_data.split(",")]
         messages.insert(0, START_CONNECTION)
         messages.append(STOP_CONNECTION)
         conn_data = ClientConnectionData(
@@ -128,7 +149,7 @@ class SocketClient:
 
     def _handle_read_event(self, sock: Socket, data: ClientConnectionData) -> None:
         """
-        Handles incoming data from the server and checks for completion.
+        Handles incoming data from the server and updates connection data.
 
         Args:
             sock (Socket): The socket from which data is being read.
@@ -136,17 +157,23 @@ class SocketClient:
         """
         try:
             recv_data: bytes = sock.recv(1024)
-            if recv_data:
+            if recv_data and b"OK" not in recv_data:
                 logging.info("Received %r from connection %s:%d", recv_data, self._host, self._port)
                 data.recv_total += len(recv_data)
+                data.inb += recv_data
             if b"OK" in recv_data or data.recv_total == data.msg_total:
                 logging.info("Closing connection to %s:%d", self._host, self._port)
+                data.inb = recv_data.split(b"\n")[0]  # discard "OK" value and leave message from the server
                 data.recv_total = 0
                 data.msg_total = 0
-                self._clean_up(sock)
+                self._clean_up(sock, data)
+            if b"Error:" in recv_data:
+                logging.error(recv_data)
+                self._clean_up(sock, data)
         except Exception as e:
             logging.error("Exception during read: %s", e)
-            self._clean_up(sock)
+            data.inb = str(e).encode(ENCODING)
+            self._clean_up(sock, data)
 
     def _handle_write_event(self, sock: Socket, data: ClientConnectionData) -> None:
         """
@@ -169,7 +196,8 @@ class SocketClient:
             data.msg_total = 0
             data.recv_total = 0
             data.outb = b""
-            self._clean_up(sock)
+            data.inb = str(e).encode(ENCODING)
+            self._clean_up(sock, data)
 
     def _handle_connection(self, key: SelectorKey, mask: int) -> None:
         """
@@ -192,7 +220,7 @@ class SocketClient:
         """
         try:
             while self._connection_data:
-                events: list[tuple[SelectorKey, int]] = self._selector.select(timeout=1)
+                events: list[tuple[SelectorKey, int]] = self._selector.select(timeout=5)
                 for key, mask in events:
                     if key.data is None:
                         logging.warning("Unexpected event for listening socket.")
@@ -200,10 +228,11 @@ class SocketClient:
 
                     self._handle_connection(key, mask)
         except KeyboardInterrupt:
-            logging.info("Stopping connection with the server %s:%d", self._host, self._port)
+            logging.info("Forces stopping connection with the server %s:%d", self._host, self._port)
         except Exception as e:
             logging.error("Exception in event loop: %s", e)
         finally:
+            logging.info("Closing client resources.")
             self._selector.close()
 
 
@@ -211,5 +240,5 @@ if __name__ == "__main__":
     sel = selectors.DefaultSelector()
     sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     with SocketClient(host=settings.socket_host, port=settings.socket_port, socket=sock_obj, selector=sel) as client:
-        client.compose_data_to_send("hello world!,How are you?,London is the capital of Great Britain")
+        client.compose_data_to_send("hello world!")
         client.run_event_loop()

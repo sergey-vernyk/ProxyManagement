@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     Class for environment settings environment variables.
     """
 
+    default_encoding: str
     database_url: str
     socket_host: str
     socket_port: int

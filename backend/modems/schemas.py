@@ -24,8 +24,8 @@ class ShowModem(BaseModel):
     ip: IPvAnyAddress
     port: int
     hashed_value: str
-    username: str
-    password: str
+    username: str | None
+    password: str | None
     rebooted: datetime | None
     created: datetime
     updated: datetime | None

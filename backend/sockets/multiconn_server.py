@@ -3,9 +3,12 @@ import selectors
 import socket
 import traceback
 from dataclasses import dataclass, field
+from time import sleep
 from typing import Optional, TypeAlias
 
 from config import get_settings
+from conn_utils import parse_modem_data
+from modem_api import reboot_modem
 
 settings = get_settings()
 
@@ -14,8 +17,9 @@ Socket: TypeAlias = socket.socket
 Selector: TypeAlias = selectors.DefaultSelector
 SelectorKey: TypeAlias = selectors.SelectorKey
 
-START_CONNECTION = settings.socket_start_connection_cond.encode("utf-8")
-STOP_CONNECTION = settings.socket_stop_connection_cond.encode("utf-8")
+ENCODING: str = settings.default_encoding
+START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
+STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -181,7 +185,6 @@ class SocketServer:
             data (ServerConnectionData): The connection data associated with the socket.
         """
         try:
-            host, port = sock.getsockname()
             recv_data: bytes = sock.recv(1024)
 
             if not recv_data:
@@ -193,8 +196,28 @@ class SocketServer:
             if START_CONNECTION in data.inb and STOP_CONNECTION in data.inb:
                 start_idx, stop_idx = self._get_message_indexes(data.inb)
                 message: list[bytes] = data.inb[start_idx:stop_idx].split(b"\n")[:-1]
-                logging.info("Received data %s from %s:%d", message, host, port)
-                data.outb = b"OK"  # send acknowledge message to the client
+                logging.info("Received data %s from %s:%d", message, data.addr[0], data.addr[1])
+                modem_conn_data = parse_modem_data(message)
+
+                reboot_attempts = 0
+                while reboot_attempts < 3:
+                    result: str = reboot_modem(**modem_conn_data)
+                    if result == "Not Rebooted":
+                        reboot_attempts += 1
+                        sleep(2)
+                        data.outb = result.encode(ENCODING)
+                        continue
+
+                    if result == "Rebooted":
+                        data.outb += result.encode(ENCODING) + b"\n"
+                        data.outb += b"OK"
+                        break
+
+                    if "Error:" in result:
+                        data.outb = result.encode(ENCODING)
+                        break
+                else:
+                    data.outb = b"Failed to reboot modem"
         except Exception as e:
             logging.error("Exception during read: %s", e)
             self._clean_up(sock)
@@ -251,7 +274,7 @@ class SocketServer:
 
         try:
             while True:
-                events: list[tuple[SelectorKey, int]] = self._selector.select(timeout=None)
+                events: list[tuple[SelectorKey, int]] = self._selector.select(timeout=1)
                 for key, mask in events:
                     # means it’s from the listening socket and you need to accept the connection
                     if key.data is None:
@@ -263,6 +286,7 @@ class SocketServer:
         except Exception as e:
             logging.error("Exception in event loop: %s", e)
         finally:
+            logging.info("Cleaning up resources.")
             self._selector.close()
             self._socket.close()
 
