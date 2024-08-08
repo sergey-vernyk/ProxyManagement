@@ -16,11 +16,11 @@ async def create_user(user: schemas.CreateUser, db: DatabaseDependency) -> model
     Create user or raise an exception if user with provided email is already exists.
     """
     db_user = crud.get_user_by_email(db, user.email)
-    if db_user:
+    if db_user is not None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email is already registered.")
 
-    token = token_urlsafe(32)[:32]
-    password = token_urlsafe(32)[: random.randint(12, 20)]
+    token: str = token_urlsafe(32)[:32]
+    password: str = token_urlsafe(32)[: random.randint(12, 20)]
     user = crud.create_user(db, user, token, password)
     return user
 

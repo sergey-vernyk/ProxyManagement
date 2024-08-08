@@ -1,5 +1,4 @@
 import logging
-import os
 import selectors
 import socket
 import sys
@@ -7,17 +6,17 @@ import traceback
 from dataclasses import dataclass, field
 from typing import Optional, TypeAlias
 
-from dotenv import load_dotenv
+from config import get_settings
 
-load_dotenv()
+settings = get_settings()
 
 Socket: TypeAlias = socket.socket
 Selector: TypeAlias = selectors.DefaultSelector
 SelectorKey: TypeAlias = selectors.SelectorKey
 
 
-START_CONNECTION = os.getenv("START_CONNECTION", "").encode("utf-8")
-STOP_CONNECTION = os.getenv("STOP_CONNECTION", "").encode("utf-8")
+START_CONNECTION = settings.socket_start_connection_cond.encode("utf-8")
+STOP_CONNECTION = settings.socket_stop_connection_cond.encode("utf-8")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -141,7 +140,6 @@ class SocketClient:
                 logging.info("Received %r from connection %s:%d", recv_data, self._host, self._port)
                 data.recv_total += len(recv_data)
             if b"OK" in recv_data or data.recv_total == data.msg_total:
-                print(recv_data)
                 logging.info("Closing connection to %s:%d", self._host, self._port)
                 data.recv_total = 0
                 data.msg_total = 0
@@ -212,6 +210,6 @@ class SocketClient:
 if __name__ == "__main__":
     sel = selectors.DefaultSelector()
     sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    with SocketClient(host=os.getenv("HOST"), port=int(os.getenv("PORT")), socket=sock_obj, selector=sel) as client:
+    with SocketClient(host=settings.socket_host, port=settings.socket_port, socket=sock_obj, selector=sel) as client:
         client.compose_data_to_send("hello world!,How are you?,London is the capital of Great Britain")
         client.run_event_loop()

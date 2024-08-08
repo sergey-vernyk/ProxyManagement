@@ -14,6 +14,7 @@ def create_modem(db: Session, modem_data: dict[str, Any]) -> models.Modem:
         ip=str(modem_data["ip"]),
         port=modem_data["port"],
         bind_user_id=modem_data["bind_user_id"],
+        hashed_value=modem_data["hashed_value"],
         username=modem_data["username"],
         password=modem_data["password"],
     )

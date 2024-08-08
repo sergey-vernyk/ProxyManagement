@@ -19,6 +19,8 @@ class ShowUser(BaseModel):
     id: int
     email: EmailStr
     token: str = Field(max_length=32)
+    login: str
+    password: str
     user_modems: list[ShowModemForUser]
 
 

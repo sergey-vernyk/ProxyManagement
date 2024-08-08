@@ -18,6 +18,7 @@ class Modem(Base):
     ip = Column(String(16), nullable=False)
     port = Column(Integer, nullable=False)
     bind_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    hashed_value = Column(String(32), nullable=False, default="")
     username = Column(String(20), nullable=True)
     password = Column(String(20), nullable=True)
     rebooted = Column(DateTime(timezone=True), nullable=True, default=None)

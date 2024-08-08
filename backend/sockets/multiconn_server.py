@@ -1,21 +1,21 @@
 import logging
-import os
 import selectors
 import socket
 import traceback
 from dataclasses import dataclass, field
 from typing import Optional, TypeAlias
 
-from dotenv import load_dotenv
+from config import get_settings
 
-load_dotenv()
+settings = get_settings()
+
 
 Socket: TypeAlias = socket.socket
 Selector: TypeAlias = selectors.DefaultSelector
 SelectorKey: TypeAlias = selectors.SelectorKey
 
-START_CONNECTION = os.getenv("START_CONNECTION", "START\n").encode("utf-8")
-STOP_CONNECTION = os.getenv("STOP_CONNECTION", "STOP\n").encode("utf-8")
+START_CONNECTION = settings.socket_start_connection_cond.encode("utf-8")
+STOP_CONNECTION = settings.socket_stop_connection_cond.encode("utf-8")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -270,7 +270,5 @@ class SocketServer:
 if __name__ == "__main__":
     sel = selectors.DefaultSelector()
     sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    host = os.getenv("HOST", "localhost")
-    port = int(os.getenv("PORT", ""))
-    with SocketServer(host=host, port=port, socket=sock_obj, selector=sel) as server:
+    with SocketServer(host=settings.socket_host, port=settings.socket_port, socket=sock_obj, selector=sel) as server:
         server.run_event_loop()

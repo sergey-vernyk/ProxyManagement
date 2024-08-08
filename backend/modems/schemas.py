@@ -23,6 +23,7 @@ class ShowModem(BaseModel):
     id: int
     ip: IPvAnyAddress
     port: int
+    hashed_value: str
     username: str
     password: str
     rebooted: datetime | None
@@ -49,5 +50,6 @@ class ShowModemForUser(BaseModel):
 
     ip: IPvAnyAddress
     port: int
+    hashed_value: str
     rebooted: datetime | None
     created: datetime | None
