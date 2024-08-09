@@ -43,7 +43,7 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
     modem_data: dict[str, Any] = request.model_dump(exclude={"bind_user_email", "ip"})
     modem_data["bind_user_id"] = bind_db_user.id
     modem_data["ip"] = str(request.ip)
-    modem_data["hashed_value"] = hashlib.sha256(f"{bind_db_user.email}{modem_data["ip"]}".encode(ENCODING)).hexdigest()[::2]
+    modem_data["hashed_value"] = hashlib.sha256(f"{bind_db_user.email}{modem_data['ip']}".encode(ENCODING)).hexdigest()[::2]
 
     return crud.create_modem(db, modem_data)
 
