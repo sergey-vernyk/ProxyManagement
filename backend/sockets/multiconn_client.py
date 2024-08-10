@@ -1,4 +1,3 @@
-import logging
 import selectors
 import socket
 import sys
@@ -7,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Optional, TypeAlias
 
 from config import get_settings
+from logs.logging_conf import get_client_logger
 
 settings = get_settings()
 
@@ -19,7 +19,7 @@ ENCODING: str = settings.default_encoding
 START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
 STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = get_client_logger()
 
 
 @dataclass
@@ -108,17 +108,17 @@ class SocketClient:
         Initializes the client socket and starts connecting to the server.
         """
         server_addr = (self._host, self._port)
-        logging.info("Establishing connection to %s:%d", self._host, self._port)
+        logger.info("Establishing connection to %s:%d", self._host, self._port)
         self._socket.setblocking(False)
 
         try:
             result: int = self._socket.connect_ex(server_addr)
             if not result:
-                logging.error("Connection failed while establishing connection. Error code: %d", result)
+                logger.error("Connection failed while establishing connection. Error code: %d", result)
                 self._socket.close()
                 sys.exit(1)
         except socket.error as e:
-            logging.error("Socket error during connection: %s", e)
+            logger.error("Socket error during connection: %s", e)
             self._socket.close()
             sys.exit(1)
 
@@ -158,20 +158,20 @@ class SocketClient:
         try:
             recv_data: bytes = sock.recv(1024)
             if recv_data and b"OK" not in recv_data:
-                logging.info("Received %r from connection %s:%d", recv_data, self._host, self._port)
+                logger.info("Received %r from connection %s:%d", recv_data, self._host, self._port)
                 data.recv_total += len(recv_data)
                 data.inb += recv_data
             if b"OK" in recv_data or data.recv_total == data.msg_total:
-                logging.info("Closing connection to %s:%d", self._host, self._port)
+                logger.info("Closing connection to %s:%d", self._host, self._port)
                 data.inb = recv_data.split(b"\n")[0]  # discard "OK" value and leave message from the server
                 data.recv_total = 0
                 data.msg_total = 0
                 self._clean_up(sock, data)
             if b"Error:" in recv_data:
-                logging.error(recv_data)
+                logger.error(recv_data)
                 self._clean_up(sock, data)
         except Exception as e:
-            logging.error("Exception during read: %s", e)
+            logger.error("Exception during read: %s", e)
             data.inb = str(e).encode(ENCODING)
             self._clean_up(sock, data)
 
@@ -187,12 +187,12 @@ class SocketClient:
             if data.messages:
                 data.outb = data.messages.pop(0)
             if data.outb:
-                logging.info("Sending %s to connection %s:%d", data.outb.strip(b"\n"), self._host, self._port)
+                logger.info("Sending %s to connection %s:%d", data.outb.strip(b"\n"), self._host, self._port)
                 sent: int = sock.send(data.outb)
                 data.outb = data.outb[sent:]
                 data.msg_total = sum(len(msg) for msg in data.messages)
         except Exception as e:
-            logging.error("Exception during write: %s", e)
+            logger.error("Exception during write: %s", e)
             data.msg_total = 0
             data.recv_total = 0
             data.outb = b""
@@ -223,16 +223,16 @@ class SocketClient:
                 events: list[tuple[SelectorKey, int]] = self._selector.select(timeout=5)
                 for key, mask in events:
                     if key.data is None:
-                        logging.warning("Unexpected event for listening socket.")
+                        logger.warning("Unexpected event for listening socket.")
                         continue
 
                     self._handle_connection(key, mask)
         except KeyboardInterrupt:
-            logging.info("Forces stopping connection with the server %s:%d", self._host, self._port)
+            logger.info("Forces stopping connection with the server %s:%d", self._host, self._port)
         except Exception as e:
-            logging.error("Exception in event loop: %s", e)
+            logger.error("Exception in event loop: %s", e)
         finally:
-            logging.info("Closing client resources.")
+            logger.info("Closing client resources.")
             self._selector.close()
 
 

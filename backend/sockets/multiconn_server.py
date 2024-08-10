@@ -1,4 +1,3 @@
-import logging
 import selectors
 import socket
 import traceback
@@ -8,10 +7,10 @@ from typing import Optional, TypeAlias
 
 from config import get_settings
 from conn_utils import parse_modem_data
+from logs.logging_conf import get_server_logger
 from modem_api import reboot_modem
 
 settings = get_settings()
-
 
 Socket: TypeAlias = socket.socket
 Selector: TypeAlias = selectors.DefaultSelector
@@ -21,7 +20,7 @@ ENCODING: str = settings.default_encoding
 START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
 STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = get_server_logger()
 
 
 @dataclass
@@ -85,7 +84,6 @@ class SocketServer:
 
     def __enter__(self) -> "SocketServer":
         self.init_server()
-        self._initialized = True
         return self
 
     def __exit__(
@@ -132,9 +130,10 @@ class SocketServer:
         """
         self._socket.bind((self._host, self._port))
         self._socket.listen()
-        logging.info("Listening on %s:%d", self._host, self._port)
+        logger.info("Listening on %s:%d", self._host, self._port)
         self._socket.setblocking(False)
         self._selector.register(fileobj=self._socket, events=selectors.EVENT_READ, data=None)
+        self._initialized = True
 
     def _accept_connection(self, sock: Socket) -> None:
         """
@@ -148,13 +147,13 @@ class SocketServer:
             conn, addr = sock.accept()
             conn.setblocking(False)
             connid: int = self._get_next_conn_id()
-            logging.info("Accepted connection %d from client: %s:%d", connid, addr[0], addr[1])
+            logger.info("Accepted connection %d from client: %s:%d", connid, addr[0], addr[1])
             data = ServerConnectionData(addr=addr, connid=connid)
             self._connection_data[conn] = data
             events: int = selectors.EVENT_READ | selectors.EVENT_WRITE
             self._selector.register(conn, events, data)
         except Exception as e:
-            logging.error("Exception during accept: %s", e)
+            logger.error("Exception during accept: %s", e)
 
     def _get_message_indexes(self, input_data: bytes) -> tuple[int, int]:
         """
@@ -189,14 +188,14 @@ class SocketServer:
 
             if not recv_data:
                 self._clean_up(sock)
-                logging.info("Closing connection from %s:%d", data.addr[0], data.addr[1])
+                logger.info("Closing connection from %s:%d", data.addr[0], data.addr[1])
                 return
 
             data.inb += recv_data
             if START_CONNECTION in data.inb and STOP_CONNECTION in data.inb:
                 start_idx, stop_idx = self._get_message_indexes(data.inb)
                 message: list[bytes] = data.inb[start_idx:stop_idx].split(b"\n")[:-1]
-                logging.info("Received data %s from %s:%d", message, data.addr[0], data.addr[1])
+                logger.info("Received data %s from %s:%d", message, data.addr[0], data.addr[1])
                 modem_conn_data = parse_modem_data(message)
 
                 reboot_attempts = 0
@@ -219,7 +218,7 @@ class SocketServer:
                 else:
                     data.outb = b"Failed to reboot modem"
         except Exception as e:
-            logging.error("Exception during read: %s", e)
+            logger.error("Exception during read: %s", e)
             self._clean_up(sock)
 
     def _handle_write_event(self, sock: Socket, data: ServerConnectionData) -> None:
@@ -237,7 +236,7 @@ class SocketServer:
                 sent: int = sock.send(data.outb)
                 data.outb = data.outb[sent:]
         except Exception as e:
-            logging.error("Exception during write: %s", e)
+            logger.error("Exception during write: %s", e)
             self._clean_up(sock)
 
     def _handle_connection(self, key: SelectorKey, mask: int) -> None:
@@ -253,7 +252,7 @@ class SocketServer:
         data: ServerConnectionData | None = self._connection_data.get(sock)
 
         if data is None:
-            logging.warning("No connection data found for the socket. Ignoring.")
+            logger.warning("No connection data found for the socket. Ignoring.")
             return
 
         if mask & selectors.EVENT_READ:
@@ -282,11 +281,11 @@ class SocketServer:
                     else:  # means that it's a client socket that's already been accepted
                         self._handle_connection(key=key, mask=mask)
         except KeyboardInterrupt:
-            logging.info("Stop listening on %s:%d", self._host, self._port)
+            logger.info("Stop listening on %s:%d", self._host, self._port)
         except Exception as e:
-            logging.error("Exception in event loop: %s", e)
+            logger.error("Exception in event loop: %s", e)
         finally:
-            logging.info("Cleaning up resources.")
+            logger.info("Cleaning up resources.")
             self._selector.close()
             self._socket.close()
 
