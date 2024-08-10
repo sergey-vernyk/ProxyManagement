@@ -5,20 +5,22 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 
 
-def create_user(db: Session, user: schemas.CreateUser, token: str, password: str) -> models.User:
+def create_user(
+    db: Session, user_data: schemas.CreateUser, token: str, proxy_login: str, proxy_password: str
+) -> models.User:
     """
     Creates user in the database.
     """
-    user = models.User(
-        email=user.email,
-        login=user.login,
+    user_data = models.User(
+        email=user_data.email,
+        proxy_login=proxy_login,
         token=token,
-        password=password,
+        proxy_password=proxy_password,
     )
-    db.add(user)
+    db.add(user_data)
     db.commit()
-    db.refresh(user)
-    return user
+    db.refresh(user_data)
+    return user_data
 
 
 def get_user_by_id(db: Session, user_id: int) -> models.User | None:
@@ -42,9 +44,19 @@ def get_all_users(db: Session, offset: int = 0, limit: int = 100) -> list[models
     return db.query(models.User).offset(offset).limit(limit).all()
 
 
-def update_user_proxy_credentials(db: Session, instance: models.User, data_to_update: dict[Any, Any]) -> models.User:
+def update_user_info(db: Session, instance: models.User, data_to_update: dict[Any, Any]) -> models.User:
     """
     Update user by its ID.
+    """
+    db.query(models.User).filter(models.User.id == instance.id).update(data_to_update)
+    db.commit()
+    db.refresh(instance)
+    return instance
+
+
+def update_user_proxy_credentials(db: Session, instance: models.User, data_to_update: dict[Any, Any]) -> models.User:
+    """
+    Update proxy credentials for the given `instance`.
     """
     db.query(models.User).filter(models.User.id == instance.id).update(data_to_update)
     db.commit()

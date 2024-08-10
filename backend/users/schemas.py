@@ -1,5 +1,16 @@
+from enum import Enum
+
 from modems.schemas import ShowModemForUser
 from pydantic import BaseModel, EmailStr, Field
+
+
+class HashType(str, Enum):
+    """
+    Type of the hash for a password.
+    """
+
+    MD5 = "md5"
+    SHA256 = "sha256"
 
 
 class CreateUser(BaseModel):
@@ -8,7 +19,8 @@ class CreateUser(BaseModel):
     """
 
     email: EmailStr
-    login: str
+    proxy_password: str = Field(min_length=10, max_length=30)
+    password_hash_type: HashType | None = None
 
 
 class ShowUser(BaseModel):
@@ -17,17 +29,26 @@ class ShowUser(BaseModel):
     """
 
     id: int
-    email: EmailStr
-    token: str = Field(max_length=32)
-    login: str
-    password: str
+    email: str
+    token: str
+    proxy_login: str
+    proxy_password: str
     user_modems: list[ShowModemForUser]
 
 
-class UpdateUserCredentials(BaseModel):
+class UpdateUserProxyCredentials(BaseModel):
     """
     Class for defining proxy credentials fields for updating.
     """
 
-    login: str
-    password: str
+    update_login: bool = False
+    proxy_password: str | None = Field(min_length=10, max_length=30, default=None)
+    password_hash_type: HashType | None = None
+
+
+class UpdateUser(BaseModel):
+    """
+    Class represents fields for updating a user.
+    """
+
+    email: EmailStr

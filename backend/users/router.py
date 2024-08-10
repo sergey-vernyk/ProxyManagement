@@ -1,12 +1,18 @@
 import random
 from secrets import token_urlsafe
 
+from config import get_settings
 from dependencies import DatabaseDependency
 from fastapi import APIRouter, HTTPException, status
-from pydantic import EmailStr
+from modems.crud import get_modem_by_ip
+from pydantic import EmailStr, IPvAnyAddress
+from security import encrypt_password
 from validators import validate_email_format
 
 from . import crud, models, schemas
+
+settings = get_settings()
+ENCODING = settings.default_encoding
 
 router = APIRouter()
 
@@ -17,20 +23,34 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
     description="Create a user for a modem.",
     operation_id="create-user",
-    responses={201: {"description": "User created"}, 400: {"description": "User already registered"}},
+    responses={
+        201: {"description": "User created"},
+        400: {"description": "User already registered or invalid email format"},
+    },
 )
-async def create_user(user: schemas.CreateUser, db: DatabaseDependency) -> models.User:
+async def create_user(request: schemas.CreateUser, db: DatabaseDependency) -> models.User:
     """
     Create user or raise an exception if user with provided email is already exists.
     """
-    db_user = crud.get_user_by_email(db, user.email)
+    try:
+        valid_email = validate_email_format(request.email)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
+    db_user = crud.get_user_by_email(db, valid_email)
     if db_user is not None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email is already registered.")
 
     token: str = token_urlsafe(32)[:32]
-    password: str = token_urlsafe(32)[: random.randint(12, 20)]
-    user = crud.create_user(db, user, token, password)
-    return user
+    proxy_login: str = token_urlsafe(32)[: random.randint(10, 20)]
+    proxy_password: str
+
+    if request.password_hash_type is not None:
+        proxy_password: str = encrypt_password(request.password_hash_type, request.proxy_password)
+    else:
+        proxy_password: str = request.proxy_password
+
+    return crud.create_user(db, request, token, proxy_login, proxy_password)
 
 
 @router.get(
@@ -39,7 +59,7 @@ async def create_user(user: schemas.CreateUser, db: DatabaseDependency) -> model
     status_code=status.HTTP_200_OK,
     description="Get all users within `skip` and `limit` params.",
     operation_id="get-users",
-    responses={200: {"description": "Successful"}},
+    responses={200: {"description": "Successfully"}},
 )
 async def get_all_users(db: DatabaseDependency, skip: int = 0, limit: int = 100) -> list[models.User]:
     """
@@ -57,10 +77,10 @@ async def get_all_users(db: DatabaseDependency, skip: int = 0, limit: int = 100)
     responses={
         404: {"description": "User not found"},
         400: {"description": "Invalid email format"},
-        200: {"description": "Successful"},
+        200: {"description": "Successfully"},
     },
 )
-async def get_user(email: str, db: DatabaseDependency) -> models.User:
+async def get_user(email: EmailStr, db: DatabaseDependency) -> models.User:
     """
     Returns a user by its `email`.
     """
@@ -76,11 +96,11 @@ async def get_user(email: str, db: DatabaseDependency) -> models.User:
     return db_user
 
 
-@router.put(
-    "/users/proxy/{email}",
+@router.patch(
+    "/users/proxy/{ip}",
     response_model=schemas.ShowUser,
     status_code=status.HTTP_200_OK,
-    description="Update a proxy credentials for a user got by the given email.",
+    description="Update a proxy credentials for a modem with IP related to user.",
     operation_id="update-user-proxy-credentials",
     responses={
         400: {"description": "Invalid email format"},
@@ -89,10 +109,48 @@ async def get_user(email: str, db: DatabaseDependency) -> models.User:
     },
 )
 async def update_user_proxy_credentials(
-    email: EmailStr, data: schemas.UpdateUserCredentials, db: DatabaseDependency
+    ip: IPvAnyAddress, request: schemas.UpdateUserProxyCredentials, db: DatabaseDependency
 ) -> models.User:
     """
     Update user credentials for proxy.
+    """
+    db_modem = get_modem_by_ip(db, str(ip))
+    if db_modem is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exists.")
+
+    proxy_password: str
+
+    if request.proxy_password is not None:
+        if request.password_hash_type is not None:
+            proxy_password: str = encrypt_password(request.password_hash_type, request.proxy_password)
+        else:
+            proxy_password = request.proxy_password
+
+    data_to_update = request.model_dump(exclude_unset=True, exclude={"password_hash_type", "update_login"})
+
+    if "proxy_password" in data_to_update:
+        data_to_update["proxy_password"] = proxy_password
+    if request.update_login:
+        data_to_update["proxy_login"] = token_urlsafe(32)[: random.randint(10, 20)]
+
+    return crud.update_user_proxy_credentials(db, db_modem.bind_user, data_to_update)
+
+
+@router.put(
+    "/users/{email}",
+    response_model=schemas.ShowUser,
+    status_code=status.HTTP_200_OK,
+    description="Update a user by the given email.",
+    operation_id="update-user",
+    responses={
+        404: {"description": "User not found"},
+        400: {"description": "Invalid email format"},
+        200: {"description": "Successfully"},
+    },
+)
+async def update_user(email: EmailStr, request: schemas.UpdateUser, db: DatabaseDependency) -> models.User:
+    """
+    Update user info with `email`.
     """
     try:
         valid_email = validate_email_format(email)
@@ -103,8 +161,7 @@ async def update_user_proxy_credentials(
     if db_user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exists.")
 
-    data_to_update = data.model_dump()
-    return crud.update_user_proxy_credentials(db, db_user, data_to_update)
+    return crud.update_user_info(db, db_user, request.model_dump())
 
 
 @router.delete(

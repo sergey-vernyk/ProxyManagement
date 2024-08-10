@@ -50,6 +50,5 @@ class ShowModemForUser(BaseModel):
 
     ip: IPvAnyAddress
     port: int
-    hashed_value: str
     rebooted: datetime | None
     created: datetime | None
