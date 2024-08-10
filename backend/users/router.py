@@ -11,7 +11,14 @@ from . import crud, models, schemas
 router = APIRouter()
 
 
-@router.post("/users/", response_model=schemas.ShowUser, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/users/",
+    response_model=schemas.ShowUser,
+    status_code=status.HTTP_201_CREATED,
+    description="Create a user for a modem.",
+    operation_id="create-user",
+    responses={201: {"description": "User created"}, 400: {"description": "User already registered"}},
+)
 async def create_user(user: schemas.CreateUser, db: DatabaseDependency) -> models.User:
     """
     Create user or raise an exception if user with provided email is already exists.
@@ -26,7 +33,14 @@ async def create_user(user: schemas.CreateUser, db: DatabaseDependency) -> model
     return user
 
 
-@router.get("/users/", response_model=list[schemas.ShowUser], status_code=status.HTTP_200_OK)
+@router.get(
+    "/users/",
+    response_model=list[schemas.ShowUser],
+    status_code=status.HTTP_200_OK,
+    description="Get all users within `skip` and `limit` params.",
+    operation_id="get-users",
+    responses={200: {"description": "Successful"}},
+)
 async def get_all_users(db: DatabaseDependency, skip: int = 0, limit: int = 100) -> list[models.User]:
     """
     Returns all users within `skip` and `limit` params.
@@ -34,7 +48,18 @@ async def get_all_users(db: DatabaseDependency, skip: int = 0, limit: int = 100)
     return crud.get_all_users(db, offset=skip, limit=limit)
 
 
-@router.get("/users/{email}", response_model=schemas.ShowUser, status_code=status.HTTP_200_OK)
+@router.get(
+    "/users/{email}",
+    response_model=schemas.ShowUser,
+    status_code=status.HTTP_200_OK,
+    description="Get a user by the given email.",
+    operation_id="get-user-by-email",
+    responses={
+        404: {"description": "User not found"},
+        400: {"description": "Invalid email format"},
+        200: {"description": "Successful"},
+    },
+)
 async def get_user(email: str, db: DatabaseDependency) -> models.User:
     """
     Returns a user by its `email`.
@@ -51,9 +76,20 @@ async def get_user(email: str, db: DatabaseDependency) -> models.User:
     return db_user
 
 
-@router.put("/users/{email}", response_model=schemas.ShowUser, status_code=status.HTTP_200_OK)
+@router.put(
+    "/users/proxy/{email}",
+    response_model=schemas.ShowUser,
+    status_code=status.HTTP_200_OK,
+    description="Update a proxy credentials for a user got by the given email.",
+    operation_id="update-user-proxy-credentials",
+    responses={
+        400: {"description": "Invalid email format"},
+        404: {"description": "User not found"},
+        200: {"description": "Successfully"},
+    },
+)
 async def update_user_proxy_credentials(
-    email: str, data: schemas.UpdateUserCredentials, db: DatabaseDependency
+    email: EmailStr, data: schemas.UpdateUserCredentials, db: DatabaseDependency
 ) -> models.User:
     """
     Update user credentials for proxy.
@@ -65,13 +101,23 @@ async def update_user_proxy_credentials(
 
     db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email is not exists.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exists.")
 
     data_to_update = data.model_dump()
     return crud.update_user_proxy_credentials(db, db_user, data_to_update)
 
 
-@router.delete("/users/{email}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/users/{email}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    description="Delete a user by the given email.",
+    operation_id="delete-user-by-email",
+    responses={
+        400: {"description": "Invalid email format"},
+        404: {"description": "User not found"},
+        200: {"description": "Successfully"},
+    },
+)
 async def delete_user(email: EmailStr, db: DatabaseDependency) -> None:
     """
     Delete user with the given `email`.
@@ -80,5 +126,9 @@ async def delete_user(email: EmailStr, db: DatabaseDependency) -> None:
         valid_email = validate_email_format(email)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
+    db_user = crud.get_user_by_email(db, valid_email)
+    if db_user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email is not exists.")
 
     crud.delete_user(db, valid_email)

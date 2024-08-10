@@ -26,7 +26,18 @@ SOCKET_PORT: int = settings.socket_port
 ENCODING: str = settings.default_encoding
 
 
-@router.post("/modems/", response_model=schemas.ShowModem, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/modems/",
+    response_model=schemas.ShowModem,
+    status_code=status.HTTP_201_CREATED,
+    description="Create a modem for a proxy.",
+    operation_id="create-modem",
+    responses={
+        201: {"description": "Modem created"},
+        400: {"description": "Modem exists"},
+        404: {"description": "User not found"},
+    },
+)
 async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> models.Modem:
     """
     Create modem or raise an exception if modem with provided IP is already exists.
@@ -50,7 +61,17 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
     return crud.create_modem(db, modem_data)
 
 
-@router.get("/modems/{ip}", response_model=schemas.ShowModem, status_code=status.HTTP_200_OK)
+@router.get(
+    "/modems/{ip}",
+    response_model=schemas.ShowModem,
+    status_code=status.HTTP_200_OK,
+    description="Get modem by the given IP.",
+    operation_id="get-modem-by-ip",
+    responses={
+        200: {"description": "Successfully"},
+        404: {"description": "Modem not found"},
+    },
+)
 async def get_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> models.Modem:
     """
     Return a modem by its `ip`.
@@ -62,7 +83,14 @@ async def get_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> models.Modem:
     return db_modem
 
 
-@router.get("/modems/", response_model=list[schemas.ShowModem], status_code=status.HTTP_200_OK)
+@router.get(
+    "/modems/",
+    response_model=list[schemas.ShowModem],
+    status_code=status.HTTP_200_OK,
+    description="Get all modems within `skip` and `limit` params.",
+    operation_id="get-modems",
+    responses={200: {"description": "Successfully"}},
+)
 async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100) -> list[models.Modem]:
     """
     Return all modems within `skip` and `limit` params.
@@ -70,7 +98,13 @@ async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100
     return crud.get_all_modems(db, skip, limit)
 
 
-@router.put("/modems/{ip}", response_model=schemas.ShowModem, status_code=status.HTTP_200_OK)
+@router.put(
+    "/modems/{ip}",
+    response_model=schemas.ShowModem,
+    status_code=status.HTTP_200_OK,
+    description="Update a  modem data by the given IP.",
+    responses={404: {"description": "Modem not found"}, 200: {"description": "Successfully"}},
+)
 async def update_modem(ip: IPvAnyAddress, data: schemas.UpdateModem, db: DatabaseDependency) -> models.Modem:
     """
     Update modem by its IP address.
@@ -84,7 +118,12 @@ async def update_modem(ip: IPvAnyAddress, data: schemas.UpdateModem, db: Databas
     return crud.update_modem(db, db_modem, data_to_update)
 
 
-@router.delete("/modems/{ip}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/modems/{ip}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    description="Delete a modem by the given IP.",
+    responses={204: {"description": "Successfully"}},
+)
 async def delete_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> None:
     """
     Delete a modem with `ip`.
@@ -95,11 +134,16 @@ async def delete_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> None:
 @router.get(
     "/modems/{token}/{hashed_value}",
     status_code=status.HTTP_200_OK,
+    description=(
+        "Reboot a modem which should be found by the given `token` and `hashed_value`. "
+        "Token and hashed value generates automatically during user creating and modem creating respectively"
+    ),
     response_class=JSONResponse,
+    operation_id="reboot-modem",
     responses={
         200: {"description": "IP changed"},
         404: {"description": "Modem not Found"},
-        406: {"description": ["Problems on socket server side", "Problems on modem side"]},
+        406: {"description": "Problems on socket server or modem side"},
     },
 )
 async def change_ip(
