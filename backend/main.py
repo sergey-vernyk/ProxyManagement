@@ -6,8 +6,12 @@ from users import router as users_router
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Proxy Management With Sockets", version="0.1")
+app = FastAPI(
+    title="Proxy Management With Sockets",
+    version="0.1",
+    swagger_ui_parameters={"persistAuthorization": True},
+)
 
-app.include_router(users_router.router, tags=["users"])
+app.include_router(users_router.router)
 app.include_router(modems_router.router, tags=["modems"])
 app.include_router(auth_router.router, tags=["auth"])

@@ -12,7 +12,3 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 Base = declarative_base()
-
-#  Import models here to ensure they are registered with Base
-from modems.models import Modem
-from users.models import User

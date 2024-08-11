@@ -9,9 +9,10 @@ from config import get_settings
 from conn_utils import build_default_route_ip, send_data_to_socket_server
 from dependencies import DatabaseDependency
 from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import IPvAnyAddress
-from users.models import User
+from users.models import RegularUser
 
 from . import crud, models, schemas
 
@@ -40,7 +41,7 @@ ENCODING: str = settings.default_encoding
         404: {"description": "User not found"},
     },
 )
-async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> models.Modem:
+async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> schemas.ShowModem:
     """
     Create modem or raise an exception if modem with provided IP is already exists.
     """
@@ -48,19 +49,28 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
     if db_modem is not None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Modem with the given IP is already exists.")
 
-    bind_db_user = db.query(User).filter(User.email == request.bind_user_email).first()
-    if bind_db_user is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
+    bind_db_user: RegularUser | None = None
+    if request.bind_user_email is not None:
+        bind_db_user = db.query(RegularUser).filter(RegularUser.email == request.bind_user_email).first()
+        if bind_db_user is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
-    # must replace `bind_user_email` with `bind_user_id`, because `Modem` model does not have `bind_user_email` field
     modem_data: dict[str, Any] = request.model_dump(exclude={"bind_user_email", "ip"})
-    modem_data["bind_user_id"] = bind_db_user.id
+    modem_data["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
     modem_data["ip"] = str(request.ip)
-    modem_data["hashed_value"] = hashlib.sha256(f"{bind_db_user.email}{modem_data['ip']}".encode(ENCODING)).hexdigest()[
-        ::2
-    ]
 
-    return crud.create_modem(db, modem_data)
+    if bind_db_user is not None:
+        modem_data["hashed_value"] = hashlib.sha256(
+            f"{bind_db_user.email}{modem_data['ip']}".encode(ENCODING)
+        ).hexdigest()[::2]
+
+    modem = crud.create_modem(db, modem_data)
+    show_modem = schemas.ShowModem(
+        **jsonable_encoder(modem, exclude={"bind_user"}),
+        bind_user_email=str(bind_db_user.email) if bind_db_user is not None else None,
+    )
+
+    return show_modem
 
 
 @router.get(
@@ -75,7 +85,7 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
         404: {"description": "Modem not found"},
     },
 )
-async def get_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> models.Modem:
+async def get_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> schemas.ShowModem:
     """
     Return a modem by its `ip`.
     """
@@ -83,7 +93,11 @@ async def get_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> models.Modem:
     if db_modem is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exist.")
 
-    return db_modem
+    show_modem = schemas.ShowModem(
+        **jsonable_encoder(db_modem),
+        bind_user_email=str(db_modem.bind_user.email) if db_modem.bind_user is not None else None,
+    )
+    return show_modem
 
 
 @router.get(
@@ -95,11 +109,18 @@ async def get_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> models.Modem:
     operation_id="get-modems",
     responses={200: {"description": "Successfully"}},
 )
-async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100) -> list[models.Modem]:
+async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100) -> list[schemas.ShowModem]:
     """
     Return all modems within `skip` and `limit` params.
     """
-    return crud.get_all_modems(db, skip, limit)
+    modems = crud.get_all_modems(db, skip, limit)
+    return [
+        schemas.ShowModem(
+            **jsonable_encoder(modem),
+            bind_user_email=str(modem.bind_user.email) if modem.bind_user is not None else None,
+        )
+        for modem in modems
+    ]
 
 
 @router.put(
@@ -110,7 +131,7 @@ async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100
     description="Update a  modem data by the given IP.",
     responses={404: {"description": "Modem not found"}, 200: {"description": "Successfully"}},
 )
-async def update_modem(ip: IPvAnyAddress, data: schemas.UpdateModem, db: DatabaseDependency) -> models.Modem:
+async def update_modem(ip: IPvAnyAddress, request: schemas.UpdateModem, db: DatabaseDependency) -> schemas.ShowModem:
     """
     Update modem by its IP address.
     """
@@ -118,9 +139,27 @@ async def update_modem(ip: IPvAnyAddress, data: schemas.UpdateModem, db: Databas
     if db_modem is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exists.")
 
-    data_to_update: dict[str, Any] = data.model_dump(exclude={"ip"})
-    data_to_update["ip"] = str(data.ip)
-    return crud.update_modem(db, db_modem, data_to_update)
+    bind_db_user: RegularUser | None = None
+    if request.bind_user_email is not None:
+        bind_db_user = db.query(RegularUser).filter(RegularUser.email == request.bind_user_email).first()
+        if bind_db_user is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exists.")
+
+    data_to_update: dict[str, Any] = request.model_dump(exclude={"ip", "bind_user_email"})
+    data_to_update["ip"] = str(request.ip)
+    data_to_update["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
+
+    if bind_db_user is not None:
+        data_to_update["hashed_value"] = hashlib.sha256(
+            f"{bind_db_user.email}{data_to_update['ip']}".encode(ENCODING)
+        ).hexdigest()[::2]
+
+    modem = crud.update_modem(db, db_modem, data_to_update)
+    show_modem = schemas.ShowModem(
+        **jsonable_encoder(modem, exclude={"bind_user"}),
+        bind_user_email=str(bind_db_user.email) if bind_db_user is not None else None,
+    )
+    return show_modem
 
 
 @router.delete(
@@ -128,6 +167,7 @@ async def update_modem(ip: IPvAnyAddress, data: schemas.UpdateModem, db: Databas
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(JWTBearer())],
     description="Delete a modem by the given IP.",
+    operation_id="delete-modem-by-ip",
     responses={204: {"description": "Successfully"}},
 )
 async def delete_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> None:
@@ -142,7 +182,7 @@ async def delete_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> None:
     status_code=status.HTTP_200_OK,
     description=(
         "Reboot a modem which should be found by the given `token` and `hashed_value`. "
-        "Token and hashed value generates automatically during user creating and modem creating respectively"
+        "Token and hashed value generates automatically during user creating and modem creating respectively."
     ),
     response_class=JSONResponse,
     operation_id="reboot-modem",
@@ -153,8 +193,8 @@ async def delete_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> None:
     },
 )
 async def change_ip(
-    token: Annotated[str, Path(max_length=32, description="User token")],
-    hashed_value: Annotated[str, Path(max_length=32, description="Modem hashed value")],
+    token: Annotated[str, Path(max_length=32, min_length=32, description="User token")],
+    hashed_value: Annotated[str, Path(max_length=32, min_length=32, description="Modem hashed value")],
     db: DatabaseDependency,
 ) -> JSONResponse:
     """
@@ -164,7 +204,10 @@ async def change_ip(
     - db: (DatabaseDependency): database session.
     """
     modem = (
-        db.query(models.Modem).join(User).filter(models.Modem.hashed_value == hashed_value, User.token == token).first()
+        db.query(models.Modem)
+        .join(RegularUser)
+        .filter(models.Modem.hashed_value == hashed_value, RegularUser.token == token)
+        .first()
     )
     if modem is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Requested modem is not found. Check token or hashed value.")

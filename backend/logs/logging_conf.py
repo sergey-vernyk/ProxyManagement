@@ -41,9 +41,6 @@ def get_server_logger() -> logging.Logger:
 def get_client_logger() -> logging.Logger:
     """
     Returns logger using for socket client logging.
-
-    Returns:
-        logging.Logger: _description_
     """
     logger = logging.getLogger("socket_client")
     logger.setLevel(logging.INFO)

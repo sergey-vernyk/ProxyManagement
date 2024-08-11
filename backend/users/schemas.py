@@ -1,7 +1,17 @@
+from datetime import datetime
 from enum import Enum
 
 from modems.schemas import ShowModemForUser
 from pydantic import BaseModel, EmailStr, Field
+
+
+class UserRole(str, Enum):
+    """
+    Users roles in the system.
+    """
+
+    ADMIN = "admin"
+    REGULAR = "regular"
 
 
 class HashType(str, Enum):
@@ -13,20 +23,31 @@ class HashType(str, Enum):
     SHA256 = "sha256"
 
 
-class CreateUser(BaseModel):
+class CreateAdminUser(BaseModel):
     """
-    Class represents fields for creating  a user.
+    Class represents fields for creating an admin user.
+    """
+
+    email: EmailStr
+    role: UserRole = Field(default=UserRole(UserRole.ADMIN))
+    password: str = Field(min_length=10, max_length=30)
+
+
+class CreateRegularUser(BaseModel):
+    """
+    Class represents fields for creating a regular user.
     """
 
     email: EmailStr
     password: str = Field(min_length=10, max_length=30)
+    role: UserRole = Field(default=UserRole(UserRole.REGULAR))
     proxy_password: str = Field(min_length=10, max_length=30)
     proxy_password_hash_type: HashType | None = None
 
 
-class ShowUser(BaseModel):
+class ShowRegularUser(BaseModel):
     """
-    Class represents fields for displaying user.
+    Class represents fields for displaying a regular user.
     """
 
     id: int
@@ -35,7 +56,21 @@ class ShowUser(BaseModel):
     token: str
     proxy_login: str
     proxy_password: str
+    created: datetime
+    updated: datetime | None
     user_modems: list[ShowModemForUser]
+
+
+class ShowAdminUser(BaseModel):
+    """
+    Class represents fields for displaying a n admin user.
+    """
+
+    id: int
+    email: str
+    hashed_password: str
+    created: datetime
+    updated: datetime | None
 
 
 class UpdateUserProxyCredentials(BaseModel):
@@ -45,12 +80,12 @@ class UpdateUserProxyCredentials(BaseModel):
 
     update_login: bool = False
     proxy_password: str | None = Field(min_length=10, max_length=30, default=None)
-    proxy_password_hash_type: HashType | None = None
+    proxy_password_hash_type: HashType
 
 
-class UpdateUser(BaseModel):
+class UpdateRegularUser(BaseModel):
     """
-    Class represents fields for updating a user.
+    Class represents fields for updating a regular user.
     """
 
     email: EmailStr

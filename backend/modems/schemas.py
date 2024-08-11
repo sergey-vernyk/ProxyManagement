@@ -10,9 +10,9 @@ class CreateModem(BaseModel):
 
     ip: IPvAnyAddress
     port: int = Field(lt=65536, gt=49152)
-    bind_user_email: EmailStr
-    username: str = Field(default=None)
-    password: str = Field(default=None)
+    bind_user_email: EmailStr | None = None
+    username: str | None = Field(default=None)
+    password: str | None = Field(default=None)
 
 
 class ShowModem(BaseModel):
@@ -23,7 +23,8 @@ class ShowModem(BaseModel):
     id: int
     ip: IPvAnyAddress
     port: int
-    hashed_value: str
+    hashed_value: str | None
+    bind_user_email: str | None
     username: str | None
     password: str | None
     rebooted: datetime | None
@@ -37,18 +38,20 @@ class UpdateModem(BaseModel):
     """
 
     ip: IPvAnyAddress
-    port: int = Field(lt=65536, gt=49152)
-    username: str
-    password: str
-    rebooted: datetime | None
+    bind_user_email: EmailStr | None = None
+    port: int | None = Field(lt=65536, gt=49152, default=None)
+    username: str | None = None
+    password: str | None = None
+    rebooted: datetime | None = None
 
 
 class ShowModemForUser(BaseModel):
     """
-    Class represents modem info for displaying user info.
+    Class represents modem info for displaying modem info for a user.
     """
 
     ip: IPvAnyAddress
     port: int
+    hashed_value: str | None
     rebooted: datetime | None
     created: datetime | None
