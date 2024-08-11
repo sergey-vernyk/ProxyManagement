@@ -1,5 +1,6 @@
 from typing import Any
 
+from security import get_password_hash
 from sqlalchemy.orm import Session
 
 from . import models, schemas
@@ -13,6 +14,7 @@ def create_user(
     """
     user_data = models.User(
         email=user_data.email,
+        hashed_password=get_password_hash(user_data.password),
         proxy_login=proxy_login,
         token=token,
         proxy_password=proxy_password,

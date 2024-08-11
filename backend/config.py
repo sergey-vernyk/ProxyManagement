@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     """
 
     default_encoding: str
+
+    access_token_expire_minutes: int
+    secret_key: str
+    algorithm: str
+
     database_url: str
     socket_host: str
     socket_port: int

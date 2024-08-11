@@ -1,12 +1,13 @@
 import random
 from secrets import token_urlsafe
 
+from auth.auth_bearer import JWTBearer
 from config import get_settings
 from dependencies import DatabaseDependency
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from modems.crud import get_modem_by_ip
 from pydantic import EmailStr, IPvAnyAddress
-from security import encrypt_password
+from security import encrypt_modem_password
 from validators import validate_email_format
 
 from . import crud, models, schemas
@@ -22,6 +23,7 @@ router = APIRouter()
     response_model=schemas.ShowUser,
     status_code=status.HTTP_201_CREATED,
     description="Create a user for a modem.",
+    dependencies=[Depends(JWTBearer())],
     operation_id="create-user",
     responses={
         201: {"description": "User created"},
@@ -45,8 +47,8 @@ async def create_user(request: schemas.CreateUser, db: DatabaseDependency) -> mo
     proxy_login: str = token_urlsafe(32)[: random.randint(10, 20)]
     proxy_password: str
 
-    if request.password_hash_type is not None:
-        proxy_password: str = encrypt_password(request.password_hash_type, request.proxy_password)
+    if request.proxy_password_hash_type is not None:
+        proxy_password: str = encrypt_modem_password(request.proxy_password_hash_type, request.proxy_password)
     else:
         proxy_password: str = request.proxy_password
 
@@ -57,6 +59,7 @@ async def create_user(request: schemas.CreateUser, db: DatabaseDependency) -> mo
     "/users/",
     response_model=list[schemas.ShowUser],
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(JWTBearer())],
     description="Get all users within `skip` and `limit` params.",
     operation_id="get-users",
     responses={200: {"description": "Successfully"}},
@@ -72,6 +75,7 @@ async def get_all_users(db: DatabaseDependency, skip: int = 0, limit: int = 100)
     "/users/{email}",
     response_model=schemas.ShowUser,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(JWTBearer())],
     description="Get a user by the given email.",
     operation_id="get-user-by-email",
     responses={
@@ -100,6 +104,7 @@ async def get_user(email: EmailStr, db: DatabaseDependency) -> models.User:
     "/users/proxy/{ip}",
     response_model=schemas.ShowUser,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(JWTBearer())],
     description="Update a proxy credentials for a modem with IP related to user.",
     operation_id="update-user-proxy-credentials",
     responses={
@@ -121,8 +126,8 @@ async def update_user_proxy_credentials(
     proxy_password: str
 
     if request.proxy_password is not None:
-        if request.password_hash_type is not None:
-            proxy_password: str = encrypt_password(request.password_hash_type, request.proxy_password)
+        if request.proxy_password_hash_type is not None:
+            proxy_password: str = encrypt_modem_password(request.proxy_password_hash_type, request.proxy_password)
         else:
             proxy_password = request.proxy_password
 
@@ -140,6 +145,7 @@ async def update_user_proxy_credentials(
     "/users/{email}",
     response_model=schemas.ShowUser,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(JWTBearer())],
     description="Update a user by the given email.",
     operation_id="update-user",
     responses={
@@ -168,6 +174,7 @@ async def update_user(email: EmailStr, request: schemas.UpdateUser, db: Database
     "/users/{email}",
     status_code=status.HTTP_204_NO_CONTENT,
     description="Delete a user by the given email.",
+    dependencies=[Depends(JWTBearer())],
     operation_id="delete-user-by-email",
     responses={
         400: {"description": "Invalid email format"},

@@ -4,10 +4,11 @@ import selectors
 import socket
 from typing import Annotated, Any, TypeAlias
 
+from auth.auth_bearer import JWTBearer
 from config import get_settings
 from conn_utils import build_default_route_ip, send_data_to_socket_server
 from dependencies import DatabaseDependency
-from fastapi import APIRouter, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from fastapi.responses import JSONResponse
 from pydantic import IPvAnyAddress
 from users.models import User
@@ -30,6 +31,7 @@ ENCODING: str = settings.default_encoding
     "/modems/",
     response_model=schemas.ShowModem,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(JWTBearer())],
     description="Create a modem for a proxy.",
     operation_id="create-modem",
     responses={
@@ -65,6 +67,7 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
     "/modems/{ip}",
     response_model=schemas.ShowModem,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(JWTBearer())],
     description="Get modem by the given IP.",
     operation_id="get-modem-by-ip",
     responses={
@@ -87,6 +90,7 @@ async def get_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> models.Modem:
     "/modems/",
     response_model=list[schemas.ShowModem],
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(JWTBearer())],
     description="Get all modems within `skip` and `limit` params.",
     operation_id="get-modems",
     responses={200: {"description": "Successfully"}},
@@ -102,6 +106,7 @@ async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100
     "/modems/{ip}",
     response_model=schemas.ShowModem,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(JWTBearer())],
     description="Update a  modem data by the given IP.",
     responses={404: {"description": "Modem not found"}, 200: {"description": "Successfully"}},
 )
@@ -121,6 +126,7 @@ async def update_modem(ip: IPvAnyAddress, data: schemas.UpdateModem, db: Databas
 @router.delete(
     "/modems/{ip}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(JWTBearer())],
     description="Delete a modem by the given IP.",
     responses={204: {"description": "Successfully"}},
 )

@@ -19,8 +19,9 @@ class CreateUser(BaseModel):
     """
 
     email: EmailStr
+    password: str = Field(min_length=10, max_length=30)
     proxy_password: str = Field(min_length=10, max_length=30)
-    password_hash_type: HashType | None = None
+    proxy_password_hash_type: HashType | None = None
 
 
 class ShowUser(BaseModel):
@@ -30,6 +31,7 @@ class ShowUser(BaseModel):
 
     id: int
     email: str
+    hashed_password: str
     token: str
     proxy_login: str
     proxy_password: str
@@ -43,7 +45,7 @@ class UpdateUserProxyCredentials(BaseModel):
 
     update_login: bool = False
     proxy_password: str | None = Field(min_length=10, max_length=30, default=None)
-    password_hash_type: HashType | None = None
+    proxy_password_hash_type: HashType | None = None
 
 
 class UpdateUser(BaseModel):
