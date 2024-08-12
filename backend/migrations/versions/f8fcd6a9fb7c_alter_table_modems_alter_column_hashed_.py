@@ -36,6 +36,6 @@ def downgrade() -> None:
         "hashed_value",
         existing_type=sa.VARCHAR(length=32),
         nullable=False,
-        existing_server_default=sa.text("''::character varying"),
+        server_default=sa.text("''::character varying"),
     )
     # ### end Alembic commands ###

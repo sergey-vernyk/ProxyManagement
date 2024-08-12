@@ -24,7 +24,24 @@ def upgrade() -> None:
     hash_type_enum = ENUM("MD5", "SHA256", name="hashtype", create_type=False)
 
     # Create ENUM type if it does not exist
-    op.execute("CREATE TYPE hashtype AS ENUM ('MD5', 'SHA256')")
+    # op.execute("CREATE TYPE hashtype AS ENUM ('MD5', 'SHA256')")
+    op.execute(
+        """
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_type
+            JOIN pg_namespace ns ON ns.oid = pg_type.typnamespace
+            WHERE pg_type.typname = 'hashtype'
+              AND ns.nspname = 'public'
+        ) THEN
+            EXECUTE 'CREATE TYPE hashtype AS ENUM (''MD5'', ''SHA256'')';
+        END IF;
+    END
+    $$;
+    """
+    )
 
     op.add_column("users", sa.Column("proxy_password_hash_type", hash_type_enum, nullable=False, server_default="MD5"))
     # ### end Alembic commands ###

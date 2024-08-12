@@ -25,7 +25,24 @@ def upgrade() -> None:
     user_role_enum = ENUM("ADMIN", "REGULAR", name="userrole", create_type=False)
 
     # Create ENUM type if it does not exist
-    op.execute("CREATE TYPE userrole AS ENUM ('ADMIN', 'REGULAR')")
+    # op.execute("CREATE TYPE userrole AS ENUM ('ADMIN', 'REGULAR')")
+    op.execute(
+        """
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_type
+            JOIN pg_namespace ns ON ns.oid = pg_type.typnamespace
+            WHERE pg_type.typname = 'userrole'
+              AND ns.nspname = 'public' 
+        ) THEN
+            EXECUTE 'CREATE TYPE userrole AS ENUM (''ADMIN'', ''REGULAR'')';
+        END IF;
+    END
+    $$;
+    """
+    )
     op.create_table(
         "admins",
         sa.Column("role", user_role_enum, nullable=False, server_default="ADMIN"),
