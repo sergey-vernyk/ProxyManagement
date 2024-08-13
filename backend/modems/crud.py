@@ -1,7 +1,7 @@
 from typing import Any
 
 from sqlalchemy.orm import Session
-from users.models import RegularUser
+from users.models import User
 
 from . import models
 
@@ -51,7 +51,7 @@ def get_modems_by_bind_user_email(db: Session, email: str) -> list[models.Modem]
     """
     Returns modems by the given `email` of the bind user.
     """
-    return db.query(models.Modem).join(RegularUser).filter(RegularUser.email == email).all()
+    return db.query(models.Modem).join(User).filter(User.email == email).all()
 
 
 def delete_modem(db: Session, ip: str) -> None:

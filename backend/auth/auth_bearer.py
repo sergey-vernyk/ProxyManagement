@@ -7,7 +7,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
-from users.models import AdminUser, RegularUser
+from users.models import User
+from users.schemas import UserRole
 
 settings = get_settings()
 
@@ -90,12 +91,9 @@ class JWTBearer(HTTPBearer):
             email = payload.get("sub")
             if email is None:
                 raise credentials_exception
-            # !think about verifying token only for admin users
-            # !because the regular users shouldn't have the same permissions
-            # !as the admin users.  
-            admin_user = db.query(AdminUser).filter(AdminUser.email == email).first()
-            regular_user = db.query(RegularUser).filter(RegularUser.email == email).first()
-            if admin_user is None and regular_user is None:
+
+            user = db.query(User).filter(User.email == email, User.role == UserRole.ADMIN).first()
+            if user is None:
                 raise credentials_exception
 
         except (JWTError, ValidationError) as exc:

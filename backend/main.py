@@ -12,6 +12,6 @@ app = FastAPI(
     swagger_ui_parameters={"persistAuthorization": True},
 )
 
-app.include_router(users_router.router)
+app.include_router(users_router.router, tags=["users"])
 app.include_router(modems_router.router, tags=["modems"])
 app.include_router(auth_router.router, tags=["auth"])

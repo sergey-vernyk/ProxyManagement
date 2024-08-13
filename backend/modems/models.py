@@ -25,7 +25,7 @@ class Modem(Base):
     created = Column(DateTime(timezone=True), default=datetime.now, nullable=False)
     updated = Column(DateTime(timezone=True), onupdate=datetime.now, nullable=True, default=None)
 
-    bind_user = relationship("RegularUser", back_populates="user_modems", lazy="selectin")
+    bind_user = relationship("User", back_populates="user_modems", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"{self.ip}:{self.port}-{self.bind_user}"

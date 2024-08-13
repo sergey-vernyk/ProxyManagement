@@ -17,7 +17,7 @@ if config.config_file_name is not None:
 
 from db_connection import Base
 from modems.models import Modem
-from users.models import RegularUser
+from users.models import User
 
 # add your model's MetaData object here
 # for 'autogenerate' support

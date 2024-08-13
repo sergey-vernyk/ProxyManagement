@@ -1,10 +1,11 @@
 import random
 from secrets import token_urlsafe
+from typing import Annotated
 
 from auth.auth_bearer import JWTBearer
 from config import get_settings
 from dependencies import DatabaseDependency
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from modems.crud import get_modem_by_ip
 from pydantic import EmailStr, IPvAnyAddress
 from security import encrypt_modem_password
@@ -20,102 +21,81 @@ router = APIRouter()
 
 @router.post(
     "/users/",
-    tags=["regular-users"],
-    response_model=schemas.ShowRegularUser,
+    response_model=schemas.ShowUser,
     status_code=status.HTTP_201_CREATED,
-    description="Create a regular user for a modem.",
-    dependencies=[Depends(JWTBearer())],
-    operation_id="create-regular-user",
+    description="Create a user for a modem.",
+    operation_id="create-user",
     responses={
         201: {"description": "User created"},
         400: {"description": "User already registered or invalid email format"},
     },
 )
-async def create_regular_user(request: schemas.CreateRegularUser, db: DatabaseDependency) -> models.RegularUser:
+async def create_user(
+    request: schemas.CreateRegularUser | schemas.CreateAdminUser, db: DatabaseDependency
+) -> models.User:
     """
-    Create a regular user or raise an exception if user with provided email is already exists.
+    Create a user or raise an exception if user with provided email is already exists.
     """
     try:
         valid_email = validate_email_format(request.email)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
-    db_user = crud.get_regular_user_by_email(db, valid_email)
+    db_user = crud.get_user_by_email(db, valid_email)
     if db_user is not None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email is already registered.")
 
-    token: str = token_urlsafe(32)[:32]
-    proxy_login: str = token_urlsafe(32)[: random.randint(10, 20)]
-    proxy_password: str
+    token: str | None = None
+    proxy_login: str | None = None
+    proxy_password: str | None = None
 
-    if request.proxy_password_hash_type is not None:
-        proxy_password: str = encrypt_modem_password(request.proxy_password_hash_type, request.proxy_password)
-    else:
-        proxy_password: str = request.proxy_password
+    if isinstance(request, schemas.CreateRegularUser):
+        token = token_urlsafe(32)[:32]
+        proxy_login = token_urlsafe(32)[: random.randint(10, 20)]
 
-    return crud.create_regular_user(db, request, token, proxy_login, proxy_password)
+        if request.proxy_password_hash_type is not None:
+            proxy_password = encrypt_modem_password(request.proxy_password_hash_type, request.proxy_password)
+        else:
+            proxy_password = request.proxy_password
 
-
-@router.post(
-    "/users/admin/",
-    tags=["admin-users"],
-    response_model=schemas.ShowAdminUser,
-    status_code=status.HTTP_201_CREATED,
-    description="Create admin user.",
-    operation_id="create-admin-user",
-    responses={
-        201: {"description": "User created"},
-        400: {"description": "User already registered or invalid email format"},
-    },
-)
-async def create_admin_user(request: schemas.CreateAdminUser, db: DatabaseDependency) -> models.AdminUser:
-    """
-    Create a regular user or raise an exception if user with provided email is already exists.
-    """
-    try:
-        valid_email = validate_email_format(request.email)
-    except ValueError as e:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-
-    db_user = crud.get_admin_user_by_email(db, valid_email)
-    if db_user is not None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email is already registered.")
-
-    return crud.create_admin_user(db, request)
+    return crud.create_user(db, request, token, proxy_login, proxy_password)
 
 
 @router.get(
     "/users/",
-    tags=["regular-users"],
-    response_model=list[schemas.ShowRegularUser],
+    response_model=list[schemas.ShowUser],
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(JWTBearer())],
-    description="Get all regular users within `skip` and `limit` params.",
-    operation_id="get-regular-users",
+    description="Get all users within `skip` and `limit` params.",
+    operation_id="get-users",
     responses={200: {"description": "Successfully"}},
 )
-async def get_regular_users(db: DatabaseDependency, skip: int = 0, limit: int = 100) -> list[models.RegularUser]:
+async def get_users(
+    db: DatabaseDependency,
+    user_type: Annotated[str, Query(description="Type of user: admin or regular.", default="regular")] | None = None,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.User]:
     """
-    Returns all regular users within `skip` and `limit` params.
+    Returns all users between `skip` and `limit` that are `admin`, `regular`, or any of them.
     """
-    return crud.get_regular_users(db, offset=skip, limit=limit)
+    return crud.get_users(db, user_type, offset=skip, limit=limit)
 
 
 @router.get(
     "/users/{email}",
-    tags=["regular-users"],
-    response_model=schemas.ShowRegularUser,
+    response_model=schemas.ShowUser,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(JWTBearer())],
-    description="Get a regular user by the given email.",
-    operation_id="get-regular-user-by-email",
+    description="Get a user by the given email.",
+    operation_id="get-user-by-email",
     responses={
         404: {"description": "User not found"},
         400: {"description": "Invalid email format"},
         200: {"description": "Successfully"},
     },
 )
-async def get_regular_user(email: EmailStr, db: DatabaseDependency) -> models.RegularUser:
+async def get_user(email: EmailStr, db: DatabaseDependency) -> models.User:
     """
     Returns a user by its `email`.
     """
@@ -124,7 +104,7 @@ async def get_regular_user(email: EmailStr, db: DatabaseDependency) -> models.Re
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
-    db_user = crud.get_regular_user_by_email(db, valid_email)
+    db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
@@ -133,8 +113,7 @@ async def get_regular_user(email: EmailStr, db: DatabaseDependency) -> models.Re
 
 @router.patch(
     "/users/proxy/{ip}",
-    tags=["regular-users"],
-    response_model=schemas.ShowRegularUser,
+    response_model=schemas.ShowUser,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(JWTBearer())],
     description="Update a proxy credentials for a modem with IP bind to user.",
@@ -147,7 +126,7 @@ async def get_regular_user(email: EmailStr, db: DatabaseDependency) -> models.Re
 )
 async def update_user_proxy_credentials(
     ip: IPvAnyAddress, request: schemas.UpdateUserProxyCredentials, db: DatabaseDependency
-) -> models.RegularUser:
+) -> models.User:
     """
     Update user credentials for proxy.
     """
@@ -175,21 +154,18 @@ async def update_user_proxy_credentials(
 
 @router.put(
     "/users/{email}",
-    tags=["regular-users"],
-    response_model=schemas.ShowRegularUser,
+    response_model=schemas.ShowUser,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(JWTBearer())],
-    description="Update a regular user by the given email.",
-    operation_id="update-regular-user",
+    description="Update a user by the given email.",
+    operation_id="update-user",
     responses={
         404: {"description": "User not found"},
         400: {"description": "Invalid email format"},
         200: {"description": "Successfully"},
     },
 )
-async def update_regular_user(
-    email: EmailStr, request: schemas.UpdateRegularUser, db: DatabaseDependency
-) -> models.RegularUser:
+async def update_user(email: EmailStr, request: schemas.UpdateUser, db: DatabaseDependency) -> models.User:
     """
     Update user info with `email`.
     """
@@ -198,7 +174,7 @@ async def update_regular_user(
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
-    db_user = crud.get_regular_user_by_email(db, valid_email)
+    db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exists.")
 
@@ -207,18 +183,17 @@ async def update_regular_user(
 
 @router.delete(
     "/users/{email}",
-    tags=["regular-users"],
     status_code=status.HTTP_204_NO_CONTENT,
-    description="Delete a regular user by the given email.",
+    description="Delete a user by the given email.",
     dependencies=[Depends(JWTBearer())],
-    operation_id="delete-regular-user-by-email",
+    operation_id="delete-user-by-email",
     responses={
         400: {"description": "Invalid email format"},
         404: {"description": "User not found"},
         200: {"description": "Successfully"},
     },
 )
-async def delete_regular_user(email: EmailStr, db: DatabaseDependency) -> None:
+async def delete_user(email: EmailStr, db: DatabaseDependency) -> None:
     """
     Delete user with the given `email`.
     """
@@ -227,7 +202,7 @@ async def delete_regular_user(email: EmailStr, db: DatabaseDependency) -> None:
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
-    db_user = crud.get_regular_user_by_email(db, valid_email)
+    db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email is not exists.")
 

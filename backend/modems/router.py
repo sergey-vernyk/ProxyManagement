@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import IPvAnyAddress
-from users.models import RegularUser
+from users.models import User
 
 from . import crud, models, schemas
 
@@ -49,9 +49,9 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
     if db_modem is not None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Modem with the given IP is already exists.")
 
-    bind_db_user: RegularUser | None = None
+    bind_db_user: User | None = None
     if request.bind_user_email is not None:
-        bind_db_user = db.query(RegularUser).filter(RegularUser.email == request.bind_user_email).first()
+        bind_db_user = db.query(User).filter(User.email == request.bind_user_email).first()
         if bind_db_user is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
@@ -139,9 +139,9 @@ async def update_modem(ip: IPvAnyAddress, request: schemas.UpdateModem, db: Data
     if db_modem is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exists.")
 
-    bind_db_user: RegularUser | None = None
+    bind_db_user: User | None = None
     if request.bind_user_email is not None:
-        bind_db_user = db.query(RegularUser).filter(RegularUser.email == request.bind_user_email).first()
+        bind_db_user = db.query(User).filter(User.email == request.bind_user_email).first()
         if bind_db_user is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exists.")
 
@@ -205,8 +205,8 @@ async def change_ip(
     """
     modem = (
         db.query(models.Modem)
-        .join(RegularUser)
-        .filter(models.Modem.hashed_value == hashed_value, RegularUser.token == token)
+        .join(User)
+        .filter(models.Modem.hashed_value == hashed_value, User.token == token)
         .first()
     )
     if modem is None:

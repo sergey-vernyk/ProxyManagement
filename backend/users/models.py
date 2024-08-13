@@ -22,28 +22,17 @@ class UserAbstract(Base):
     updated = Column(DateTime(timezone=True), onupdate=datetime.now, nullable=True)
 
 
-class AdminUser(UserAbstract):
+class User(UserAbstract):
     """
-    Class represents user with the admin role.
-    The user has more access than regular user.
-    """
-
-    __tablename__ = "admins"
-
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.ADMIN)
-
-
-class RegularUser(UserAbstract):
-    """
-    Class represents a regular user, who binds to a modem(s).
+    Class represents a user, who binds to a modem(s).
     """
 
     __tablename__ = "users"
 
-    token = Column(String(32), nullable=False)
-    proxy_login = Column(String(20), nullable=False)
-    proxy_password = Column(String(64), nullable=False)
-    proxy_password_hash_type = Column(Enum(HashType), nullable=False, default=HashType.MD5)
+    token = Column(String(32), nullable=True)
+    proxy_login = Column(String(20), nullable=True)
+    proxy_password = Column(String(64), nullable=True)
+    proxy_password_hash_type = Column(Enum(HashType), nullable=True)
 
     user_modems = relationship("Modem", back_populates="bind_user", lazy="selectin")
 

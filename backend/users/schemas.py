@@ -23,54 +23,51 @@ class HashType(str, Enum):
     SHA256 = "sha256"
 
 
-class CreateAdminUser(BaseModel):
+class UserBase(BaseModel):
+    """
+    Base class for user.
+    """
+
+    email: EmailStr
+    password: str = Field(min_length=10, max_length=30)
+    role: UserRole
+
+
+class CreateRegularUser(UserBase):
+    """
+    Class represents fields for creating a regular user.
+    """
+
+    proxy_password: str = Field(min_length=10, max_length=30)
+    proxy_password_hash_type: HashType | None = None
+    role: UserRole = Field(default=UserRole(UserRole.REGULAR))
+
+
+class CreateAdminUser(UserBase):
     """
     Class represents fields for creating an admin user.
     """
 
     email: EmailStr
+    password: str = Field(min_length=10, max_length=30)
     role: UserRole = Field(default=UserRole(UserRole.ADMIN))
-    password: str = Field(min_length=10, max_length=30)
 
 
-class CreateRegularUser(BaseModel):
+class ShowUser(BaseModel):
     """
-    Class represents fields for creating a regular user.
-    """
-
-    email: EmailStr
-    password: str = Field(min_length=10, max_length=30)
-    role: UserRole = Field(default=UserRole(UserRole.REGULAR))
-    proxy_password: str = Field(min_length=10, max_length=30)
-    proxy_password_hash_type: HashType | None = None
-
-
-class ShowRegularUser(BaseModel):
-    """
-    Class represents fields for displaying a regular user.
+    Class represents fields for displaying a user.
     """
 
     id: int
     email: str
+    role: str
     hashed_password: str
-    token: str
-    proxy_login: str
-    proxy_password: str
+    token: str | None
+    proxy_login: str | None
+    proxy_password: str | None
     created: datetime
     updated: datetime | None
     user_modems: list[ShowModemForUser]
-
-
-class ShowAdminUser(BaseModel):
-    """
-    Class represents fields for displaying a n admin user.
-    """
-
-    id: int
-    email: str
-    hashed_password: str
-    created: datetime
-    updated: datetime | None
 
 
 class UpdateUserProxyCredentials(BaseModel):
@@ -83,9 +80,9 @@ class UpdateUserProxyCredentials(BaseModel):
     proxy_password_hash_type: HashType
 
 
-class UpdateRegularUser(BaseModel):
+class UpdateUser(BaseModel):
     """
-    Class represents fields for updating a regular user.
+    Class represents fields for updating a user.
     """
 
     email: EmailStr

@@ -6,84 +6,72 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 
 
-def create_regular_user(
-    db: Session, user_data: schemas.CreateRegularUser, token: str, proxy_login: str, proxy_password: str
-) -> models.RegularUser:
+def create_user(
+    db: Session,
+    user_data: schemas.CreateRegularUser | schemas.CreateAdminUser,
+    token: str | None,
+    proxy_login: str | None,
+    proxy_password: str | None,
+) -> models.User:
     """
-    Creates regular user in the database.
+    Create a user in the database.
     """
-    user_data = models.RegularUser(
+    is_regular = isinstance(user_data, schemas.CreateRegularUser)
+
+    user = models.User(
         email=user_data.email,
         hashed_password=get_password_hash(user_data.password),
-        proxy_login=proxy_login,
-        token=token,
-        proxy_password=proxy_password,
+        role=user_data.role,
+        proxy_login=proxy_login if is_regular else None,
+        proxy_password=proxy_password if is_regular else None,
+        proxy_password_hash_type=user_data.proxy_password_hash_type if is_regular else None,
+        token=token if is_regular else None,
     )
-    db.add(user_data)
+    db.add(user)
     db.commit()
-    db.refresh(user_data)
-    return user_data
+    db.refresh(user)
+    return user
 
 
-def create_admin_user(db: Session, user_data: schemas.CreateAdminUser) -> models.AdminUser:
-    """
-    Creates admin user in the database.
-    """
-    user_data = models.AdminUser(
-        email=user_data.email,
-        hashed_password=get_password_hash(user_data.password),
-    )
-    db.add(user_data)
-    db.commit()
-    db.refresh(user_data)
-    return user_data
-
-
-def get_user_by_id(db: Session, user_id: int) -> models.RegularUser | None:
+def get_user_by_id(db: Session, user_id: int) -> models.User | None:
     """
     Returns user by given ID.
     """
-    return db.query(models.RegularUser).filter(models.RegularUser.id == user_id).first()
+    return db.query(models.User).filter(models.User.id == user_id).first()
 
 
-def get_regular_user_by_email(db: Session, email: str) -> models.RegularUser | None:
+def get_user_by_email(db: Session, email: str) -> models.User | None:
     """
-    Returns a regular user by given `email`.
+    Returns a user by given `email`.
     """
-    return db.query(models.RegularUser).filter(models.RegularUser.email == email).first()
+    return db.query(models.User).filter(models.User.email == email).first()
 
 
-def get_admin_user_by_email(db: Session, email: str) -> models.AdminUser | None:
+def get_users(db: Session, user_type: str | None, offset: int = 0, limit: int = 100) -> list[models.User]:
     """
-    Returns an admin user by the given `email`.
+    Returns all users within `offset` and `limit`.
     """
-    return db.query(models.AdminUser).filter(models.AdminUser.email == email).first()
+    if user_type is not None:
+        return db.query(models.User).filter(models.User.role == user_type).offset(offset).limit(limit).all()
+
+    return db.query(models.User).offset(offset).limit(limit).all()
 
 
-def get_regular_users(db: Session, offset: int = 0, limit: int = 100) -> list[models.RegularUser]:
-    """
-    Returns all regular users within `offset` and `limit`.
-    """
-    return db.query(models.RegularUser).offset(offset).limit(limit).all()
-
-
-def update_user_info(db: Session, instance: models.RegularUser, data_to_update: dict[Any, Any]) -> models.RegularUser:
+def update_user_info(db: Session, instance: models.User, data_to_update: dict[Any, Any]) -> models.User:
     """
     Update user by its ID.
     """
-    db.query(models.RegularUser).filter(models.RegularUser.id == instance.id).update(data_to_update)
+    db.query(models.User).filter(models.User.id == instance.id).update(data_to_update)
     db.commit()
     db.refresh(instance)
     return instance
 
 
-def update_user_proxy_credentials(
-    db: Session, instance: models.RegularUser, data_to_update: dict[Any, Any]
-) -> models.RegularUser:
+def update_user_proxy_credentials(db: Session, instance: models.User, data_to_update: dict[Any, Any]) -> models.User:
     """
     Update proxy credentials for the given `instance`.
     """
-    db.query(models.RegularUser).filter(models.RegularUser.id == instance.id).update(data_to_update)
+    db.query(models.User).filter(models.User.id == instance.id).update(data_to_update)
     db.commit()
     db.refresh(instance)
     return instance
@@ -93,5 +81,5 @@ def delete_user(db: Session, email: str) -> None:
     """
     Remove user with `user_email` from database.
     """
-    db.query(models.RegularUser).filter(models.RegularUser.email == email).delete()
+    db.query(models.User).filter(models.User.email == email).delete()
     db.commit()

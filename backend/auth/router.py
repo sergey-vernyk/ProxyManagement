@@ -7,8 +7,8 @@ from fastapi import APIRouter, Form, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import EmailStr
 from security import verify_password
-from users.crud import get_admin_user_by_email, get_regular_user_by_email
-from users.models import AdminUser, RegularUser
+from users.models import User
+from users.schemas import UserRole
 
 from .auth_bearer import create_access_token
 from .schemas import Token
@@ -16,17 +16,6 @@ from .schemas import Token
 settings = get_settings()
 
 router = APIRouter()
-
-
-def get_requested_user(email: EmailStr, db: DatabaseDependency) -> RegularUser | AdminUser | None:
-    """
-    Returns either regular user, admin user or None
-    if the user by the given `email` does not exist in the `db`,
-    """
-    db_admin_user = get_admin_user_by_email(db, email)
-    db_regular_user = get_regular_user_by_email(db, email)
-
-    return db_regular_user or db_admin_user
 
 
 @router.post(
@@ -48,9 +37,12 @@ async def get_access_token(
     """
     Get JWT access token for provided user with `email` and `password`.
     """
-    user = get_requested_user(email, db)
+    user = db.query(User).filter(User.email == email).first()
     if user is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exist.")
+
+    if user.role.name != UserRole.ADMIN.name:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Access token available only for admin users.")
 
     if not verify_password(password, str(user.hashed_password)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect email or password.")
