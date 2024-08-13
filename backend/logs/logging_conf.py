@@ -1,5 +1,5 @@
 """
-Module provides settings for socket server and socket client.
+Module provides logger settings for socket server and socket client.
 """
 
 import logging

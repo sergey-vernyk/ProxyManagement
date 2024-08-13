@@ -10,6 +10,7 @@ class CreateModem(BaseModel):
 
     ip: IPvAnyAddress
     port: int = Field(lt=65536, gt=49152)
+    public_server_ip: IPvAnyAddress | None = None
     bind_user_email: EmailStr | None = None
     username: str | None = Field(default=None)
     password: str | None = Field(default=None)
@@ -22,6 +23,7 @@ class ShowModem(BaseModel):
 
     id: int
     ip: IPvAnyAddress
+    public_server_ip: IPvAnyAddress | None
     port: int
     hashed_value: str | None
     bind_user_email: str | None
@@ -38,6 +40,7 @@ class UpdateModem(BaseModel):
     """
 
     ip: IPvAnyAddress
+    public_server_ip: IPvAnyAddress | None = None
     bind_user_email: EmailStr | None = None
     port: int | None = Field(lt=65536, gt=49152, default=None)
     username: str | None = None
@@ -51,6 +54,7 @@ class ShowModemForUser(BaseModel):
     """
 
     ip: IPvAnyAddress
+    public_server_ip: IPvAnyAddress | None
     port: int
     hashed_value: str | None
     rebooted: datetime | None

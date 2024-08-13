@@ -55,9 +55,10 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
         if bind_db_user is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
-    modem_data: dict[str, Any] = request.model_dump(exclude={"bind_user_email", "ip"})
+    modem_data: dict[str, Any] = request.model_dump(exclude={"bind_user_email", "ip", "public_server_ip"})
     modem_data["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
     modem_data["ip"] = str(request.ip)
+    modem_data["public_server_ip"] = str(request.public_server_ip)
 
     if bind_db_user is not None:
         modem_data["hashed_value"] = hashlib.sha256(
@@ -147,6 +148,7 @@ async def update_modem(ip: IPvAnyAddress, request: schemas.UpdateModem, db: Data
 
     data_to_update: dict[str, Any] = request.model_dump(exclude={"ip", "bind_user_email"})
     data_to_update["ip"] = str(request.ip)
+    data_to_update["public_server_ip"] = str(request.public_server_ip)
     data_to_update["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
 
     if bind_db_user is not None:

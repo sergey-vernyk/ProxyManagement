@@ -8,7 +8,7 @@ PARENT_DIR_PATH = str(Path(__file__).resolve().parent)
 
 class Settings(BaseSettings):
     """
-    Class for environment settings environment variables.
+    Class with settings for environment variables.
     """
 
     default_encoding: str

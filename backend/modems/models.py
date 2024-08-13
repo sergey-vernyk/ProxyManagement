@@ -2,6 +2,7 @@ from datetime import datetime
 
 from db_connection import Base
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import relationship
 
 
@@ -15,7 +16,8 @@ class Modem(Base):
     __tablename__ = "modems"
 
     id = Column(Integer, primary_key=True)
-    ip = Column(String(16), nullable=False)
+    ip = Column(INET(), nullable=False)
+    public_server_ip = Column(INET(), nullable=True)
     port = Column(Integer, nullable=False)
     bind_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     hashed_value = Column(String(32), nullable=True)
@@ -28,4 +30,4 @@ class Modem(Base):
     bind_user = relationship("User", back_populates="user_modems", lazy="selectin")
 
     def __repr__(self) -> str:
-        return f"{self.ip}:{self.port}-{self.bind_user}"
+        return f"{self.ip}:{self.port} - {self.bind_user}"
