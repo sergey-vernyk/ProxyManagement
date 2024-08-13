@@ -20,6 +20,7 @@ def create_modem(db: Session, modem_data: dict[str, Any]) -> models.Modem:
     )
     db.add(modem)
     db.commit()
+    db.refresh(modem)
     return modem
 
 

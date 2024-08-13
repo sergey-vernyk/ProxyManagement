@@ -204,10 +204,7 @@ async def change_ip(
     - db: (DatabaseDependency): database session.
     """
     modem = (
-        db.query(models.Modem)
-        .join(User)
-        .filter(models.Modem.hashed_value == hashed_value, User.token == token)
-        .first()
+        db.query(models.Modem).join(User).filter(models.Modem.hashed_value == hashed_value, User.token == token).first()
     )
     if modem is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Requested modem is not found. Check token or hashed value.")

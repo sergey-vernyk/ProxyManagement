@@ -65,6 +65,7 @@ class ShowUser(BaseModel):
     token: str | None
     proxy_login: str | None
     proxy_password: str | None
+    proxy_password_hash_type: str | None
     created: datetime
     updated: datetime | None
     user_modems: list[ShowModemForUser]
@@ -77,7 +78,7 @@ class UpdateUserProxyCredentials(BaseModel):
 
     update_login: bool = False
     proxy_password: str | None = Field(min_length=10, max_length=30, default=None)
-    proxy_password_hash_type: HashType
+    proxy_password_hash_type: HashType | None = None
 
 
 class UpdateUser(BaseModel):
@@ -85,4 +86,8 @@ class UpdateUser(BaseModel):
     Class represents fields for updating a user.
     """
 
-    email: EmailStr
+    email: EmailStr | None = None
+    update_password: bool = False
+    old_password: str | None = Field(max_length=30, min_length=10, default=None)
+    new_password: str | None = Field(max_length=30, min_length=10, default=None)
+    update_token: bool = False

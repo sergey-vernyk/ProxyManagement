@@ -1,6 +1,6 @@
 import random
 from secrets import token_urlsafe
-from typing import Annotated
+from typing import Annotated, Any
 
 from auth.auth_bearer import JWTBearer
 from config import get_settings
@@ -8,7 +8,7 @@ from dependencies import DatabaseDependency
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from modems.crud import get_modem_by_ip
 from pydantic import EmailStr, IPvAnyAddress
-from security import encrypt_modem_password
+from security import encrypt_modem_password, get_password_hash, verify_password
 from validators import validate_email_format
 
 from . import crud, models, schemas
@@ -178,7 +178,22 @@ async def update_user(email: EmailStr, request: schemas.UpdateUser, db: Database
     if db_user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exists.")
 
-    return crud.update_user_info(db, db_user, request.model_dump())
+    data_to_update: dict[str, Any] = {}
+
+    if request.update_password and request.old_password is not None and request.new_password is not None:
+        if not verify_password(request.old_password, str(db_user.hashed_password)):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Entered old password not matches with the existing user password."
+            )
+        data_to_update["hashed_password"] = get_password_hash(request.new_password)
+
+    if request.update_token:
+        token = token_urlsafe(32)[:32]
+        data_to_update["token"] = token
+
+    data_to_update["email"] = request.email
+
+    return crud.update_user_info(db, db_user, data_to_update)
 
 
 @router.delete(
