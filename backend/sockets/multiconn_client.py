@@ -1,3 +1,4 @@
+import errno
 import selectors
 import socket
 import sys
@@ -113,8 +114,12 @@ class SocketClient:
 
         try:
             result: int = self._socket.connect_ex(server_addr)
-            if not result:
-                logger.error("Connection failed while establishing connection. Error code: %d", result)
+            if result == 0:
+                logger.info("Connection established immediately.")
+            elif result == errno.EINPROGRESS:
+                logger.info("Connection is progress.")
+            else:
+                logger.error("Connection failed while establishing. Error code: %d", result)
                 self._socket.close()
                 sys.exit(1)
         except socket.error as e:
