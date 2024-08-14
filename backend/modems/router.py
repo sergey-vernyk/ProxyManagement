@@ -2,17 +2,22 @@ import datetime
 import hashlib
 import selectors
 import socket
+from ipaddress import IPv4Address
 from typing import Annotated, Any, TypeAlias
 
 from auth.auth_bearer import JWTBearer
 from config import get_settings
 from conn_utils import build_default_route_ip, send_data_to_socket_server
 from dependencies import DatabaseDependency
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from fastapi.encoders import jsonable_encoder
+from fastapi.requests import Request
 from fastapi.responses import JSONResponse
-from pydantic import IPvAnyAddress
+from pydantic import EmailStr, IPvAnyAddress
+from pydantic_core import Url
+from users.crud import get_user_by_email
 from users.models import User
+from validators import validate_email_format
 
 from . import crud, models, schemas
 
@@ -177,6 +182,82 @@ async def delete_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> None:
     Delete a modem with `ip`.
     """
     crud.delete_modem(db, str(ip))
+
+
+@router.get(
+    "/modems/change_ip_url/{email}",
+    response_model=list[schemas.ChangeIPUrl],
+    status_code=status.HTTP_200_OK,
+    description="Get urls for changing IP for a modem(s) for a user with the given email.",
+    operation_id="get-change-ip-urls",
+    responses={
+        400: {"description": "User not found"},
+        422: {"description": "Sorting problems"},
+        200: {"description": "Successfully"},
+    },
+)
+async def get_change_ip_urls(
+    request: Request,
+    db: DatabaseDependency,
+    email: EmailStr,
+    order_by: Annotated[str, Query(description="Sorting criteria: ip, public_server_ip, port")] = "ip",
+) -> list[schemas.ChangeIPUrl]:
+    """
+    Get url(s) for changing IP (by rebooting a modem) for a modem(s) for a user with the given email.
+    """
+    try:
+        valid_email = validate_email_format(email)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
+    db_user = get_user_by_email(db, valid_email)
+    if db_user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exists.")
+
+    def get_urls_list(request: Request) -> list[schemas.ChangeIPUrl]:
+        """
+        Returns all urls for changing IP for all user's modems.
+
+        Raises:
+            HTTPException: if unable to sort response data by field received in `order_by` query param.
+        """
+        host = request.base_url.hostname
+        server_port = request.base_url.port
+        schema = request.base_url.scheme
+
+        # try to sort user modems by the given criteria
+        # if any of user modems has nullable values an exception will be raised
+        try:
+            user_modems: list[models.Modem] = sorted(db_user.user_modems, key=lambda m: getattr(m, order_by))  # type: ignore
+        except TypeError as e:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Unable to sort records because some entries contain null values. ",
+            ) from e
+
+        url_pattern_default_ports = "{schema}://{host}/modems/{token}/{hashed_value}"
+        url_pattern_other_ports = "{schema}://{host}:{port}/modems/{token}/{hashed_value}"
+        urls: list[schemas.ChangeIPUrl] = []
+
+        for modem in user_modems:
+            ip = IPv4Address(modem.ip)
+            modem_port = int(modem.port)  # type: ignore
+            public_server_ip = IPv4Address(modem.public_server_ip) if modem.public_server_ip is not None else None
+            if server_port in {80, 443}:
+                url = url_pattern_default_ports.format(
+                    schema=schema, host=host, token=db_user.token, hashed_value=modem.hashed_value
+                )
+            else:
+                url = url_pattern_other_ports.format(
+                    schema=schema, host=host, port=server_port, token=db_user.token, hashed_value=modem.hashed_value
+                )
+            url = Url(url)
+            data = schemas.ChangeIPUrl(ip=ip, port=modem_port, public_server_ip=public_server_ip, url=url)
+            urls.append(data)
+
+        return urls
+
+    return get_urls_list(request)
 
 
 @router.get(

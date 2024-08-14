@@ -1,6 +1,7 @@
 from datetime import datetime
+from ipaddress import IPv4Address
 
-from pydantic import BaseModel, EmailStr, Field, IPvAnyAddress
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, IPvAnyAddress
 
 
 class CreateModem(BaseModel):
@@ -59,3 +60,14 @@ class ShowModemForUser(BaseModel):
     hashed_value: str | None
     rebooted: datetime | None
     created: datetime | None
+
+
+class ChangeIPUrl(BaseModel):
+    """
+    Class represents fields for changing ip of a modem (via rebooting it).
+    """
+
+    ip: IPv4Address
+    port: int
+    public_server_ip: IPv4Address | None = None
+    url: HttpUrl
