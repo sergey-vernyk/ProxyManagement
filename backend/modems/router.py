@@ -185,8 +185,9 @@ async def delete_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> None:
 
 
 @router.get(
-    "/modems/change_ip_url/{email}",
+    "/modems/change_ip_urls/{email}",
     response_model=list[schemas.ChangeIPUrl],
+    dependencies=[Depends(JWTBearer())],
     status_code=status.HTTP_200_OK,
     description="Get urls for changing IP for a modem(s) for a user with the given email.",
     operation_id="get-change-ip-urls",
@@ -262,6 +263,7 @@ async def get_change_ip_urls(
 
 @router.get(
     "/modems/{token}/{hashed_value}",
+    include_in_schema=False,
     status_code=status.HTTP_200_OK,
     description=(
         "Reboot a modem which should be found by the given `token` and `hashed_value`. "
