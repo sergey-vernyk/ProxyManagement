@@ -63,7 +63,7 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
     modem_data: dict[str, Any] = request.model_dump(exclude={"bind_user_email", "ip", "public_server_ip"})
     modem_data["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
     modem_data["ip"] = str(request.ip)
-    modem_data["public_server_ip"] = str(request.public_server_ip)
+    modem_data["public_server_ip"] = str(request.public_server_ip) if request.public_server_ip is not None else None
 
     if bind_db_user is not None:
         modem_data["hashed_value"] = hashlib.sha256(
