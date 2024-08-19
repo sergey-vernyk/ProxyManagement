@@ -16,8 +16,9 @@ class Modem(Base):
     __tablename__ = "modems"
 
     id = Column(Integer, primary_key=True)
+    external_server_ip = Column(INET(), nullable=True)
+    internal_server_ip = Column(INET(), nullable=True)
     ip = Column(INET(), nullable=False)
-    public_server_ip = Column(INET(), nullable=True)
     port = Column(Integer, nullable=False)
     bind_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     hashed_value = Column(String(32), nullable=True)

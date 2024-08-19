@@ -1,67 +1,87 @@
+import asyncio
+import itertools
 import selectors
+import signal
 import socket
+from dataclasses import fields
+from ipaddress import IPv4Address
 from typing import TypeAlias
 
-from sockets.multiconn_client import SocketClient
+from modems.schemas import ModemAction, ModemActionsData
+from sockets.async_client import AsyncSocketClient, handle_shutdown
 
 Socket: TypeAlias = socket.socket
 Selector: TypeAlias = selectors.DefaultSelector
 
 
-def parse_modem_data(data: list[bytes]) -> dict:
+def parse_modem_data_to_reboot(data: list[bytes]) -> ModemActionsData:
     """
-    Parses a list of bytes data to extract modem connection details.
+    Parses a list of byte strings to create a ModemActionsData object.
 
     Args:
-        data (list[bytes]): A list containing three byte strings:
-            - The first element should be the modem's URL or IP address.
-            - The second element should be the username for authentication.
-            - The third element should be the password for authentication.
+        data (list[bytes]): A list containing modem details in the following order:
+            1. IP address
+            2. Port number
+            3. Internal server IP address
+            4. Proxy login
+            5. Proxy password
+            6. Username
+            7. Password
+            8. Action to perform
 
     Returns:
-        dict: A dictionary with the following keys and values:
-            - 'url': The modem's URL, prefixed with "http://".
-            - 'username': The username for authentication.
-            - 'password': The password for authentication.
-
-    Raises:
-        IndexError: If the input list does not contain exactly three elements.
-        UnicodeDecodeError: If any of the byte strings cannot be decoded using UTF-8.
+        ModemActionsData: An object with the parsed modem details.
     """
-    data_str: list[str] = [d.decode("utf-8") for d in data]
-    return {"url": f"http://{data_str[0]}", "username": data_str[1], "password": data_str[2]}
+    data_keys: list[str] = [field.name for field in fields(ModemActionsData)]
+    data_values: list[str] = [d.decode("utf-8") for d in data]
+    data_dict = dict(itertools.zip_longest(data_keys, data_values, fillvalue=None))
+
+    modem_reboot_data = ModemActionsData(
+        ip=IPv4Address(data_dict["ip"]),
+        port=int(data_dict["port"]),  # type: ignore
+        internal_server_ip=IPv4Address(data_dict["internal_server_ip"]),
+        proxy_login=data_dict["proxy_login"],  # type: ignore
+        proxy_password_plain=data_dict["proxy_password_plain"],  # type: ignore
+        username=data_dict["username"],
+        password=data_dict["password"],
+        action=ModemAction(data_dict["action"]),
+    )
+    return modem_reboot_data
 
 
-def build_default_route_ip(ip: str, last_octet: str = "1") -> str:
+def build_default_route_ip(ip: IPv4Address, last_octet: str = "1") -> str:
     """
     Build modem default route (192.168.10.1) from the given `ip`.
     E.g. 192.168.10.100 -> 192.168.10.1
     """
-    ip_octets = ip.split(".")
+    str_ip = ip.exploded
+    ip_octets = str_ip.split(".")
     ip_octets.pop()
     ip_octets.append(last_octet)
     return ".".join(ip_octets)
 
 
-def send_data_to_socket_server(
-    data_to_send: str, socket_host: str, socket_port: int, sock: Socket, selector: Selector
-) -> None | bytes:
+async def send_data_to_socket_server(data_to_send: str, socket_host: str, socket_port: int) -> None | bytes:
     """
-    Sends `data_to_send` to a socket server and returns the response.
+    Asynchronously sends `data_to_send` to a socket server and returns the response.
 
-    Creates a `SocketClient`, sends the data, and processes the response from the server.
+    Creates an `AsyncSocketClient`, establishes a connection, sends the data, and processes the response
+    from the server.
 
     Args:
-        data_to_send (str): Data to send to the server.
-        socket_host (str): Server hostname or IP address.
-        socket_port (int): Server port number.
-        selector (Selector): Selector for I/O event monitoring.
+        data_to_send (str): Data to send to the server. This data will be sent as a string.
+        socket_host (str): Server hostname or IP address to which the data will be sent.
+        socket_port (int): Server port number for the connection.
 
     Returns:
-        None | bytes: Received data from the server, or None if no data received.
+        None | bytes: Received data from the server. If no data is received, returns None.
     """
-    with SocketClient(socket_host, socket_port, sock, selector) as client:
-        client.compose_data_to_send(data_to_send)
-        client.run_event_loop()
+    client = AsyncSocketClient(socket_host, socket_port)
 
+    loop = asyncio.get_event_loop()
+    # Register the signal handler for shutdown
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, handle_shutdown, client)
+
+    await client.run(data_to_send)
     return client.received_data

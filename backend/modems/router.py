@@ -1,20 +1,32 @@
+"""
+Module contains endpoints for modems:
+- create_modem
+- get_modem
+- get_all_modems
+- update_modem
+- delete_modem
+- get_change_ip_urls
+- change_ip (websocket)
+"""
+
 import datetime
 import hashlib
-import selectors
-import socket
 from ipaddress import IPv4Address
-from typing import Annotated, Any, TypeAlias
+from typing import Annotated, Any
 
 from auth.auth_bearer import JWTBearer
 from config import get_settings
-from conn_utils import build_default_route_ip, send_data_to_socket_server
+from conn_utils import send_data_to_socket_server
 from dependencies import DatabaseDependency
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import (APIRouter, Depends, HTTPException, Path, Query, WebSocket,
+                     WebSocketDisconnect, status)
 from fastapi.encoders import jsonable_encoder
 from fastapi.requests import Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import EmailStr, IPvAnyAddress
 from pydantic_core import Url
+from starlette.templating import _TemplateResponse
 from users.crud import get_user_by_email
 from users.models import User
 from validators import validate_email_format
@@ -22,11 +34,8 @@ from validators import validate_email_format
 from . import crud, models, schemas
 
 settings = get_settings()
-
+templates = Jinja2Templates(directory="backend/templates")
 router = APIRouter()
-
-Socket: TypeAlias = socket.socket
-Selector: TypeAlias = selectors.DefaultSelector
 
 SOCKET_HOST: str = settings.socket_host
 SOCKET_PORT: int = settings.socket_port
@@ -60,11 +69,18 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
         if bind_db_user is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
-    modem_data: dict[str, Any] = request.model_dump(exclude={"bind_user_email", "ip", "public_server_ip"})
+    modem_data: dict[str, Any] = request.model_dump(
+        exclude={"bind_user_email", "ip", "external_server_ip", "internal_server_ip"}
+    )
     modem_data["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
     modem_data["ip"] = str(request.ip)
-    modem_data["public_server_ip"] = str(request.public_server_ip) if request.public_server_ip is not None else None
+    modem_data["external_server_ip"] = (
+        str(request.external_server_ip) if request.external_server_ip is not None else None
+    )
 
+    modem_data["internal_server_ip"] = (
+        str(request.internal_server_ip) if request.internal_server_ip is not None else None
+    )
     if bind_db_user is not None:
         modem_data["hashed_value"] = hashlib.sha256(
             f"{bind_db_user.email}{modem_data['ip']}".encode(ENCODING)
@@ -119,7 +135,7 @@ async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100
     """
     Return all modems within `skip` and `limit` params.
     """
-    modems = crud.get_all_modems(db, skip, limit)
+    modems: list[models.Modem] = crud.get_all_modems(db, skip, limit)
     return [
         schemas.ShowModem(
             **jsonable_encoder(modem),
@@ -153,7 +169,8 @@ async def update_modem(ip: IPvAnyAddress, request: schemas.UpdateModem, db: Data
 
     data_to_update: dict[str, Any] = request.model_dump(exclude={"ip", "bind_user_email"})
     data_to_update["ip"] = str(request.ip)
-    data_to_update["public_server_ip"] = str(request.public_server_ip)
+    data_to_update["external_server_ip"] = str(request.external_server_ip)
+    data_to_update["internal_server_ip"] = str(request.internal_server_ip)
     data_to_update["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
 
     if bind_db_user is not None:
@@ -243,7 +260,8 @@ async def get_change_ip_urls(
         for modem in user_modems:
             ip = IPv4Address(modem.ip)
             modem_port = int(modem.port)  # type: ignore
-            public_server_ip = IPv4Address(modem.public_server_ip) if modem.public_server_ip is not None else None
+            external_server_ip = IPv4Address(modem.external_server_ip) if modem.external_server_ip is not None else None
+            internal_server_ip = IPv4Address(modem.internal_server_ip) if modem.internal_server_ip is not None else None
             if server_port in {80, 443}:
                 url = url_pattern_default_ports.format(
                     schema=schema, host=host, token=db_user.token, hashed_value=modem.hashed_value
@@ -253,7 +271,13 @@ async def get_change_ip_urls(
                     schema=schema, host=host, port=server_port, token=db_user.token, hashed_value=modem.hashed_value
                 )
             url = Url(url)
-            data = schemas.ChangeIPUrl(ip=ip, port=modem_port, public_server_ip=public_server_ip, url=url)
+            data = schemas.ChangeIPUrl(
+                ip=ip,
+                port=modem_port,
+                external_server_ip=external_server_ip,
+                internal_server_ip=internal_server_ip,
+                url=url,
+            )
             urls.append(data)
 
         return urls
@@ -261,60 +285,128 @@ async def get_change_ip_urls(
     return get_urls_list(request)
 
 
-@router.get(
-    "/modems/{token}/{hashed_value}",
-    include_in_schema=False,
-    status_code=status.HTTP_200_OK,
-    description=(
-        "Reboot a modem which should be found by the given `token` and `hashed_value`. "
-        "Token and hashed value generates automatically during user creating and modem creating respectively."
-    ),
-    response_class=JSONResponse,
-    operation_id="reboot-modem",
-    responses={
-        200: {"description": "IP changed"},
-        404: {"description": "Modem not Found"},
-        406: {"description": "Problems on socket server or modem side"},
-    },
-)
+@router.websocket("/ws/modems/{token}/{hashed_value}", name="change_ip")
 async def change_ip(
     token: Annotated[str, Path(max_length=32, min_length=32, description="User token")],
     hashed_value: Annotated[str, Path(max_length=32, min_length=32, description="Modem hashed value")],
+    websocket: WebSocket,
     db: DatabaseDependency,
-) -> JSONResponse:
+) -> None:
     """
-    Change IP of a modem.
-    - token (str): token from user data.
-    - hashed_value (str): hashed value from modem data, which bind to that modem.
-    - db: (DatabaseDependency): database session.
+    WebSocket endpoint to change the IP address of a modem.
+
+    Parameters:
+    - token (str): A 32-character string representing the user's token. Used to verify the user.
+    - hashed_value (str): A 32-character string representing the hashed value of the modem. Used to identify the modem.
+    - websocket (WebSocket): The WebSocket connection instance.
+    - db (DatabaseDependency): The database session used to query and update modem data.
+
+    Flow:
+    1. Wait for a message from the client to initiate the IP change process.
+    2. Query the database to find the modem associated with the provided `token` and `hashed_value`.
+    3. If the modem is found, prepare and send a reboot command to the modem via the socket server.
+    4. Await a response from the socket server containing the old and new IP addresses.
+    5. Send the old and new IP addresses back to the client via the WebSocket.
+    6. Update the modem's reboot timestamp in the database.
+
+    Exceptions:
+    - Raises HTTPException with status 404 if the modem is not found.
+    - Handles WebSocketDisconnect gracefully by logging the disconnection and closing the WebSocket.
+
+    Note:
+    - The modem IP change process is initiated via a command sent to a socket server.
+    - The response from the socket server is expected to contain the old and new IP addresses, separated by a space.
     """
-    modem = (
-        db.query(models.Modem).join(User).filter(models.Modem.hashed_value == hashed_value, User.token == token).first()
-    )
-    if modem is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Requested modem is not found. Check token or hashed value.")
+    await websocket.accept()
 
-    ip = str(modem.ip)
-    username = str(modem.username)
-    password = str(modem.password)
-    default_route: str = build_default_route_ip(ip)
+    try:
+        # Wait for a message from the client to start the IP change
+        await websocket.receive_text()
 
-    socket_obj: Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sel: Selector = selectors.DefaultSelector()
+        modem = (
+            db.query(models.Modem)
+            .join(User)
+            .filter(models.Modem.hashed_value == hashed_value, User.token == token)
+            .first()
+        )
+        if modem is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Requested modem is not found. Check token or hashed value.")
 
-    data_to_send: str = ",".join([default_route, username, password])
-    received_data = send_data_to_socket_server(data_to_send, SOCKET_HOST, SOCKET_PORT, socket_obj, sel)
-    if received_data is not None:
-        str_recv_data: str = received_data.decode(ENCODING)
-        if received_data == b"Rebooted":
+        reboot_data = schemas.ModemActionsData(
+            ip=IPv4Address(modem.ip),
+            port=int(modem.port),  # type: ignore
+            internal_server_ip=IPv4Address(modem.internal_server_ip),
+            proxy_login=modem.bind_user.proxy_login,
+            proxy_password_plain=modem.bind_user.proxy_password_plain,
+            username=str(modem.username) if modem.username is not None else None,
+            password=str(modem.password) if modem.password is not None else None,
+            action=schemas.ModemAction.REBOOT,
+        )
+
+        reboot_data_str = reboot_data.convert_to_string_to_send()
+
+        received_data = await send_data_to_socket_server(reboot_data_str, SOCKET_HOST, SOCKET_PORT)
+        if received_data is not None:
+            old_ip, new_ip = received_data.decode(ENCODING).split()
+            await websocket.send_json({"old_ip": old_ip, "new_ip": new_ip})
             setattr(modem, "rebooted", datetime.datetime.now())
             db.commit()
-            return JSONResponse({"message": "Modem rebooted successfully."}, status.HTTP_200_OK)
-        if received_data == b"Not rebooted":
-            return JSONResponse({"message": "Modem not rebooted. Try again."}, status.HTTP_200_OK)
-        if b"Error" in received_data:
-            return JSONResponse({"message": f"Modem side error:{str_recv_data[6:]}"}, status.HTTP_406_NOT_ACCEPTABLE)
-        if b"Errno" in received_data:
-            return JSONResponse({"message": f"Server side error: {str_recv_data}"}, status.HTTP_406_NOT_ACCEPTABLE)
 
-    return JSONResponse({"message": "No data received from the server."}, status.HTTP_200_OK)
+    except WebSocketDisconnect:
+        print("Client disconnected")
+    else:
+        await websocket.close()
+
+
+@router.get(
+    "/modems/{token}/{hashed_value}",
+    response_class=HTMLResponse,
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False,
+)
+async def get_change_ip_page(
+    request: Request,
+    token: Annotated[str, Path(max_length=32, min_length=32, description="User token")],
+    hashed_value: Annotated[str, Path(max_length=32, min_length=32, description="Modem hashed value")],
+) -> _TemplateResponse:
+    """
+    HTTP GET endpoint to serve the modem IP change page.
+
+    Parameters:
+    - request (Request): The FastAPI request object, containing information about the incoming request.
+    - token (str): A 32-character string representing the user's token. Used to verify the user.
+    - hashed_value (str): A 32-character string representing the hashed value of the modem. Used to identify the modem.
+
+    Returns:
+    - _TemplateResponse: Renders the "change_ip.html" template with WebSocket connection details.
+
+    Flow:
+    1. Extract the hostname, port, and schema (HTTP/HTTPS) from the request's base URL.
+    2. Construct the appropriate WebSocket root URL (`ws_root_url`) based on the request schema:
+        - For HTTPS, use `wss://`.
+        - For HTTP, use `ws://`.
+        - If the port is non-standard (not 80 or 443), include it in the URL.
+    3. Render the "change_ip.html" template, passing the constructed `ws_root_url`, `token`,
+        and `hashed_value` to the template context.
+    """
+    host = request.base_url.hostname
+    port = request.base_url.port
+    schema = request.base_url.scheme
+
+    ws_root_url: str | None = None
+    if schema == "https":
+        if port not in {80, 443}:
+            ws_root_url = f"wss://{host}:{port}/ws/modems/"
+        else:
+            ws_root_url = f"wss://{host}/ws/modems/"
+    elif schema == "http":
+        if port not in {80, 443}:
+            ws_root_url = f"ws://{host}:{port}/ws/modems/"
+        else:
+            ws_root_url = f"ws://{host}/ws/modems/"
+
+    return templates.TemplateResponse(
+        request,
+        name="change_ip.html",
+        context={"ws_root_url": ws_root_url, "token": token, "hashed_value": hashed_value},
+    )

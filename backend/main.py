@@ -1,6 +1,7 @@
 from auth import router as auth_router
 from db_connection import Base, engine
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from modems import router as modems_router
 from users import router as users_router
 
@@ -15,3 +16,6 @@ app = FastAPI(
 app.include_router(users_router.router, tags=["users"])
 app.include_router(modems_router.router, tags=["modems"])
 app.include_router(auth_router.router, tags=["auth"])
+
+
+app.mount("/static", StaticFiles(directory="backend/static"), name="static")

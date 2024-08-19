@@ -31,7 +31,8 @@ class User(UserAbstract):
 
     token = Column(String(32), nullable=True)
     proxy_login = Column(String(20), nullable=True)
-    proxy_password = Column(String(64), nullable=True)
+    proxy_password_plain = Column(String(20), nullable=True)
+    proxy_password_hashed = Column(String(64), nullable=True)
     proxy_password_hash_type = Column(Enum(HashType), nullable=True)
 
     user_modems = relationship("Modem", back_populates="bind_user", lazy="selectin")

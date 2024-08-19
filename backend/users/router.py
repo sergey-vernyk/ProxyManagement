@@ -48,7 +48,7 @@ async def create_user(
 
     token: str | None = None
     proxy_login: str | None = None
-    proxy_password: str | None = None
+    proxy_password_hashed: str | None = None
 
     if isinstance(request, schemas.CreateRegularUser):
         token = token_urlsafe(32)[:32]
@@ -56,13 +56,19 @@ async def create_user(
 
         if request.proxy_password_hash_type is not None:
             if request.proxy_password_hash_type == schemas.HashType.MD5:
-                proxy_password = generate_md5_crypt_hash_password(request.proxy_password)
+                proxy_password_hashed = generate_md5_crypt_hash_password(request.proxy_password_plain)
             else:
-                proxy_password = encrypt_modem_password(request.proxy_password_hash_type, request.proxy_password)
-        else:
-            proxy_password = request.proxy_password
+                proxy_password_hashed = encrypt_modem_password(
+                    request.proxy_password_hash_type, request.proxy_password_plain
+                )
 
-    return crud.create_user(db, request, token, proxy_login, proxy_password)
+    return crud.create_user(
+        db,
+        request,
+        token,
+        proxy_login,
+        proxy_password_hashed,
+    )
 
 
 @router.get(
@@ -140,13 +146,13 @@ async def update_user_proxy_credentials(
 
     proxy_password: str | None = None
 
-    if request.proxy_password is not None and request.proxy_password_hash_type is not None:
+    if request.proxy_password_plain is not None and request.proxy_password_hash_type is not None:
         if request.proxy_password_hash_type == schemas.HashType.MD5:
-            proxy_password = generate_md5_crypt_hash_password(request.proxy_password)
+            proxy_password = generate_md5_crypt_hash_password(request.proxy_password_plain)
         else:
-            proxy_password = encrypt_modem_password(request.proxy_password_hash_type, request.proxy_password)
+            proxy_password = encrypt_modem_password(request.proxy_password_hash_type, request.proxy_password_plain)
     else:
-        proxy_password = request.proxy_password
+        proxy_password = request.proxy_password_plain
 
     data_to_update = request.model_dump(exclude_unset=True, exclude={"password_hash_type", "update_login"})
 

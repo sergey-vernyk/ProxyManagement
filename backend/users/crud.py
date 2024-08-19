@@ -11,7 +11,7 @@ def create_user(
     user_data: schemas.CreateRegularUser | schemas.CreateAdminUser,
     token: str | None,
     proxy_login: str | None,
-    proxy_password: str | None,
+    proxy_password_hashed: str | None,
 ) -> models.User:
     """
     Create a user in the database.
@@ -23,7 +23,8 @@ def create_user(
         hashed_password=get_password_hash(user_data.password),
         role=user_data.role,
         proxy_login=proxy_login if is_regular else None,
-        proxy_password=proxy_password if is_regular else None,
+        proxy_password_plain=user_data.proxy_password_plain if is_regular else None,
+        proxy_password_hashed=proxy_password_hashed if is_regular else None,
         proxy_password_hash_type=user_data.proxy_password_hash_type if is_regular else None,
         token=token if is_regular else None,
     )

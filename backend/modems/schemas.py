@@ -1,7 +1,56 @@
+from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from ipaddress import IPv4Address
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, IPvAnyAddress
+
+
+class ModemAction(str, Enum):
+    """
+    Actions for interaction with a modem.
+    """
+
+    REBOOT = "reboot"
+    GET_IP = "get_ip"
+
+
+@dataclass(kw_only=True)
+class ModemActionsData:
+    """
+    Class holds data which used for interaction with a modem.
+    """
+
+    ip: IPv4Address
+    port: int
+    internal_server_ip: IPv4Address
+    proxy_login: str
+    proxy_password_plain: str
+    action: ModemAction
+    username: str | None = None
+    password: str | None = None
+
+    def __post_init__(self) -> None:
+        if not 49152 < self.port < 65536:
+            raise ValueError(f"Port value must be within 49152 and 65536. {self.port} was provided.")
+
+    def convert_to_string_to_send(self) -> str:
+        """
+        Method converts data in the class to string,
+        in which values are separated by commas.
+        """
+        data = [
+            str(self.ip),
+            str(self.port),
+            str(self.internal_server_ip),
+            self.proxy_login,
+            self.proxy_password_plain,
+            self.action,
+        ]
+        if self.username is not None and self.password is not None:
+            data.extend([self.username, self.password])
+
+        return ",".join(data)
 
 
 class CreateModem(BaseModel):
@@ -11,7 +60,8 @@ class CreateModem(BaseModel):
 
     ip: IPvAnyAddress
     port: int = Field(lt=65536, gt=49152)
-    public_server_ip: IPvAnyAddress | None = None
+    external_server_ip: IPvAnyAddress | None = None
+    internal_server_ip: IPvAnyAddress | None = None
     bind_user_email: EmailStr | None = None
     username: str | None = Field(default=None)
     password: str | None = Field(default=None)
@@ -24,7 +74,8 @@ class ShowModem(BaseModel):
 
     id: int
     ip: IPvAnyAddress
-    public_server_ip: IPvAnyAddress | None
+    external_server_ip: IPvAnyAddress | None
+    internal_server_ip: IPvAnyAddress | None
     port: int
     hashed_value: str | None
     bind_user_email: str | None
@@ -41,7 +92,8 @@ class UpdateModem(BaseModel):
     """
 
     ip: IPvAnyAddress
-    public_server_ip: IPvAnyAddress | None = None
+    external_server_ip: IPvAnyAddress | None = None
+    internal_server_ip: IPvAnyAddress | None = None
     bind_user_email: EmailStr | None = None
     port: int | None = Field(lt=65536, gt=49152, default=None)
     username: str | None = None
@@ -55,7 +107,8 @@ class ShowModemForUser(BaseModel):
     """
 
     ip: IPvAnyAddress
-    public_server_ip: IPvAnyAddress | None
+    external_server_ip: IPvAnyAddress | None
+    internal_server_ip: IPvAnyAddress | None
     port: int
     hashed_value: str | None
     rebooted: datetime | None
@@ -69,5 +122,6 @@ class ChangeIPUrl(BaseModel):
 
     ip: IPv4Address
     port: int
-    public_server_ip: IPv4Address | None = None
+    external_server_ip: IPv4Address | None = None
+    internal_server_ip: IPv4Address | None = None
     url: HttpUrl

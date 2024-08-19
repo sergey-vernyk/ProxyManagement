@@ -38,7 +38,7 @@ class CreateRegularUser(UserBase):
     Class represents fields for creating a regular user.
     """
 
-    proxy_password: str = Field(min_length=10, max_length=30)
+    proxy_password_plain: str = Field(min_length=10, max_length=30)
     proxy_password_hash_type: HashType | None = None
     role: UserRole = Field(default=UserRole(UserRole.REGULAR))
 
@@ -64,7 +64,8 @@ class ShowUser(BaseModel):
     hashed_password: str
     token: str | None
     proxy_login: str | None
-    proxy_password: str | None
+    proxy_password_plain: str | None
+    proxy_password_hashed: str | None
     proxy_password_hash_type: str | None
     created: datetime
     updated: datetime | None
@@ -77,7 +78,7 @@ class UpdateUserProxyCredentials(BaseModel):
     """
 
     update_login: bool = False
-    proxy_password: str | None = Field(min_length=10, max_length=30, default=None)
+    proxy_password_plain: str | None = Field(min_length=10, max_length=30, default=None)
     proxy_password_hash_type: HashType | None = None
 
 
