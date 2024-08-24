@@ -75,8 +75,10 @@ class AsyncSocketClient:
         """
         try:
             logger.info("Establishing connection to %s:%d", self._host, self._port)
-            self._reader, self._writer = await asyncio.open_connection(self._host, self._port)
-        except ConnectionRefusedError as e:
+            self._reader, self._writer = await asyncio.wait_for(
+                asyncio.open_connection(self._host, self._port), timeout=10
+            )
+        except (ConnectionRefusedError, TimeoutError) as e:
             raise e
 
         # Initialize connection data
@@ -126,7 +128,7 @@ class AsyncSocketClient:
             if not recv_data:
                 break
 
-            logger.info("Received %r from server %s:%d", recv_data, self._host, self._port)
+            logger.info("Received %s from server %s:%d", recv_data.split(b"\n"), self._host, self._port)
             self._connection_data.recv_total += len(recv_data)
 
             if b"OK" in recv_data:

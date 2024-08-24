@@ -1,11 +1,11 @@
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
 
 from modems.schemas import ShowModemForUser
 from pydantic import BaseModel, EmailStr, Field
 
 
-class UserRole(StrEnum):
+class UserRole(str, Enum):
     """
     Users roles in the system.
     """
@@ -14,7 +14,7 @@ class UserRole(StrEnum):
     REGULAR = "regular"
 
 
-class HashType(StrEnum):
+class HashType(str, Enum):
     """
     Type of the hash for a password.
     """

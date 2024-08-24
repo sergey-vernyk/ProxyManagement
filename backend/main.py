@@ -18,4 +18,4 @@ app.include_router(modems_router.router, tags=["modems"])
 app.include_router(auth_router.router, tags=["auth"])
 
 
-app.mount("/static", StaticFiles(directory="backend/static"), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")

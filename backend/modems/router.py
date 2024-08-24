@@ -36,7 +36,7 @@ from validators import validate_email_format
 from . import crud, models, schemas
 
 settings = get_settings()
-templates = Jinja2Templates(directory="backend/templates")
+templates = Jinja2Templates(directory="templates")
 logger = get_endpoint_logger()
 router = APIRouter()
 
@@ -277,7 +277,8 @@ async def get_change_ip_urls(
             HTTPException: if unable to sort response data by field received in `order_by` query param.
         """
         host = request.base_url.hostname
-        server_port = request.base_url.port
+        #server_port = request.base_url.port
+        server_port = request.headers.get("X-Forwarded-Port", request.base_url.port)
         schema = request.base_url.scheme
 
         # try to sort user modems by the given criteria
@@ -434,14 +435,16 @@ async def get_change_ip_page(
     link_is_valid = modem is not None
 
     host = request.base_url.hostname
-    port = request.base_url.port
+    #port = request.base_url.port
+    port = request.headers.get("X-Forwarded-Port", request.base_url.port)
     schema = request.base_url.scheme
 
     if schema == "https":
         ws_root_url = f"wss://{host}:{port}/ws/modems/" if port not in {80, 443} else f"wss://{host}/ws/modems/"
     elif schema == "http":
         ws_root_url = f"ws://{host}:{port}/ws/modems/" if port not in {80, 443} else f"ws://{host}/ws/modems/"
-
+    
+    print(ws_root_url)
     return templates.TemplateResponse(
         request,
         name="change_ip.html",

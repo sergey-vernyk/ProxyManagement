@@ -78,14 +78,9 @@ async def send_data_to_socket_server(data_to_send: str, socket_host: str, socket
     """
     client = AsyncSocketClient(socket_host, socket_port)
 
-    loop = asyncio.get_event_loop()
-    # Register the signal handler for shutdown
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, handle_shutdown, client)
-
     try:
         await client.run(data_to_send)
+        return client.received_data
     except ConnectionRefusedError:
         return b"Failed connection with the server."
 
-    return client.received_data
