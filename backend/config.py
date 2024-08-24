@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     socket_stop_connection_cond: str
     socket_start_connection_cond: str
 
+    max_time_curl: int
+    fetch_ip_attempts: int
+    reboot_attempts: int
+    delay_after_reboot: int
+
     model_config = SettingsConfigDict(env_file=f"{PARENT_DIR_PATH}/.env", env_file_encoding="utf-8")
 
 

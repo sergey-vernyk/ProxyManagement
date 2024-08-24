@@ -73,8 +73,11 @@ class AsyncSocketClient:
         """
         Initializes the client socket and starts connecting to the server.
         """
-        logger.info("Establishing connection to %s:%d", self._host, self._port)
-        self._reader, self._writer = await asyncio.open_connection(self._host, self._port)
+        try:
+            logger.info("Establishing connection to %s:%d", self._host, self._port)
+            self._reader, self._writer = await asyncio.open_connection(self._host, self._port)
+        except ConnectionRefusedError as e:
+            raise e
 
         # Initialize connection data
         self._connection_data = ClientConnectionData()
@@ -134,8 +137,9 @@ class AsyncSocketClient:
                 await self._clean_up()
                 break
 
-            if b"Error:" in recv_data:
+            if b"Failed" in recv_data:
                 logger.error("Server error: %s", recv_data.decode(ENCODING))
+                self._connection_data.inb = recv_data
                 await self._clean_up()
                 break
 

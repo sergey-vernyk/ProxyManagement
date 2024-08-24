@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from ipaddress import IPv4Address
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, IPvAnyAddress
 
 
-class ModemAction(str, Enum):
+class ModemAction(StrEnum):
     """
     Actions for interaction with a modem.
     """

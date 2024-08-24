@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import dataclass, field
+from ipaddress import IPv4Address
 
 from config import get_settings
 from conn_utils import build_default_route_ip, parse_modem_data_to_reboot
@@ -38,89 +39,114 @@ class ServerConnectionData:
     outb: bytes = field(default_factory=bytes)
 
 
-async def handle_modem_rebooting(
-    message: list[bytes], data: ServerConnectionData, close_connection: bool, reboot_attempts: int = 3
-) -> None:
+async def fetch_ip(
+    proxy_login: str, proxy_password: str, proxy_port: int, internal_server_ip: IPv4Address, fetch_attempts: int = 5
+) -> str | None:
+    """
+    Fetches the current external IP using the modem's proxy settings.
+    """
+    for _ in range(fetch_attempts):
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "curl",
+                "-s",
+                "--fail",
+                "--max-time",
+                f"{settings.max_time_curl}",
+                "-U",
+                f"{proxy_login}:{proxy_password}",
+                "-x",
+                f"http://{internal_server_ip}:{proxy_port}",
+                "ifconfig.me",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+            if process.returncode == 0:
+                return stdout.decode(ENCODING).strip()
+            if process.returncode == 22:
+                await asyncio.sleep(2)
+                continue
+            logger.error("Failed to fetch IP: %s", stderr.decode(ENCODING))
+            break
+        except Exception as e:
+            logger.error("Exception during IP fetch: %s.", e)
+            break
+
+
+async def handle_modem_rebooting(message: list[bytes], data: ServerConnectionData, reboot_attempts: int = 3) -> None:
     """
     Asynchronously attempts to reboot a modem up to a specified number of times and handles the connection response.
 
     Args:
         message (list[bytes]): Incoming data containing modem information.
         data (ServerConnectionData): Server connection data for sending responses.
-        close_connection (bool): Indicates whether to close the connection after a successful reboot.
         reboot_attempts (int): Maximum number of reboot attempts. Defaults to 3.
     """
     modem_reboot_data = parse_modem_data_to_reboot(message)
     modem_default_route = build_default_route_ip(modem_reboot_data.ip)
 
-    async def fetch_ip() -> str | None:
-        """
-        Fetches the current external IP using the modem's proxy settings.
-        """
-        while True:
-            try:
-                process = await asyncio.create_subprocess_exec(
-                    "curl",
-                    "-s",
-                    "--fail",
-                    "-U",
-                    f"{modem_reboot_data.proxy_login}:{modem_reboot_data.proxy_password_plain}",
-                    "-x",
-                    f"http://{modem_reboot_data.internal_server_ip}:{modem_reboot_data.port}",
-                    "ifconfig.me",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                stdout, stderr = await process.communicate()
-                if process.returncode == 0:
-                    return stdout.decode(ENCODING).strip()
-                if process.returncode == 22:
-                    continue
-                logger.error("Failed to fetch IP: %s", stderr.decode(ENCODING))
-                break
-            except Exception as e:
-                logger.error("Exception during IP fetch: %s", e)
-                break
+    ip_before = await fetch_ip(
+        modem_reboot_data.proxy_login,
+        modem_reboot_data.proxy_password_plain,
+        modem_reboot_data.port,
+        modem_reboot_data.internal_server_ip,
+        settings.fetch_ip_attempts,
+    )
+    if ip_before is None:
+        logger.error("Fetch IP failed.")
+        data.outb += b"Failed to fetch IP. Probably, there are some problems with internet connection."
+        return
 
-    ip_before = await fetch_ip()
-    logger.info("IP before reboot: %s", ip_before)
+    logger.info("IP before reboot: %s.", ip_before)
 
-    attempt = 0
-    is_rebooted = False
+    ip_after: str | None = None
+    rebooted = False
 
-    while attempt < reboot_attempts and not is_rebooted:
-        result = reboot_modem(
+    for i in range(reboot_attempts):
+        if rebooted:
+            break
+
+        rebooted = reboot_modem(
             url=f"http://{modem_default_route}",
             username=modem_reboot_data.username,
             password=modem_reboot_data.password,
         )
-        if result == "Rebooted":
-            is_rebooted = True
-            await asyncio.sleep(10)  # Wait for the modem to reboot
+        if rebooted is True:
+            await asyncio.sleep(settings.delay_after_reboot)  # Wait for the modem to reboot
             while True:
                 try:
                     # Check if the modem has come back online by fetching the IP again
-                    ip_after = await fetch_ip()
+                    ip_after = await fetch_ip(
+                        modem_reboot_data.proxy_login,
+                        modem_reboot_data.proxy_password_plain,
+                        modem_reboot_data.port,
+                        modem_reboot_data.internal_server_ip,
+                        settings.fetch_ip_attempts,
+                    )
                     if ip_after is not None and ip_after != ip_before:
                         data.outb += f"{ip_before}\n".encode(ENCODING)
                         data.outb += f"{ip_after}\n".encode(ENCODING)
-                        if close_connection:
-                            data.outb += b"OK"
-                        logger.info("Reboot successful: IP before %s, IP after %s", ip_before, ip_after)
+                        data.outb += b"OK"
+                        logger.info("Reboot successful: IP before %s, IP after %s.", ip_before, ip_after)
                         break
+                    #! break - test it thoroughly
                 except Exception as e:
-                    logger.error("Error checking modem status: %s", e)
-                    continue
+                    logger.error("Error checking modem status: %s.", e)
+                    break
         else:
-            logger.warning("Attempt %d failed: %s", attempt + 1, result)
-            attempt += 1
+            logger.warning("Attempt %d failed: %s", i + 1, "Not rebooted")
             await asyncio.sleep(2)
-            if attempt >= reboot_attempts:
-                data.outb = b"Failed to reboot modem"  #! handle properly in client code
+            continue
 
-    if not is_rebooted:
+    if rebooted is True and ip_after is None:
+        logger.error("Failed to fetch IP after modem rebooting.")
+        data.outb += b"Failed to fetch IP after modem rebooting."
+        return
+
+    if rebooted is False:
         logger.error("Modem reboot failed after %d attempts", reboot_attempts)
-        data.outb += b"Failed to reboot modem\n"
+        data.outb += b"Failed to reboot modem."
 
 
 class AsyncSocketServer:
@@ -154,9 +180,10 @@ class AsyncSocketServer:
         self._connection_data: dict[asyncio.StreamWriter, ServerConnectionData] = {}
         self._socket: asyncio.AbstractServer | None = None
 
-    def _get_next_conn_id(self) -> int:
-        self._conn_id_counter += 1
-        return self._conn_id_counter
+    @classmethod
+    def _get_next_conn_id(cls) -> int:
+        cls._conn_id_counter += 1
+        return cls._conn_id_counter
 
     def _clean_up(self, writer: asyncio.StreamWriter) -> None:
         """
@@ -231,7 +258,7 @@ class AsyncSocketServer:
                     message = data.inb[start_idx:stop_idx].split(b"\n")[:-1]
                     logger.info("Received data %s from %s:%d", message, addr[0], addr[1])
                     if b"reboot" in message:
-                        await handle_modem_rebooting(message, data, close_connection=True)
+                        await handle_modem_rebooting(message, data, settings.reboot_attempts)
                         if data.outb:
                             writer.write(data.outb)
                             await writer.drain()

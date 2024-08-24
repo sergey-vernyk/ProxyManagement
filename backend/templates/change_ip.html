@@ -15,6 +15,8 @@
             padding: 0;
             display: flex;
             justify-content: center;
+            display: flex;
+            flex-direction: column;
             align-items: center;
             height: 100vh;
         }
@@ -67,6 +69,7 @@
 
         button {
             background-color: #4CAF50;
+            font-family: Georgia, 'Times New Roman', Times, serif, sans-serif;
             color: white;
             padding: 10px 20px;
             border: none;
@@ -74,6 +77,11 @@
             cursor: pointer;
             width: 100%;
             font-size: 16px;
+        }
+
+        button:disabled {
+            background-color: #759a76;
+            cursor: default
         }
 
         button:hover {
@@ -103,12 +111,18 @@
                 transform: rotate(360deg);
             }
         }
+
+        .error {
+            margin-top: 10px;
+            color: rgb(235, 27, 27);
+            font-size: 18px;
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h2>Push the button to change IP</h2>
+        <h2>Click the button to change IP</h2>
 
         <div id="messages" class="ip-info">
             <p><span>Old IP:</span><span id="old-ip">----.----.----.----</span></p>
@@ -116,12 +130,15 @@
         </div>
 
         <div id="loading-spinner" class="spinner" style="display: none;"></div>
-        <button id="change-ip">Change IP</button>
+        <button disabled id="change-ip">Change IP</button>
 
-        <input id="ws-root-url" type="hidden" name="root-ws-url" value="{{ ws_root_url }}">
-        <input id="token" type="hidden" name="token" value="{{ token }}">
-        <input id="hashed-value" type="hidden" name="hashed-value" value="{{ hashed_value }}">
+        <input id="link-stat" type="hidden" name="link-stat" value="{{link_is_valid}}" readonly>
+        <input id="modem-id" type="hidden" name="modem-id" value="{{modem_id}}" readonly>
+        <input id="ws-root-url" type="hidden" name="root-ws-url" value="{{ws_root_url}}" readonly>
+        <input id="token" type="hidden" name="token" value="{{token}}" readonly>
+        <input id="hashed-value" type="hidden" name="hashed-value" value="{{hashed_value}}" readonly>
     </div>
+    <div class="error"></div>
 
 </body>
 

@@ -83,5 +83,9 @@ async def send_data_to_socket_server(data_to_send: str, socket_host: str, socket
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, handle_shutdown, client)
 
-    await client.run(data_to_send)
+    try:
+        await client.run(data_to_send)
+    except ConnectionRefusedError:
+        return b"Failed connection with the server."
+
     return client.received_data

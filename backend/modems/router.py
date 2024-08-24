@@ -286,74 +286,64 @@ async def get_change_ip_urls(
 
 
 @router.websocket("/ws/modems/{token}/{hashed_value}", name="change_ip")
-async def change_ip(
-    token: Annotated[str, Path(max_length=32, min_length=32, description="User token")],
-    hashed_value: Annotated[str, Path(max_length=32, min_length=32, description="Modem hashed value")],
-    websocket: WebSocket,
-    db: DatabaseDependency,
-) -> None:
+async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
     """
-    WebSocket endpoint to change the IP address of a modem.
+     WebSocket endpoint to change the IP address of a modem.
 
     Parameters:
-    - token (str): A 32-character string representing the user's token. Used to verify the user.
-    - hashed_value (str): A 32-character string representing the hashed value of the modem. Used to identify the modem.
     - websocket (WebSocket): The WebSocket connection instance.
     - db (DatabaseDependency): The database session used to query and update modem data.
 
     Flow:
-    1. Wait for a message from the client to initiate the IP change process.
-    2. Query the database to find the modem associated with the provided `token` and `hashed_value`.
-    3. If the modem is found, prepare and send a reboot command to the modem via the socket server.
-    4. Await a response from the socket server containing the old and new IP addresses.
-    5. Send the old and new IP addresses back to the client via the WebSocket.
-    6. Update the modem's reboot timestamp in the database.
+    1. The WebSocket connection is accepted.
+    2. The server waits for a message from the client containing the modem ID.
+    3. The modem associated with the provided modem ID is queried from the database.
+    4. If the modem is found:
+       a. Prepare a reboot command using the modem's details.
+       b. Send the command to the modem via the socket server.
+       c. Await the socket server's response, which should include the old and new IP addresses.
+       d. If successful, send the old and new IP addresses to the client via WebSocket.
+       e. Update the modem's reboot timestamp in the database.
+    5. If the modem is not found, or if the socket server indicates failure, send an error message to the client.
 
     Exceptions:
-    - Raises HTTPException with status 404 if the modem is not found.
     - Handles WebSocketDisconnect gracefully by logging the disconnection and closing the WebSocket.
-
-    Note:
-    - The modem IP change process is initiated via a command sent to a socket server.
-    - The response from the socket server is expected to contain the old and new IP addresses, separated by a space.
     """
     await websocket.accept()
 
     try:
-        # Wait for a message from the client to start the IP change
-        await websocket.receive_text()
+        # Wait for a message from the client with modem id
+        modem_id = await websocket.receive_text()
+        modem: models.Modem | None = db.query(models.Modem).get(int(modem_id))
+        if modem is not None:
 
-        modem = (
-            db.query(models.Modem)
-            .join(User)
-            .filter(models.Modem.hashed_value == hashed_value, User.token == token)
-            .first()
-        )
-        if modem is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Requested modem is not found. Check token or hashed value.")
+            reboot_data = schemas.ModemActionsData(
+                ip=IPv4Address(modem.ip),
+                port=int(modem.port),  # type: ignore
+                internal_server_ip=IPv4Address(modem.internal_server_ip),
+                proxy_login=modem.bind_user.proxy_login,
+                proxy_password_plain=modem.bind_user.proxy_password_plain,
+                username=str(modem.username) if modem.username is not None else None,
+                password=str(modem.password) if modem.password is not None else None,
+                action=schemas.ModemAction.REBOOT,
+            )
 
-        reboot_data = schemas.ModemActionsData(
-            ip=IPv4Address(modem.ip),
-            port=int(modem.port),  # type: ignore
-            internal_server_ip=IPv4Address(modem.internal_server_ip),
-            proxy_login=modem.bind_user.proxy_login,
-            proxy_password_plain=modem.bind_user.proxy_password_plain,
-            username=str(modem.username) if modem.username is not None else None,
-            password=str(modem.password) if modem.password is not None else None,
-            action=schemas.ModemAction.REBOOT,
-        )
+            reboot_data_str = reboot_data.convert_to_string_to_send()
 
-        reboot_data_str = reboot_data.convert_to_string_to_send()
+            received_data = await send_data_to_socket_server(reboot_data_str, SOCKET_HOST, SOCKET_PORT)
+            if received_data is not None:
+                if b"Failed" in received_data:
+                    await websocket.send_json({"error": received_data.decode(ENCODING)})
+                    await websocket.close()
+                    return
 
-        received_data = await send_data_to_socket_server(reboot_data_str, SOCKET_HOST, SOCKET_PORT)
-        if received_data is not None:
-            old_ip, new_ip = received_data.decode(ENCODING).split()
-            await websocket.send_json({"old_ip": old_ip, "new_ip": new_ip})
-            setattr(modem, "rebooted", datetime.datetime.now())
-            db.commit()
+                old_ip, new_ip = received_data.decode(ENCODING).split()
+                await websocket.send_json({"oldIp": old_ip, "newIp": new_ip})
+                setattr(modem, "rebooted", datetime.datetime.now())
+                db.commit()
 
     except WebSocketDisconnect:
-        print("Client disconnected")
+        print("Client disconnected")  #! add logging
     else:
         await websocket.close()
 
@@ -368,45 +358,53 @@ async def get_change_ip_page(
     request: Request,
     token: Annotated[str, Path(max_length=32, min_length=32, description="User token")],
     hashed_value: Annotated[str, Path(max_length=32, min_length=32, description="Modem hashed value")],
+    db: DatabaseDependency,
 ) -> _TemplateResponse:
     """
     HTTP GET endpoint to serve the modem IP change page.
 
     Parameters:
-    - request (Request): The FastAPI request object, containing information about the incoming request.
+    - request (Request): The request object, containing information about the incoming request.
     - token (str): A 32-character string representing the user's token. Used to verify the user.
     - hashed_value (str): A 32-character string representing the hashed value of the modem. Used to identify the modem.
+    - db (DatabaseDependency): The database session used to query modem data.
 
     Returns:
     - _TemplateResponse: Renders the "change_ip.html" template with WebSocket connection details.
 
     Flow:
-    1. Extract the hostname, port, and schema (HTTP/HTTPS) from the request's base URL.
-    2. Construct the appropriate WebSocket root URL (`ws_root_url`) based on the request schema:
-        - For HTTPS, use `wss://`.
-        - For HTTP, use `ws://`.
-        - If the port is non-standard (not 80 or 443), include it in the URL.
-    3. Render the "change_ip.html" template, passing the constructed `ws_root_url`, `token`,
-        and `hashed_value` to the template context.
+    1. Query the database to find the modem associated with the provided `token` and `hashed_value`.
+    2. Determine if the link is valid based on whether the modem is found.
+    3. Extract the hostname, port, and schema (HTTP/HTTPS) from the request's base URL.
+    4. Construct the appropriate WebSocket root URL (`ws_root_url`) based on the request schema:
+       - For HTTPS, use `wss://`.
+       - For HTTP, use `ws://`.
+       - If the port is non-standard (not 80 or 443), include it in the URL.
+    5. Render the "change_ip.html" template, passing the constructed `ws_root_url`, `token`, `hashed_value`,
+       and `link_is_valid` to the template context.
     """
+    modem = (
+        db.query(models.Modem).join(User).filter(models.Modem.hashed_value == hashed_value, User.token == token).first()
+    )
+    link_is_valid = modem is not None
+
     host = request.base_url.hostname
     port = request.base_url.port
     schema = request.base_url.scheme
 
-    ws_root_url: str | None = None
     if schema == "https":
-        if port not in {80, 443}:
-            ws_root_url = f"wss://{host}:{port}/ws/modems/"
-        else:
-            ws_root_url = f"wss://{host}/ws/modems/"
+        ws_root_url = f"wss://{host}:{port}/ws/modems/" if port not in {80, 443} else f"wss://{host}/ws/modems/"
     elif schema == "http":
-        if port not in {80, 443}:
-            ws_root_url = f"ws://{host}:{port}/ws/modems/"
-        else:
-            ws_root_url = f"ws://{host}/ws/modems/"
+        ws_root_url = f"ws://{host}:{port}/ws/modems/" if port not in {80, 443} else f"ws://{host}/ws/modems/"
 
     return templates.TemplateResponse(
         request,
         name="change_ip.html",
-        context={"ws_root_url": ws_root_url, "token": token, "hashed_value": hashed_value},
+        context={
+            "link_is_valid": link_is_valid,
+            "modem_id": modem.id if modem is not None else None,
+            "ws_root_url": ws_root_url,
+            "token": token,
+            "hashed_value": hashed_value,
+        },
     )
