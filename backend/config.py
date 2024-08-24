@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PARENT_DIR_PATH = str(Path(__file__).resolve().parent)
+PARENT_DIR_PATH = Path(__file__).resolve().parent
 
 
 class Settings(BaseSettings):
@@ -13,20 +13,28 @@ class Settings(BaseSettings):
 
     default_encoding: str
 
+    # variables for JWT encoding and decoding
     access_token_expire_minutes: int
     secret_key: str
     algorithm: str
 
     database_url: str
+
+    # variables for socket server and client
     socket_host: str
     socket_port: int
     socket_stop_connection_cond: str
     socket_start_connection_cond: str
 
+    # variables for rebooting modem
     max_time_curl: int
     fetch_ip_attempts: int
     reboot_attempts: int
     delay_after_reboot: int
+
+    # variables for logging
+    max_bytes_log_rotating: int = 100_048_576  # 1Mb
+    backup_count: int = 10
 
     model_config = SettingsConfigDict(env_file=f"{PARENT_DIR_PATH}/.env", env_file_encoding="utf-8")
 

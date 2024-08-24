@@ -7,6 +7,7 @@ Module contains endpoints for modems:
 - delete_modem
 - get_change_ip_urls
 - change_ip (websocket)
+- get_change_ip_page
 """
 
 import datetime
@@ -24,6 +25,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from logs.logging_conf import get_endpoint_logger
 from pydantic import EmailStr, IPvAnyAddress
 from pydantic_core import Url
 from starlette.templating import _TemplateResponse
@@ -35,6 +37,7 @@ from . import crud, models, schemas
 
 settings = get_settings()
 templates = Jinja2Templates(directory="backend/templates")
+logger = get_endpoint_logger()
 router = APIRouter()
 
 SOCKET_HOST: str = settings.socket_host
@@ -55,32 +58,36 @@ ENCODING: str = settings.default_encoding
         404: {"description": "User not found"},
     },
 )
-async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> schemas.ShowModem:
+async def create_modem(request: Request, body: schemas.CreateModem, db: DatabaseDependency) -> schemas.ShowModem:
     """
     Create modem or raise an exception if modem with provided IP is already exists.
     """
-    db_modem = crud.get_modem_by_ip(db, str(request.ip))
+    db_modem = crud.get_modem_by_ip(db, str(body.ip))
     if db_modem is not None:
+        logger.info(
+            f"Modem with the given IP {body.ip} is already exists.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Modem with the given IP is already exists.")
 
     bind_db_user: User | None = None
-    if request.bind_user_email is not None:
-        bind_db_user = db.query(User).filter(User.email == request.bind_user_email).first()
+    if body.bind_user_email is not None:
+        bind_db_user = db.query(User).filter(User.email == body.bind_user_email).first()
         if bind_db_user is None:
+            logger.info(
+                f"User with the given email {body.bind_user_email} does not exist.",
+                extra={"client_ip": request.client.host if request.client is not None else None},
+            )
             raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
-    modem_data: dict[str, Any] = request.model_dump(
+    modem_data: dict[str, Any] = body.model_dump(
         exclude={"bind_user_email", "ip", "external_server_ip", "internal_server_ip"}
     )
     modem_data["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
-    modem_data["ip"] = str(request.ip)
-    modem_data["external_server_ip"] = (
-        str(request.external_server_ip) if request.external_server_ip is not None else None
-    )
+    modem_data["ip"] = str(body.ip)
+    modem_data["external_server_ip"] = str(body.external_server_ip) if body.external_server_ip is not None else None
 
-    modem_data["internal_server_ip"] = (
-        str(request.internal_server_ip) if request.internal_server_ip is not None else None
-    )
+    modem_data["internal_server_ip"] = str(body.internal_server_ip) if body.internal_server_ip is not None else None
     if bind_db_user is not None:
         modem_data["hashed_value"] = hashlib.sha256(
             f"{bind_db_user.email}{modem_data['ip']}".encode(ENCODING)
@@ -107,12 +114,16 @@ async def create_modem(request: schemas.CreateModem, db: DatabaseDependency) -> 
         404: {"description": "Modem not found"},
     },
 )
-async def get_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> schemas.ShowModem:
+async def get_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency) -> schemas.ShowModem:
     """
     Return a modem by its `ip`.
     """
     db_modem = crud.get_modem_by_ip(db, str(ip))
     if db_modem is None:
+        logger.info(
+            f"Modem with the given IP {ip} does not exist.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exist.")
 
     show_modem = schemas.ShowModem(
@@ -153,24 +164,34 @@ async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100
     description="Update a  modem data by the given IP.",
     responses={404: {"description": "Modem not found"}, 200: {"description": "Successfully"}},
 )
-async def update_modem(ip: IPvAnyAddress, request: schemas.UpdateModem, db: DatabaseDependency) -> schemas.ShowModem:
+async def update_modem(
+    request: Request, ip: IPvAnyAddress, body: schemas.UpdateModem, db: DatabaseDependency
+) -> schemas.ShowModem:
     """
     Update modem by its IP address.
     """
     db_modem = crud.get_modem_by_ip(db, str(ip))
     if db_modem is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exists.")
+        logger.info(
+            f"Modem with the given IP {ip} does not exist.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exist.")
 
     bind_db_user: User | None = None
-    if request.bind_user_email is not None:
-        bind_db_user = db.query(User).filter(User.email == request.bind_user_email).first()
+    if body.bind_user_email is not None:
+        bind_db_user = db.query(User).filter(User.email == body.bind_user_email).first()
         if bind_db_user is None:
+            logger.info(
+                f"User with the given email {body.bind_user_email} does not exist.",
+                extra={"client_ip": request.client.host if request.client is not None else None},
+            )
             raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exists.")
 
-    data_to_update: dict[str, Any] = request.model_dump(exclude={"ip", "bind_user_email"})
-    data_to_update["ip"] = str(request.ip)
-    data_to_update["external_server_ip"] = str(request.external_server_ip)
-    data_to_update["internal_server_ip"] = str(request.internal_server_ip)
+    data_to_update: dict[str, Any] = body.model_dump(exclude={"ip", "bind_user_email"})
+    data_to_update["ip"] = str(body.ip)
+    data_to_update["external_server_ip"] = str(body.external_server_ip)
+    data_to_update["internal_server_ip"] = str(body.internal_server_ip)
     data_to_update["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
 
     if bind_db_user is not None:
@@ -194,10 +215,18 @@ async def update_modem(ip: IPvAnyAddress, request: schemas.UpdateModem, db: Data
     operation_id="delete-modem-by-ip",
     responses={204: {"description": "Successfully"}},
 )
-async def delete_modem(ip: IPvAnyAddress, db: DatabaseDependency) -> None:
+async def delete_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency) -> None:
     """
     Delete a modem with `ip`.
     """
+    db_modem = crud.get_modem_by_ip(db, str(ip))
+    if db_modem is None:
+        logger.info(
+            f"Modem with the given IP {ip} does not exist.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exist.")
+
     crud.delete_modem(db, str(ip))
 
 
@@ -226,10 +255,18 @@ async def get_change_ip_urls(
     try:
         valid_email = validate_email_format(email)
     except ValueError as e:
+        logger.info(
+            f"Email is invalid. Reason: {e}",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
     db_user = get_user_by_email(db, valid_email)
     if db_user is None:
+        logger.info(
+            f"User with the given email {email} does not exist.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exists.")
 
     def get_urls_list(request: Request) -> list[schemas.ChangeIPUrl]:
@@ -245,12 +282,17 @@ async def get_change_ip_urls(
 
         # try to sort user modems by the given criteria
         # if any of user modems has nullable values an exception will be raised
+
         try:
-            user_modems: list[models.Modem] = sorted(db_user.user_modems, key=lambda m: getattr(m, order_by))  # type: ignore
+            user_modems: list[models.Modem] = sorted(db_user.user_modems, key=lambda m: getattr(m, order_by))
         except TypeError as e:
+            logger.error(
+                "Unable to sort records because some entries contains null values.",
+                extra={"client_ip": request.client.host if request.client is not None else None},
+            )
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "Unable to sort records because some entries contain null values. ",
+                "Unable to sort records because some entries contains null values. ",
             ) from e
 
         url_pattern_default_ports = "{schema}://{host}/modems/{token}/{hashed_value}"
@@ -285,7 +327,7 @@ async def get_change_ip_urls(
     return get_urls_list(request)
 
 
-@router.websocket("/ws/modems/{token}/{hashed_value}", name="change_ip")
+@router.websocket("/ws/modems/", name="change_ip")
 async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
     """
      WebSocket endpoint to change the IP address of a modem.
@@ -315,8 +357,8 @@ async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
         # Wait for a message from the client with modem id
         modem_id = await websocket.receive_text()
         modem: models.Modem | None = db.query(models.Modem).get(int(modem_id))
-        if modem is not None:
 
+        if modem is not None:
             reboot_data = schemas.ModemActionsData(
                 ip=IPv4Address(modem.ip),
                 port=int(modem.port),  # type: ignore
@@ -342,8 +384,11 @@ async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
                 setattr(modem, "rebooted", datetime.datetime.now())
                 db.commit()
 
-    except WebSocketDisconnect:
-        print("Client disconnected")  #! add logging
+    except WebSocketDisconnect as e:
+        logger.info(
+            f"Websocket client has been disconnected. Code: {e}",
+            extra={"client_ip": websocket.client.host if websocket.client is not None else None},
+        )
     else:
         await websocket.close()
 

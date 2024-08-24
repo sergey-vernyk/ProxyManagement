@@ -4,8 +4,6 @@ $(document).ready(() => {
      * This function also handles enabling or disabling the "Change IP" button
      * based on the validity of the link.
      */
-    const token = $("#token").val();
-    const hashedValue = $("#hashed-value").val();
 
     const linkIsValid = $("#link-stat").val();
     if (linkIsValid.toLowerCase() === "true") {
@@ -21,7 +19,7 @@ $(document).ready(() => {
      */
     const createNewSocketConn = () => {
         const wsRootUrl = $("#ws-root-url").val();
-        const socket = new WebSocket(`${wsRootUrl}${token}/${hashedValue}`);
+        const socket = new WebSocket(wsRootUrl);
 
         /**
          * Event handler for when the WebSocket connection is opened.

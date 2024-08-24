@@ -4,7 +4,7 @@ from ipaddress import IPv4Address
 
 from config import get_settings
 from conn_utils import build_default_route_ip, parse_modem_data_to_reboot
-from logs.logging_conf import get_server_logger
+from logs.logging_conf import get_socket_server_logger
 from modem_api import reboot_modem
 
 settings = get_settings()
@@ -13,7 +13,7 @@ ENCODING: str = settings.default_encoding
 START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
 STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
 
-logger = get_server_logger()
+logger = get_socket_server_logger()
 
 
 @dataclass

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from config import get_settings
-from logs.logging_conf import get_client_logger
+from logs.logging_conf import get_socket_client_logger
 
 settings = get_settings()
 
@@ -13,7 +13,7 @@ ENCODING: str = settings.default_encoding
 START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
 STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
 
-logger = get_client_logger()
+logger = get_socket_client_logger()
 
 
 @dataclass
