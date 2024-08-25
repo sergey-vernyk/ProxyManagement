@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # variables for nginx conf
     domain: str
-    port: int
+    server_port: int
 
     model_config = SettingsConfigDict(env_file=f"{PARENT_DIR_PATH}/.env", env_file_encoding="utf-8")
 
