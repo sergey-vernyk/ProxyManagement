@@ -86,8 +86,8 @@ async def create_modem(request: Request, body: schemas.CreateModem, db: Database
     modem_data["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
     modem_data["ip"] = str(body.ip)
     modem_data["external_server_ip"] = str(body.external_server_ip) if body.external_server_ip is not None else None
-
     modem_data["internal_server_ip"] = str(body.internal_server_ip) if body.internal_server_ip is not None else None
+
     if bind_db_user is not None:
         modem_data["hashed_value"] = hashlib.sha256(
             f"{bind_db_user.email}{modem_data['ip']}".encode(ENCODING)
@@ -190,8 +190,8 @@ async def update_modem(
 
     data_to_update: dict[str, Any] = body.model_dump(exclude={"ip", "bind_user_email"})
     data_to_update["ip"] = str(body.ip)
-    data_to_update["external_server_ip"] = str(body.external_server_ip)
-    data_to_update["internal_server_ip"] = str(body.internal_server_ip)
+    data_to_update["external_server_ip"] = str(body.external_server_ip) if body.external_server_ip is not None else None
+    data_to_update["internal_server_ip"] = str(body.internal_server_ip) if body.internal_server_ip is not None else None
     data_to_update["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
 
     if bind_db_user is not None:
@@ -277,7 +277,6 @@ async def get_change_ip_urls(
             HTTPException: if unable to sort response data by field received in `order_by` query param.
         """
         host = request.base_url.hostname
-        #server_port = request.base_url.port
         server_port = request.headers.get("X-Forwarded-Port", request.base_url.port)
         schema = request.base_url.scheme
 
@@ -435,7 +434,6 @@ async def get_change_ip_page(
     link_is_valid = modem is not None
 
     host = request.base_url.hostname
-    #port = request.base_url.port
     port = request.headers.get("X-Forwarded-Port", request.base_url.port)
     schema = request.base_url.scheme
 
@@ -443,7 +441,7 @@ async def get_change_ip_page(
         ws_root_url = f"wss://{host}:{port}/ws/modems/" if port not in {80, 443} else f"wss://{host}/ws/modems/"
     elif schema == "http":
         ws_root_url = f"ws://{host}:{port}/ws/modems/" if port not in {80, 443} else f"ws://{host}/ws/modems/"
-    
+
     print(ws_root_url)
     return templates.TemplateResponse(
         request,
