@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     max_bytes_log_rotating: int = 100_048_576  # 1Mb
     backup_count: int = 10
 
+    # variables for nginx conf
+    domain: str
+    port: int
+
     model_config = SettingsConfigDict(env_file=f"{PARENT_DIR_PATH}/.env", env_file_encoding="utf-8")
 
 
