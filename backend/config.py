@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     domain: str
     server_port: int
 
+    # email sending
+    email_password: str
+    email_host: str
+    email_from: str
+    email_port: int
+
     model_config = SettingsConfigDict(env_file=f"{PARENT_DIR_PATH}/.env", env_file_encoding="utf-8")
 
 

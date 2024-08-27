@@ -442,7 +442,6 @@ async def get_change_ip_page(
     elif schema == "http":
         ws_root_url = f"ws://{host}:{port}/ws/modems/" if port not in {80, 443} else f"ws://{host}/ws/modems/"
 
-    print(ws_root_url)
     return templates.TemplateResponse(
         request,
         name="change_ip.html",

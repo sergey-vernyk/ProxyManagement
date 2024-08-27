@@ -1,14 +1,13 @@
 import asyncio
 import itertools
 import selectors
-import signal
 import socket
 from dataclasses import fields
 from ipaddress import IPv4Address
 from typing import TypeAlias
 
 from modems.schemas import ModemAction, ModemActionsData
-from sockets.async_client import AsyncSocketClient, handle_shutdown
+from sockets.async_client import AsyncSocketClient
 
 Socket: TypeAlias = socket.socket
 Selector: TypeAlias = selectors.DefaultSelector
@@ -81,6 +80,5 @@ async def send_data_to_socket_server(data_to_send: str, socket_host: str, socket
     try:
         await client.run(data_to_send)
         return client.received_data
-    except ConnectionRefusedError:
+    except (ConnectionRefusedError, asyncio.exceptions.TimeoutError):
         return b"Failed connection with the server."
-
