@@ -1,3 +1,14 @@
+"""
+The module provides functionality for sending email messages with optional attachments using the SMTP protocol.
+
+It defines an abstract base class `EmailSender` for sending emails, 
+and a concrete implementation `SMTPEmailSender` that uses the SMTP protocol over SSL. 
+The `EmailWithAttachments` class is responsible for constructing the email with various content types 
+(plain text, HTML, files, images) and sending it using the provided `EmailSender` implementation.
+
+Custom exceptions and utility functions are also included for error handling and content management.
+"""
+
 import smtplib
 import ssl
 from abc import ABC, abstractmethod
@@ -116,16 +127,16 @@ class EmailContent:
     Content for email body.
     """
 
-    plain_text: str | bytes | None = None
-    html_name: str | bytes | None = None
-    file_name: Path | str | None = None
-    image_name: Path | str | None = None
+    plain: str | bytes | None = None
+    html: str | bytes | None = None
+    file: Path | str | None = None
+    image: Path | str | None = None
 
     def __bool__(self) -> bool:
         """
         Instance must have one attribute as not None at least to return True.
         """
-        return any([self.plain_text, self.html_name, self.file_name, self.image_name])
+        return any([self.plain, self.html, self.file, self.image])
 
 
 class EmailWithAttachments:
@@ -198,29 +209,29 @@ class EmailWithAttachments:
         if not attachments:
             raise EmptyMessageException
 
-        if attachments.plain_text is not None:
+        if attachments.plain is not None:
             plain_content = (
-                self._read_bytes_content(attachments.plain_text)
-                if isinstance(attachments.plain_text, bytes)
-                else self._read_string_content(attachments.plain_text)  # type: ignore
+                self._read_bytes_content(attachments.plain)
+                if isinstance(attachments.plain, bytes)
+                else self._read_string_content(attachments.plain)  # type: ignore
             )
 
             document = self._create_mimetype_document("plain_text", plain_content)
             self._attachments_data["plain_text"] = document
 
-        if attachments.html_name is not None:
+        if attachments.html is not None:
             html_content = (
-                self._read_bytes_content(attachments.html_name)  # type: ignore
-                if isinstance(attachments.html_name, bytes)
-                else self._read_string_content(attachments.html_name)  # type: ignore
+                self._read_bytes_content(attachments.html)  # type: ignore
+                if isinstance(attachments.html, bytes)
+                else self._read_string_content(attachments.html)  # type: ignore
             )
             document = self._create_mimetype_document("html", html_content)
             self._attachments_data["html"] = document
 
-        if attachments.file_name is not None:
-            file_content = self._read_media_content(attachments.file_name)
+        if attachments.file is not None:
+            file_content = self._read_media_content(attachments.file)
             file = self._create_mimetype_document("file", file_content)
-            filename = attachments.file_name.stem if isinstance(attachments.file_name, Path) else attachments.file_name
+            filename = attachments.file.stem if isinstance(attachments.file, Path) else attachments.file
 
             # add header as key/value pair to attachment part
             file.add_header(
@@ -229,12 +240,10 @@ class EmailWithAttachments:
             )
             self._attachments_data["file"] = file
 
-        if attachments.image_name is not None:
-            image_content = self._read_media_content(attachments.image_name)
+        if attachments.image is not None:
+            image_content = self._read_media_content(attachments.image)
             image = self._create_mimetype_document("image", image_content)
-            imagename = (
-                attachments.image_name.stem if isinstance(attachments.image_name, Path) else attachments.image_name
-            )
+            imagename = attachments.image.stem if isinstance(attachments.image, Path) else attachments.image
 
             # add header as key/value pair to attachment part
             image.add_header(

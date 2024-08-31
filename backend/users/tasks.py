@@ -13,6 +13,6 @@ def send_verification_email(user_email: str, context: dict[str, Any]) -> None:
     """
     html_body = email_sender.render_to_string("email_verification.html", context)
     subject = "Email verification"
-    content = EmailContent(html_name=html_body)
+    content = EmailContent(html=html_body)
 
     email_sender.send_mail(send_to=user_email, subject=subject, content=content)
