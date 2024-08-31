@@ -61,6 +61,7 @@ class ShowUser(BaseModel):
     id: int
     email: str
     role: str
+    is_verified: bool
     hashed_password: str
     token: str | None
     proxy_login: str | None
@@ -92,3 +93,14 @@ class UpdateUser(BaseModel):
     old_password: str | None = Field(max_length=30, min_length=10, default=None)
     new_password: str | None = Field(max_length=30, min_length=10, default=None)
     update_token: bool = False
+
+
+class CheckOTP(BaseModel):
+    """
+    Class represents fields for verifying entered OTP
+    along with identifying a user by the given uid and token from URL.
+    """
+
+    entered_otp: str
+    uid: str
+    token: str = Field(max_length=32, min_length=32)

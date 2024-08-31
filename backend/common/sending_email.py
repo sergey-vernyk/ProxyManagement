@@ -171,10 +171,13 @@ class EmailWithAttachments:
         except FileNotFoundError as e:
             raise e
 
-    def _read_string_content(self, source: str) -> str:
+    def _read_string_content(self, source: str | Path) -> str:
         """
         Reading string content from the given `source`.
         """
+        if isinstance(source, str):
+            return source
+
         try:
             with open(source, "r", encoding=ENCODING) as file:
                 return file.read()
@@ -208,7 +211,7 @@ class EmailWithAttachments:
         if attachments.html_name is not None:
             html_content = (
                 self._read_bytes_content(attachments.html_name)  # type: ignore
-                if isinstance(attachments, bytes)
+                if isinstance(attachments.html_name, bytes)
                 else self._read_string_content(attachments.html_name)  # type: ignore
             )
             document = self._create_mimetype_document("html", html_content)
@@ -242,12 +245,12 @@ class EmailWithAttachments:
 
         return self._attachments_data
 
-    def render_to_string(self, template_name: str, context: dict[str, Any]) -> bytes:
+    def render_to_string(self, template_name: str, context: dict[str, Any]) -> str:
         """
         Return the rendered template with the as a string with the provided `context`.
         """
         template = environment.get_template(template_name)
-        return template.render(context).encode(ENCODING)
+        return template.render(context)
 
     def _build_message(self, content: EmailContent) -> MIMEMultipart:
         """

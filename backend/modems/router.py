@@ -16,6 +16,7 @@ from ipaddress import IPv4Address
 from typing import Annotated, Any
 
 from auth.auth_bearer import JWTBearer
+from common.utils import get_base_url
 from config import get_settings
 from conn_utils import send_data_to_socket_server
 from dependencies import DatabaseDependency
@@ -276,9 +277,7 @@ async def get_change_ip_urls(
         Raises:
             HTTPException: if unable to sort response data by field received in `order_by` query param.
         """
-        host = request.base_url.hostname
-        server_port = request.headers.get("X-Forwarded-Port", request.base_url.port)
-        schema = request.base_url.scheme
+        base_url = get_base_url(request)
 
         # try to sort user modems by the given criteria
         # if any of user modems has nullable values an exception will be raised
@@ -295,30 +294,19 @@ async def get_change_ip_urls(
                 "Unable to sort records because some entries contains null values. ",
             ) from e
 
-        url_pattern_default_ports = "{schema}://{host}/modems/{token}/{hashed_value}"
-        url_pattern_other_ports = "{schema}://{host}:{port}/modems/{token}/{hashed_value}"
         urls: list[schemas.ChangeIPUrl] = []
 
         for modem in user_modems:
-            ip = IPv4Address(modem.ip)
-            modem_port = int(modem.port)  # type: ignore
-            external_server_ip = IPv4Address(modem.external_server_ip) if modem.external_server_ip is not None else None
-            internal_server_ip = IPv4Address(modem.internal_server_ip) if modem.internal_server_ip is not None else None
-            if server_port in {80, 443}:
-                url = url_pattern_default_ports.format(
-                    schema=schema, host=host, token=db_user.token, hashed_value=modem.hashed_value
-                )
-            else:
-                url = url_pattern_other_ports.format(
-                    schema=schema, host=host, port=server_port, token=db_user.token, hashed_value=modem.hashed_value
-                )
-            url = Url(url)
             data = schemas.ChangeIPUrl(
-                ip=ip,
-                port=modem_port,
-                external_server_ip=external_server_ip,
-                internal_server_ip=internal_server_ip,
-                url=url,
+                ip=IPv4Address(modem.ip),
+                port=int(modem.port),  # type: ignore
+                external_server_ip=(
+                    IPv4Address(modem.external_server_ip) if modem.external_server_ip is not None else None
+                ),
+                internal_server_ip=(
+                    IPv4Address(modem.internal_server_ip) if modem.internal_server_ip is not None else None
+                ),
+                url=Url(f"{base_url}modems/{db_user.token}/{modem.hashed_value}"),
             )
             urls.append(data)
 
@@ -421,10 +409,7 @@ async def get_change_ip_page(
     1. Query the database to find the modem associated with the provided `token` and `hashed_value`.
     2. Determine if the link is valid based on whether the modem is found.
     3. Extract the hostname, port, and schema (HTTP/HTTPS) from the request's base URL.
-    4. Construct the appropriate WebSocket root URL (`ws_root_url`) based on the request schema:
-       - For HTTPS, use `wss://`.
-       - For HTTP, use `ws://`.
-       - If the port is non-standard (not 80 or 443), include it in the URL.
+    4. Construct the appropriate WebSocket root URL (`ws_root_url`).
     5. Render the "change_ip.html" template, passing the constructed `ws_root_url`, `token`, `hashed_value`,
        and `link_is_valid` to the template context.
     """
@@ -433,14 +418,9 @@ async def get_change_ip_page(
     )
     link_is_valid = modem is not None
 
-    host = request.base_url.hostname
-    port = request.headers.get("X-Forwarded-Port", request.base_url.port)
-    schema = request.base_url.scheme
-
-    if schema == "https":
-        ws_root_url = f"wss://{host}:{port}/ws/modems/" if port not in {80, 443} else f"wss://{host}/ws/modems/"
-    elif schema == "http":
-        ws_root_url = f"ws://{host}:{port}/ws/modems/" if port not in {80, 443} else f"ws://{host}/ws/modems/"
+    http_base_url = get_base_url(request)
+    ws_base_url = http_base_url.replace("http", "ws", 1)
+    ws_path = "ws/modems/"
 
     return templates.TemplateResponse(
         request,
@@ -448,7 +428,7 @@ async def get_change_ip_page(
         context={
             "link_is_valid": link_is_valid,
             "modem_id": modem.id if modem is not None else None,
-            "ws_root_url": ws_root_url,
+            "ws_root_url": f"{ws_base_url}{ws_path}",
             "token": token,
             "hashed_value": hashed_value,
         },

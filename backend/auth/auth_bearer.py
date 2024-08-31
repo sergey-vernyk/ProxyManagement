@@ -59,7 +59,7 @@ class JWTBearer(HTTPBearer):
             if self.verify_jwt(credentials.credentials, db):
                 return credentials.credentials
 
-        raise HTTPException(status.HTTP_403_FORBIDDENi, "Invalid authorization code.")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid authorization code.")
 
     def verify_jwt(self, token: str, db: Session) -> bool:
         """

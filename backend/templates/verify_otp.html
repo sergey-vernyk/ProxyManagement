@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify email</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="/static/verify_otp.js"></script>
+    <style>
+        body {
+            font-family: Georgia, 'Times New Roman', Times, serif, sans-serif;
+            background-color: #e2e1e1;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        form label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        form input[type="text"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-family: Georgia, 'Times New Roman', Times, serif, sans-serif;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .message {
+            margin-top: 20px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .message.success {
+            color: green;
+        }
+
+        .message.error {
+            color: rgb(235, 27, 27);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Enter your code from email message</h2>
+
+        <form id="otp-form" data-url="{{compare_codes_url}}">
+            <label for="otp-input">Code:</label>
+            <input type="text" id="otp-input" name="otp" required>
+            <input id="token" type="hidden" name="token" value="{{token}}" readonly required>
+            <input id="uid" type="hidden" name="uid" value="{{uid}}" readonly required>
+            <button type="submit">Verify code</button>
+        </form>
+
+        <p class="message" id="otp-message"></p>
+    </div>
+
+</body>
+
+</html>

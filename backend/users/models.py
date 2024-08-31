@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from db_connection import Base
-from sqlalchemy import Column, DateTime, Enum, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
 from sqlalchemy.orm import relationship
 
 from .schemas import HashType, UserRole
@@ -18,6 +18,7 @@ class UserAbstract(Base):
     email = Column(String(50), unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.REGULAR)
+    is_verified = Column(Boolean, default=False, nullable=False)
     created = Column(DateTime(timezone=True), default=datetime.now, nullable=False)
     updated = Column(DateTime(timezone=True), onupdate=datetime.now, nullable=True)
 
@@ -36,6 +37,7 @@ class User(UserAbstract):
     proxy_password_hash_type = Column(Enum(HashType), nullable=True)
 
     user_modems = relationship("Modem", back_populates="bind_user", lazy="selectin")
+    user_otps = relationship("OTP", back_populates="user", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"{self.email}"

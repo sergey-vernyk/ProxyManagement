@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     email_from: str
     email_port: int
 
+    # email verification
+    otp_expire_time: int  # minutes
+
     model_config = SettingsConfigDict(env_file=f"{PARENT_DIR_PATH}/.env", env_file_encoding="utf-8")
 
 

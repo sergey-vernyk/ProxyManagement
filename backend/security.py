@@ -1,4 +1,6 @@
 import hashlib
+import random
+from string import digits
 
 import bcrypt
 from config import get_settings
@@ -42,3 +44,29 @@ def generate_md5_crypt_hash_password(password: str, salt: bool = False) -> str:
         passwd_salt = bcrypt.gensalt()
 
     return md5_crypt.hash(password, salt=passwd_salt)
+
+
+def generate_random_otp(length: int = 8) -> str:
+    """
+    Generates random one-time password (OTP).
+
+    Args:
+        length (int, optional): length of the generated plain code. Defaults to 8.
+
+    Returns:
+        str: random plain otp.
+    """
+    return "".join(random.sample(digits, length))
+
+
+def generate_hashed_otp(plain_code: str) -> str:
+    """
+    Generate hashed OTP from provided `plain_code`.
+
+    Args:
+        plain_code (str): string for generating hash.
+
+    Returns:
+        str: hash value.
+    """
+    return hashlib.sha256(plain_code.encode(ENCODING)).hexdigest()
