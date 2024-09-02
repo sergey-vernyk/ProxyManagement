@@ -78,6 +78,10 @@
         .message.error {
             color: rgb(235, 27, 27);
         }
+
+        #repeat-create-otp {
+            color: rgb(46, 67, 223);
+        }
     </style>
 </head>
 
@@ -85,7 +89,7 @@
     <div class="container">
         <h2>Enter your code from email message</h2>
 
-        <form id="otp-form" data-url="{{compare_codes_url}}">
+        <form id="otp-form" data-url="{{compare_codes_url}}" data-repeat-url={{repeat_compare_codes_url}}>
             <label for="otp-input">Code:</label>
             <input type="text" id="otp-input" name="otp" required>
             <input id="token" type="hidden" name="token" value="{{token}}" readonly required>

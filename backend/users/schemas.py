@@ -95,12 +95,23 @@ class UpdateUser(BaseModel):
     update_token: bool = False
 
 
-class CheckOTP(BaseModel):
+class EnteredCheckOTP(BaseModel):
     """
     Class represents fields for verifying entered OTP
     along with identifying a user by the given uid and token from URL.
     """
 
     entered_otp: str
+    uid: str
+    token: str = Field(max_length=32, min_length=32)
+
+
+class RecheckOTPOnDemand(BaseModel):
+    """
+    Class represents fields for re-checking entered OTP,
+    if a user requested another one OTP when the OTP was
+    expired or not correct.
+    """
+
     uid: str
     token: str = Field(max_length=32, min_length=32)

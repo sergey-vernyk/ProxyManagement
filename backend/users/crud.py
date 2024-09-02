@@ -48,14 +48,32 @@ def get_user_by_email(db: Session, email: str) -> models.User | None:
     return db.query(models.User).filter(models.User.email == email).first()
 
 
-def get_users(db: Session, user_type: str | None, offset: int = 0, limit: int = 100) -> list[models.User]:
+def get_users(
+    db: Session, user_type: str | None, is_verified: bool = True, offset: int = 0, limit: int = 100
+) -> list[models.User]:
     """
-    Returns all users within `offset` and `limit`.
+    Returns users with the params
+
+    Args:
+        db (Session): database session.
+        user_type (str | None): type of users who will be get: regular or admin.
+        is_verified (bool, optional): users who are verified their email or not verified. Defaults to True.
+        offset (int, optional): skip records from the start of results. Defaults to 0.
+        limit (int, optional): number of records to get from all select condition. Defaults to 100.
+
+    Returns:
+        list[models.User]: list of the users corresponding to the params above.
     """
     if user_type is not None:
-        return db.query(models.User).filter(models.User.role == user_type).offset(offset).limit(limit).all()
+        return (
+            db.query(models.User)
+            .filter(models.User.role == user_type, models.User.is_verified == is_verified)
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
-    return db.query(models.User).offset(offset).limit(limit).all()
+    return db.query(models.User).filter(models.User.is_verified == is_verified).offset(offset).limit(limit).all()
 
 
 def update_user_info(db: Session, instance: models.User, data_to_update: dict[Any, Any]) -> models.User:

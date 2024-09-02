@@ -1,23 +1,24 @@
 """
 Module contains endpoints for users:
+- send_otp_email
 - create_user
 - get_user
 - get_users
 - update_user_proxy_credentials
 - update_user
 - delete_user
+- compare_codes
+- verify_email_page
 """
 
 import random
-from base64 import urlsafe_b64decode, urlsafe_b64encode
-from datetime import datetime, timedelta
+from base64 import urlsafe_b64decode
 from secrets import token_urlsafe
 from typing import Annotated, Any
 
 from auth.auth_bearer import JWTBearer
-from auth.otp import crud as otp_crud
-from auth.otp import schemas as otp_schemas
 from auth.otp.models import OTP
+from auth.otp.utils import send_otp_email_handler
 from common.utils import get_base_url
 from config import get_settings
 from dependencies import DatabaseDependency
@@ -30,13 +31,13 @@ from logs.logging_conf import get_endpoint_logger
 from modems.crud import get_modem_by_ip
 from pydantic import EmailStr, IPvAnyAddress
 from security import (encrypt_modem_password, generate_hashed_otp,
-                      generate_md5_crypt_hash_password, generate_random_otp,
-                      get_password_hash, verify_password)
+                      generate_md5_crypt_hash_password, get_password_hash,
+                      verify_password)
 from sqlalchemy import delete
 from starlette.templating import _TemplateResponse
 from validators import validate_email_format
 
-from . import crud, models, schemas, tasks
+from . import crud, models, schemas
 
 settings = get_settings()
 ENCODING = settings.default_encoding
@@ -44,6 +45,37 @@ templates = Jinja2Templates(directory="templates")
 
 logger = get_endpoint_logger()
 router = APIRouter()
+
+
+@router.post(
+    "/users/send_verification_email/",
+    name="send_verification_email",
+    status_code=status.HTTP_200_OK,
+    response_class=JSONResponse,
+    operation_id="send-email-otp",
+    description="Send an email message with OTP to a user email for verification the user's email after registration.",
+    responses={200: {"description": "Successful"}},
+)
+async def send_otp_email(
+    request: Request,
+    body: schemas.RecheckOTPOnDemand,
+    db: DatabaseDependency,
+    bg_tasks: BackgroundTasks,
+) -> JSONResponse:
+    """
+    Sends OTP to a user using FastAPI background tasks implementation.
+
+    Args:
+        request (Request): HTTP request.
+        user_info (schemas.VerificationEmailUserData): Pydantic model with the user data for sending verification email.
+        db (DatabaseDependency): database dependency injection.
+        bg_tasks (BackgroundTasks): FastAPI background task implementation.
+
+    Returns:
+        JSONResponse: JSON response with the status of sending an email.
+    """
+    await send_otp_email_handler(bg_tasks, request, body.token, db, body.uid)
+    return JSONResponse("Email has been sent successfully.", status.HTTP_200_OK)
 
 
 @router.post(
@@ -66,20 +98,6 @@ async def create_user(
     """
     Create a user or raise an exception if user with provided email is already exists.
     """
-
-    def create_otp() -> str:
-        """
-        Create OTP, create OPT object with the created OTP plain string.
-
-        Returns:
-            str: random plain OTP.
-        """
-        otp_code = generate_random_otp()
-        otp_expires = datetime.now() + timedelta(minutes=settings.otp_expire_time)
-        otp_data = otp_schemas.CreateOTP(user_id=int(user.id), code=generate_hashed_otp(otp_code), expires_at=otp_expires)  # type: ignore
-        otp_crud.create_otp(db, otp_data)
-        return otp_code
-
     try:
         valid_email = validate_email_format(body.email)
     except ValueError as e:
@@ -119,21 +137,7 @@ async def create_user(
         proxy_password_hashed,
     )
 
-    base_url = get_base_url(request)
-    uid = urlsafe_b64encode(str(user.id).encode(ENCODING)).decode(ENCODING)
-    path = f"users/verify_email/{uid}/{user.token}"
-    verification_url = f"{base_url}{path}"
-
-    bg_tasks.add_task(
-        tasks.send_verification_email,
-        str(user.email),
-        context={
-            "email": user.email,
-            "otp_code": create_otp(),
-            "verification_url": verification_url,
-            "otp_expire_time": settings.otp_expire_time,
-        },
-    )
+    await send_otp_email_handler(bg_tasks, request, str(user.token), db)
     return user
 
 
@@ -149,13 +153,19 @@ async def create_user(
 async def get_users(
     db: DatabaseDependency,
     user_type: Annotated[str, Query(description="Type of user: admin or regular.", default="regular")] | None = None,
+    is_verified: Annotated[
+        bool,
+        Query(
+            description="Get users who are either verified, not verified their email or all users.",
+        ),
+    ] = True,
     skip: int = 0,
     limit: int = 100,
 ) -> list[models.User]:
     """
     Returns all users between `skip` and `limit` that are `admin`, `regular`, or any of them.
     """
-    return crud.get_users(db, user_type, offset=skip, limit=limit)
+    return crud.get_users(db, user_type, is_verified, offset=skip, limit=limit)
 
 
 @router.get(
@@ -353,14 +363,19 @@ async def verify_email_page(request: Request, uid: str, token: str) -> _Template
         _TemplateResponse: Renders the "verify_email.html" template.
     """
     base_url = get_base_url(request)
-    path = "users/compare_codes/"
-    compare_codes_url = f"{base_url}{path}"
+
+    compare_path = request.url_for("compare_codes").components.path
+    repeat_path = request.url_for("send_verification_email").components.path
+
+    compare_codes_url = f"{base_url}{compare_path}"
+    repeat_compare_codes_url = f"{base_url}{repeat_path}"
 
     return templates.TemplateResponse(
         request,
         name="verify_otp.html",
         context={
             "compare_codes_url": compare_codes_url,
+            "repeat_compare_codes_url": repeat_compare_codes_url,
             "uid": uid,
             "token": token,
         },
@@ -369,15 +384,17 @@ async def verify_email_page(request: Request, uid: str, token: str) -> _Template
 
 @router.post(
     "/users/compare_codes/",
+    name="compare_codes",
     response_class=JSONResponse,
     status_code=status.HTTP_200_OK,
+    description="Compare OTP received from a client with OTP saved in database.",
     operation_id="compare-codes-for-verify-email",
     responses={
         200: {"description": "Successful"},
         400: {"description": "Code is incorrect or expired"},
     },
 )
-async def compare_codes(body: schemas.CheckOTP, db: DatabaseDependency) -> JSONResponse:
+async def compare_codes(body: schemas.EnteredCheckOTP, db: DatabaseDependency) -> JSONResponse:
     """
     Compare OTP received from a client with OTP saved in database
     in order to verify user's email.
@@ -412,7 +429,7 @@ async def compare_codes(body: schemas.CheckOTP, db: DatabaseDependency) -> JSONR
     entered_otp_hashed = generate_hashed_otp(entered_otp_plain)
 
     code_incorrect_response = JSONResponse(
-        {"error": "The code you entered is incorrect. Please, try again."},
+        {"error": "The code you entered is incorrect."},
         status.HTTP_400_BAD_REQUEST,
     )
 

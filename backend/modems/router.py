@@ -306,7 +306,7 @@ async def get_change_ip_urls(
                 internal_server_ip=(
                     IPv4Address(modem.internal_server_ip) if modem.internal_server_ip is not None else None
                 ),
-                url=Url(f"{base_url}modems/{db_user.token}/{modem.hashed_value}"),
+                url=Url(f"{base_url}/modems/{db_user.token}/{modem.hashed_value}"),
             )
             urls.append(data)
 
@@ -419,8 +419,8 @@ async def get_change_ip_page(
     link_is_valid = modem is not None
 
     http_base_url = get_base_url(request)
+    ws_path = request.url_for("change_ip").components.path
     ws_base_url = http_base_url.replace("http", "ws", 1)
-    ws_path = "ws/modems/"
 
     return templates.TemplateResponse(
         request,
