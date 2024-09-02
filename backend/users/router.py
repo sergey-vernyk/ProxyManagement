@@ -345,6 +345,7 @@ async def delete_user(request: Request, email: EmailStr, db: DatabaseDependency)
 @router.get(
     "/users/verify_email/{uid}/{token}",
     response_class=HTMLResponse,
+    name="verify_email",
     status_code=status.HTTP_200_OK,
     operation_id="verify-user-email",
     include_in_schema=False,

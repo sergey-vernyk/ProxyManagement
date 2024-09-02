@@ -1,5 +1,5 @@
 from datetime import datetime
-from enum import Enum
+from enum import Enum, auto
 
 from modems.schemas import ShowModemForUser
 from pydantic import BaseModel, EmailStr, Field
@@ -10,8 +10,8 @@ class UserRole(str, Enum):
     Users roles in the system.
     """
 
-    ADMIN = "admin"
-    REGULAR = "regular"
+    ADMIN = auto()
+    REGULAR = auto()
 
 
 class HashType(str, Enum):
@@ -19,8 +19,8 @@ class HashType(str, Enum):
     Type of the hash for a password.
     """
 
-    MD5 = "md5"
-    SHA256 = "sha256"
+    MD5 = auto()
+    SHA256 = auto()
 
 
 class UserBase(BaseModel):
@@ -40,7 +40,7 @@ class CreateRegularUser(UserBase):
 
     proxy_password_plain: str = Field(min_length=10, max_length=30)
     proxy_password_hash_type: HashType | None = None
-    role: UserRole = Field(default=UserRole(UserRole.REGULAR))
+    role: UserRole = Field(default=UserRole.REGULAR)
 
 
 class CreateAdminUser(UserBase):
@@ -50,7 +50,7 @@ class CreateAdminUser(UserBase):
 
     email: EmailStr
     password: str = Field(min_length=10, max_length=30)
-    role: UserRole = Field(default=UserRole(UserRole.ADMIN))
+    role: UserRole = Field(default=UserRole.ADMIN)
 
 
 class ShowUser(BaseModel):

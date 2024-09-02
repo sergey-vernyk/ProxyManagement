@@ -56,8 +56,8 @@ async def send_otp_email_handler(
     if user is not None:
         if uid is None:
             uid = urlsafe_b64encode(str(user.id).encode(ENCODING)).decode(ENCODING)
-        path = f"users/verify_email/{uid}/{user_token}"
-        verification_url = f"{base_url}{path}"
+        verification_path = request.url_for("verify_email", uid=uid, token=user_token).components.path
+        verification_url = f"{base_url}{verification_path}"
         bg_tasks.add_task(
             tasks.send_verification_email,
             str(user.email),

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 
 class Token(BaseModel):
@@ -16,3 +16,12 @@ class TokenData(BaseModel):
     """
 
     email: str | None = None
+
+
+class RegisterUser(BaseModel):
+    """
+    Class represents fields for user registration.
+    """
+
+    email: EmailStr
+    password: str = Field(min_length=10, max_length=30)
