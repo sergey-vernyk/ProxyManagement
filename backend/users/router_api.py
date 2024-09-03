@@ -1,40 +1,30 @@
 """
 Module contains endpoints for users:
-- send_otp_email
 - create_user
 - get_user
 - get_users
 - update_user_proxy_credentials
 - update_user
 - delete_user
-- compare_codes
-- verify_email_page
 """
 
 import random
-from base64 import urlsafe_b64decode
 from secrets import token_urlsafe
 from typing import Annotated, Any
 
 from auth.auth_bearer import JWTBearer
-from auth.otp.models import OTP
 from auth.otp.utils import send_otp_email_handler
-from common.utils import get_base_url
 from config import get_settings
 from dependencies import DatabaseDependency
 from fastapi import (APIRouter, BackgroundTasks, Depends, HTTPException, Query,
                      status)
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from logs.logging_conf import get_endpoint_logger
 from modems.crud import get_modem_by_ip
 from pydantic import EmailStr, IPvAnyAddress
-from security import (encrypt_modem_password, generate_hashed_otp,
-                      generate_md5_crypt_hash_password, get_password_hash,
-                      verify_password)
-from sqlalchemy import delete
-from starlette.templating import _TemplateResponse
+from security import (encrypt_modem_password, generate_md5_crypt_hash_password,
+                      get_password_hash, verify_password)
 from validators import validate_email_format
 
 from . import crud, models, schemas
@@ -45,37 +35,6 @@ templates = Jinja2Templates(directory="templates")
 
 logger = get_endpoint_logger()
 router = APIRouter()
-
-
-@router.post(
-    "/users/send_verification_email/",
-    name="send_verification_email",
-    status_code=status.HTTP_200_OK,
-    response_class=JSONResponse,
-    operation_id="send-email-otp",
-    description="Send an email message with OTP to a user email for verification the user's email after registration.",
-    responses={200: {"description": "Successful"}},
-)
-async def send_otp_email(
-    request: Request,
-    body: schemas.RecheckOTPOnDemand,
-    db: DatabaseDependency,
-    bg_tasks: BackgroundTasks,
-) -> JSONResponse:
-    """
-    Sends OTP to a user using FastAPI background tasks implementation.
-
-    Args:
-        request (Request): HTTP request.
-        user_info (schemas.VerificationEmailUserData): Pydantic model with the user data for sending verification email.
-        db (DatabaseDependency): database dependency injection.
-        bg_tasks (BackgroundTasks): FastAPI background task implementation.
-
-    Returns:
-        JSONResponse: JSON response with the status of sending an email.
-    """
-    await send_otp_email_handler(bg_tasks, request, body.token, db, body.uid)
-    return JSONResponse("Email has been sent successfully.", status.HTTP_200_OK)
 
 
 @router.post(
@@ -340,124 +299,3 @@ async def delete_user(request: Request, email: EmailStr, db: DatabaseDependency)
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email is not exists.")
 
     crud.delete_user(db, valid_email)
-
-
-@router.get(
-    "/users/verify_email/{uid}/{token}",
-    response_class=HTMLResponse,
-    name="verify_email",
-    status_code=status.HTTP_200_OK,
-    operation_id="verify-user-email",
-    include_in_schema=False,
-)
-async def verify_email_page(request: Request, uid: str, token: str) -> _TemplateResponse:
-    """
-    HTTP GET endpoint to serve user's email verification page.
-    User will be on the page, after following by URL in their email after registration.
-
-    Args:
-        request (Request): HTTP request.
-        uid (str): user ID, encoded in base64_urlsafe format.
-        token (str): user token which generates after user registration.
-
-    Returns:
-        _TemplateResponse: Renders the "verify_email.html" template.
-    """
-    base_url = get_base_url(request)
-
-    compare_path = request.url_for("compare_codes").components.path
-    repeat_path = request.url_for("send_verification_email").components.path
-
-    compare_codes_url = f"{base_url}{compare_path}"
-    repeat_compare_codes_url = f"{base_url}{repeat_path}"
-
-    return templates.TemplateResponse(
-        request,
-        name="verify_otp.html",
-        context={
-            "compare_codes_url": compare_codes_url,
-            "repeat_compare_codes_url": repeat_compare_codes_url,
-            "uid": uid,
-            "token": token,
-        },
-    )
-
-
-@router.post(
-    "/users/compare_codes/",
-    name="compare_codes",
-    response_class=JSONResponse,
-    status_code=status.HTTP_200_OK,
-    description="Compare OTP received from a client with OTP saved in database.",
-    operation_id="compare-codes-for-verify-email",
-    responses={
-        200: {"description": "Successful"},
-        400: {"description": "Code is incorrect or expired"},
-    },
-)
-async def compare_codes(body: schemas.EnteredCheckOTP, db: DatabaseDependency) -> JSONResponse:
-    """
-    Compare OTP received from a client with OTP saved in database
-    in order to verify user's email.
-
-    If provided by user OTP will turn to be the same as OTP from the DB,
-    then the user's `is_verified` field will be set as True.
-
-    Args:
-        body (schemas.CheckOTP): HTTP Request body:
-            - entered OTP from a client,
-            - user ID in urlsafe_base64 format,
-            - user token.
-        db (DatabaseDependency): database session.
-
-    Returns:
-        JSONResponse: HTTP response with status about correctness of the provided code by a client.
-    """
-
-    def delete_otp(pk: int) -> None:
-        """
-        Delete OTP, related to user, from the DB if it was expired or successfully
-        compared with the OTP provided by the user.
-
-        Args:
-            pk (int): OTP primary key.
-        """
-        stmt = delete(OTP.__table__).where(OTP.id == pk)
-        db.execute(stmt)
-        db.commit()
-
-    entered_otp_plain = body.entered_otp
-    entered_otp_hashed = generate_hashed_otp(entered_otp_plain)
-
-    code_incorrect_response = JSONResponse(
-        {"error": "The code you entered is incorrect."},
-        status.HTTP_400_BAD_REQUEST,
-    )
-
-    db_otp_hashed = (
-        db.query(OTP)
-        .join(models.User)
-        .filter(
-            models.User.id == urlsafe_b64decode(body.uid).decode(ENCODING),
-            OTP.code == entered_otp_hashed,
-        )
-    ).first()
-
-    if db_otp_hashed is None:
-        return code_incorrect_response
-
-    if db_otp_hashed.is_expired:
-        delete_otp(db_otp_hashed.id)  # type: ignore
-        return JSONResponse(
-            {"error": "Code is expired."},
-            status.HTTP_400_BAD_REQUEST,
-        )
-
-    # mark the user as verified their email
-    setattr(db_otp_hashed.user, "is_verified", True)
-    db.commit()
-    delete_otp(db_otp_hashed.id)  # type: ignore
-    return JSONResponse(
-        {"success": "The code you entered is correct. Email has been verified."},
-        status.HTTP_200_OK,
-    )

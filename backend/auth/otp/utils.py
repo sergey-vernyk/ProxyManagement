@@ -7,9 +7,9 @@ from fastapi import BackgroundTasks
 from fastapi.requests import Request
 from security import generate_hashed_otp, generate_random_otp
 from sqlalchemy.orm import Session
-from users import tasks
 from users.models import User
 
+from ..tasks import send_verification_email
 from .crud import create_otp as create_otp_crud
 from .schemas import CreateOTP
 
@@ -59,7 +59,7 @@ async def send_otp_email_handler(
         verification_path = request.url_for("verify_email", uid=uid, token=user_token).components.path
         verification_url = f"{base_url}{verification_path}"
         bg_tasks.add_task(
-            tasks.send_verification_email,
+            send_verification_email,
             str(user.email),
             context={
                 "email": str(user.email),

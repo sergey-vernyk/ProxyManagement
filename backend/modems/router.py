@@ -385,7 +385,6 @@ async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
     "/modems/{token}/{hashed_value}",
     response_class=HTMLResponse,
     status_code=status.HTTP_200_OK,
-    include_in_schema=False,
 )
 async def get_change_ip_page(
     request: Request,
