@@ -4,7 +4,15 @@ version = "0.1.0"
 description = "Async interaction beetwen socket server and client"
 authors = ["Sergey Vernigora <volt.awp@gmail.com>"]
 readme = "README.md"
-packages = [{ include = "sockets" }, { include = "users" }, { include = "modems" }]
+packages = [
+    { include = "sockets" },
+    { include = "users" },
+    { include = "modems" },
+    { include = "common" },
+    { include = "logs" },
+    { include = "auth" },
+    { include = "otp" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
