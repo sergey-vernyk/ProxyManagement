@@ -90,8 +90,10 @@ def stop() -> None:
     except Exception as e:
         logger.error("Error reading PID file: %s", str(e))
     finally:
-        os.remove(PID_FILE_LOCATION)
-        os.remove(CONN_COUNT_FILE_LOCATION)
+        if pathlib.Path(CONN_COUNT_FILE_LOCATION).exists():
+            os.remove(CONN_COUNT_FILE_LOCATION)
+        if pathlib.Path(PID_FILE_LOCATION).exists():
+            os.remove(PID_FILE_LOCATION)
 
 
 @click.command()
