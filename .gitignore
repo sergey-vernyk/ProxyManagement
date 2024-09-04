@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 .vscode/
 .idea/
+*.pid
+conn_count.txt

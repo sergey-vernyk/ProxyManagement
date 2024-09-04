@@ -11,7 +11,6 @@ packages = [
     { include = "common" },
     { include = "logs" },
     { include = "auth" },
-    { include = "otp" },
 ]
 
 [tool.poetry.dependencies]
@@ -33,10 +32,9 @@ passlib = "^1.7.4"
 websockets = "^12.0"
 jinja2 = "^3.1.4"
 
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-socket-server = "cli:cli"
+socket-server = "cli:cli_server"

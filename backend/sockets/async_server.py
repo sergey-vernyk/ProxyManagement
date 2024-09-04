@@ -1,4 +1,6 @@
 import asyncio
+import os
+import pathlib
 from dataclasses import dataclass, field
 from ipaddress import IPv4Address
 
@@ -12,6 +14,8 @@ settings = get_settings()
 ENCODING: str = settings.default_encoding
 START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
 STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
+PID_FILE_LOCATION = "sockets/server.pid"
+CONN_COUNT_FILE_LOCATION = "sockets/conn_count.txt"
 
 logger = get_socket_server_logger()
 
@@ -180,9 +184,36 @@ class AsyncSocketServer:
         self._connection_data: dict[asyncio.StreamWriter, ServerConnectionData] = {}
         self._socket: asyncio.AbstractServer | None = None
 
+    @staticmethod
+    def _save_conn_id_to_file(conn_id: str) -> None:
+        """
+        Save connection ID to the file.
+
+        Args:
+            conn_id (str): connection ID which will be saved.
+        """
+        conn_count_file = pathlib.Path(CONN_COUNT_FILE_LOCATION)
+        conn_count_file.write_text(conn_id, encoding=ENCODING)
+
     @classmethod
-    def _get_next_conn_id(cls) -> int:
-        cls._conn_id_counter += 1
+    def _get_conn_id(cls, incr: bool) -> int:
+        """
+        Get number of accepted connection.
+
+        Args:
+            incr (bool):
+                - increment current number of connection if the server accepted new connection.
+                - decrement current number of connections if a client closed the connection.
+
+        Returns:
+            int: current number of connections.
+        """
+        if incr:
+            cls._conn_id_counter += 1
+        else:
+            cls._conn_id_counter -= 1
+
+        cls._save_conn_id_to_file(str(cls._conn_id_counter))
         return cls._conn_id_counter
 
     def _clean_up(self, writer: asyncio.StreamWriter) -> None:
@@ -196,7 +227,9 @@ class AsyncSocketServer:
             writer (asyncio.StreamWriter): The stream writer for the client connection.
         """
         writer_connection = self._connection_data[writer].addr
-        logger.info("Closing connection on %s:%d", writer_connection[0], writer_connection[1])
+        # +1 because the method already subtract 1 from connection number
+        current_conn_id = self._get_conn_id(incr=False) + 1
+        logger.info("Closing connection %d on %s:%d", current_conn_id, writer_connection[0], writer_connection[1])
         del self._connection_data[writer]
 
     async def start_server(self) -> None:
@@ -209,8 +242,19 @@ class AsyncSocketServer:
         self._socket = await asyncio.start_server(self.accept_connection, self._host, self._port)
         addr = self._socket.sockets[0].getsockname()
         logger.info("Listening on %s:%d", addr[0], addr[1])
+        self._save_pid()
+
         async with self._socket:
             await self._socket.serve_forever()
+
+    def _save_pid(self) -> None:
+        """
+        Save PID of a current process to the file.
+        This PID will be used for graceful terminated a server by CLI.
+        """
+        pid = os.getpid()
+        pid_file = pathlib.Path(PID_FILE_LOCATION)
+        pid_file.write_text(str(pid), encoding=ENCODING)
 
     def _get_message_indexes(self, input_data: bytes) -> tuple[int, int]:
         """
@@ -242,9 +286,10 @@ class AsyncSocketServer:
             writer (asyncio.StreamWriter): The stream writer for the client connection.
         """
         addr = writer.get_extra_info("peername")
-        logger.info("Accepted connection from %s:%d", addr[0], addr[1])
+        conn_id = self._get_conn_id(incr=True)
+        logger.info("Accepted connection %d from %s:%d", conn_id, addr[0], addr[1])
 
-        data = ServerConnectionData(addr=addr, connid=self._get_next_conn_id())
+        data = ServerConnectionData(addr=addr, connid=conn_id)
         self._connection_data[writer] = data
 
         try:
