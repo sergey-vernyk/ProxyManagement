@@ -1,9 +1,11 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PARENT_DIR_PATH = Path(__file__).resolve().parent
+DEFAULT_ENV_PATH = Path(__file__).resolve().parent / ".env"
+CURRENT_ENV_PATH = os.environ.get("ENV_FILE_PATH", DEFAULT_ENV_PATH)
 
 
 class Settings(BaseSettings):
@@ -49,7 +51,7 @@ class Settings(BaseSettings):
     # email verification
     otp_expire_time: int  # minutes
 
-    model_config = SettingsConfigDict(env_file=f"{PARENT_DIR_PATH}/.env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH, env_file_encoding="utf-8")
 
 
 @lru_cache

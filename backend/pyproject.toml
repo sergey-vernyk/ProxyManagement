@@ -51,3 +51,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 socket-server = "cli.cli:cli_server"
+web-server = "cli.cli:cli_web"

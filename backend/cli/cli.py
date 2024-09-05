@@ -7,22 +7,39 @@ import time
 from datetime import datetime
 
 import click
-from config import get_settings
-from sockets.async_server import (CONN_COUNT_FILE_LOCATION, PID_FILE_LOCATION,
-                                  AsyncSocketServer)
+import uvicorn
 
-settings = get_settings()
-ENCODING = settings.default_encoding
 SERVER_LOGS_LOCATION = "logs/server_logs"
 
 logger = logging.getLogger("socket_server")
 
 
 @click.group()
-def cli_server() -> None:
+@click.option(
+    "--env-file",
+    type=click.Path(exists=True),
+    required=True,
+    help="Location of the environment configuration file.",
+)
+@click.pass_context
+def cli_server(ctx: click.Context, env_file: pathlib.Path) -> None:
     """
     CLI entrypoint for socket server.
+
+    Function loads the environment variables from the provided file and stores
+    the settings object in the context object (ctx) to be shared among subcommands.
+
+    Args:
+        ctx (click.Context): Click's context object for passing data between commands.
+        env_file (pathlib.Path): Path to the environment configuration file.
     """
+    os.environ["ENV_FILE_PATH"] = str(env_file)
+    from config import get_settings  # pylint: disable=C0415
+
+    settings = get_settings()
+
+    ctx.ensure_object(object_type=dict)
+    ctx.obj["settings"] = settings
 
 
 @click.command()
@@ -35,15 +52,21 @@ def cli_server() -> None:
     show_default=True,
     help="The host the server is running on.",
 )
-@click.option("--port", "-p", type=click.INT, required=True, help="The port the server is listening on.")
+@click.option("--port", "-p", type=click.INT, required=True, help="Location of the environment configuration file.")
 def run(host: str, port: int) -> None:
     """
     Run the socket server.
+    Command starts the socket server with the specified host and port.
+    Handles server startup and graceful shutdown on interruption.
 
     Args:
-        host (str): the host the server is running on.
-        port (int): the port is server is running on.
+        host (str): The host the server is running on.
+        port (int): The port the server is listening on.
     """
+    # pylint: disable=C0415
+    from sockets.async_server import (CONN_COUNT_FILE_LOCATION,
+                                      PID_FILE_LOCATION, AsyncSocketServer)
+
     server = AsyncSocketServer(host, port)
     try:
         asyncio.run(server.start_server())
@@ -59,10 +82,24 @@ def run(host: str, port: int) -> None:
 
 
 @click.command()
-def stop() -> None:
+@click.pass_context
+def stop(ctx: click.Context) -> None:
     """
-    Gracefully stop the running socket server by sending SIGTERM signal.
+    Gracefully stop the running socket server by sending a SIGTERM signal.
+
+    This command retrieves the PID of the running server and sends a SIGTERM signal
+    to stop the server gracefully. If any error occurs (e.g., invalid PID, permission issues),
+    an appropriate message is logged.
+
+    Args:
+        ctx (click.Context): The click context object containing the settings.
     """
+    settings = ctx.obj["settings"]
+
+    # pylint: disable=C0415
+    from sockets.async_server import (CONN_COUNT_FILE_LOCATION,
+                                      PID_FILE_LOCATION)
+
     server_pid_file = pathlib.Path(PID_FILE_LOCATION)
 
     if not server_pid_file.exists():
@@ -70,7 +107,7 @@ def stop() -> None:
         return
 
     try:
-        pid = int(server_pid_file.read_text(encoding=ENCODING).strip())
+        pid = int(server_pid_file.read_text(encoding=settings.default_encoding).strip())
 
         if pid is None:
             logger.error("PID is None or invalid.")
@@ -114,16 +151,22 @@ def stop() -> None:
     help="Show last lines in the log file. If False show first lines.",
 )
 @click.option("--follow", "-f", type=click.BOOL, default=False, show_default=True, help="Follow the logs.")
-def logs(lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
+@click.pass_context
+def logs(ctx: click.Context, lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
     """
-    Show the content of most resent log file, taking in account logs rotating mechanism.
+    Display the content of the most recent log file, considering log rotation.
+
+    This command allows users to view log files, either in their entirety or partially,
+    and follow the logs in real time if needed.
 
     Args:
-        lines_count (int, optional): number of lines in the log to show.
-            If 0 show all lines, else show number of lines defined in the variable.
-        last (bool, optional): if True, show last lines in the log file, otherwise show first lines.
-        follow (bool, optional): follow the logs (like tail -f commands). Defaults to False.
+        ctx (click.Context): Click context object containing the settings.
+        lines_count (int): Number of lines in the log to display. Defaults to 0 (all lines).
+        last (bool): If True, display the last lines of the log file, otherwise display the first lines.
+        follow (bool): If True, follow the logs as they are written (like `tail -f`).
     """
+    settings = ctx.obj["settings"]
+
     logs_dir = pathlib.Path(SERVER_LOGS_LOCATION)
 
     try:
@@ -140,7 +183,7 @@ def logs(lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
         return
 
     if last_log_file.exists():
-        with open(last_log_file, encoding=ENCODING) as file:
+        with open(last_log_file, encoding=settings.default_encoding) as file:
             log_lines: list[str] | None = None
             if not follow:
                 lines = file.readlines()
@@ -171,13 +214,23 @@ def logs(lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
 
 
 @click.command()
-def connection_number() -> None:
+@click.pass_context
+def connection_number(ctx: click.Context) -> None:
     """
-    Returns current number of connections to the sever.
+    Show the current number of connections to the server.
+    This command reads the connection count from the appropriate file and displays it.
+
+    Args:
+        ctx (click.Context): Click context object containing the settings.
     """
+    settings = ctx.obj["settings"]
+
+    # pylint: disable=C0415
+    from sockets.async_server import CONN_COUNT_FILE_LOCATION
+
     conn_count_file = pathlib.Path(CONN_COUNT_FILE_LOCATION)
     if conn_count_file.exists():
-        conn_number = int(conn_count_file.read_text(encoding=ENCODING))
+        conn_number = int(conn_count_file.read_text(encoding=settings.default_encoding))
         click.echo(click.style(f"Current number of connection to the server is {conn_number}.", bold=True, fg="cyan"))
     else:
         click.echo(
@@ -193,3 +246,42 @@ cli_server.add_command(run)
 cli_server.add_command(stop)
 cli_server.add_command(logs)
 cli_server.add_command(connection_number)
+
+
+@click.group()
+def cli_web() -> None:
+    """
+    CLI entrypoint for web application.
+    """
+
+
+@click.command()
+@click.option("--host", "-h", type=click.STRING, show_default=True, default="0.0.0.0", help="Server host.")
+@click.option("--port", "-p", type=click.INT, show_default=True, default="8000", help="Server port.")
+@click.option("--workers", type=click.INT, show_default=True, default="2", help="Number of worker processes.")
+@click.option("--env-file", type=click.Path(exists=True), required=True, help="Environment configuration file.")
+def runserver(workers: int, host: str, port: int, env_file: pathlib.Path) -> None:
+    """
+    Run the FastAPI server using uvicorn with the specified options.
+
+    Args:
+        workers (int): Number of worker processes for handling requests.
+        env_file (Optional[pathlib.Path]): Path to the environment configuration file.
+        host (str): The server host address.
+        port (int): The port to bind the server.
+
+    This command sets up and runs the FastAPI server with configurable settings such as
+    host, port, and workers. It also optionally reads an environment configuration file if specified.
+    """
+    config = {
+        "app": "main:app",
+        "host": host,
+        "port": port,
+        "workers": workers,
+        "env_file": env_file,
+    }
+
+    uvicorn.run(**{key: value for key, value in config.items() if value is not None})
+
+
+cli_web.add_command(runserver)
