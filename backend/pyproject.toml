@@ -11,6 +11,19 @@ packages = [
     { include = "common" },
     { include = "logs" },
     { include = "auth" },
+    { include = "cli" },
+]
+
+include = [ 
+    "config.py",
+    "conn_utils.py",
+    "db_connection.py",
+    "dependencies.py",
+    "main.py",
+    "modem_api.py",
+    "security.py",
+    "validators.py",
+    "README.md",
 ]
 
 [tool.poetry.dependencies]
@@ -37,4 +50,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-socket-server = "cli:cli_server"
+socket-server = "cli.cli:cli_server"
