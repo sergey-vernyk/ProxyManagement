@@ -12,18 +12,22 @@ from config import get_settings
 settings = get_settings()
 ENCODING = settings.default_encoding
 
-server_logging_dir = Path(__file__).parent / "server_logs"
-client_logging_dir = Path(__file__).parent / "client_logs"
-endpoint_logging_dir = Path(__file__).parent / "endpoints_logs"
+# server_logging_dir = Path(__file__).parent / "server_logs"
+# client_logging_dir = Path(__file__).parent / "client_logs"
+# endpoint_logging_dir = Path(__file__).parent / "endpoints_logs"
+
+server_logging_dir = Path(r"C:\proxy") / "server_logs"
+client_logging_dir = Path(r"C:\proxy") / "client_logs"
+endpoint_logging_dir = Path(r"C:\proxy") / "endpoints_logs"
 
 if not server_logging_dir.exists():
-    server_logging_dir.mkdir()
+    server_logging_dir.mkdir(parents=True, exist_ok=True)
 
 if not client_logging_dir.exists():
-    client_logging_dir.mkdir()
+    client_logging_dir.mkdir(parents=True, exist_ok=True)
 
 if not endpoint_logging_dir.exists():
-    endpoint_logging_dir.mkdir()
+    endpoint_logging_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_socket_server_logger() -> logging.Logger:

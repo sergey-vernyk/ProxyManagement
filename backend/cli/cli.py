@@ -9,8 +9,6 @@ from datetime import datetime
 import click
 import uvicorn
 
-SERVER_LOGS_LOCATION = "logs/server_logs"
-
 logger = logging.getLogger("socket_server")
 
 
@@ -150,6 +148,7 @@ def stop(ctx: click.Context) -> None:
     show_default=True,
     help="Show last lines in the log file. If False show first lines.",
 )
+#? added follow param without specify true or false
 @click.option("--follow", "-f", type=click.BOOL, default=False, show_default=True, help="Follow the logs.")
 @click.pass_context
 def logs(ctx: click.Context, lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
@@ -166,8 +165,9 @@ def logs(ctx: click.Context, lines_count: int = 0, last: bool = True, follow: bo
         follow (bool): If True, follow the logs as they are written (like `tail -f`).
     """
     settings = ctx.obj["settings"]
+    from logs.logging_conf import server_logging_dir  # pylint: disable=C0415
 
-    logs_dir = pathlib.Path(SERVER_LOGS_LOCATION)
+    logs_dir = pathlib.Path(server_logging_dir)
 
     try:
         # get the last log file even if the file format has *.log1, *.log2 (logs rotating is enabled)

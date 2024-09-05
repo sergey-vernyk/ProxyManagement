@@ -14,8 +14,11 @@ settings = get_settings()
 ENCODING: str = settings.default_encoding
 START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
 STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
-PID_FILE_LOCATION = "sockets/server.pid"
-CONN_COUNT_FILE_LOCATION = "sockets/conn_count.txt"
+# PID_FILE_LOCATION = "sockets/server.pid"
+# CONN_COUNT_FILE_LOCATION = "sockets/conn_count.txt"
+
+PID_FILE_LOCATION = pathlib.Path(r"C:\proxy\server.pid")
+CONN_COUNT_FILE_LOCATION = pathlib.Path(r"C:\proxy\conn_count.txt")
 
 logger = get_socket_server_logger()
 
