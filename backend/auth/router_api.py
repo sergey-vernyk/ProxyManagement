@@ -227,6 +227,7 @@ async def get_access_token(
     email: Annotated[EmailStr, Form()],
     password: Annotated[str, Form(min_length=10, max_length=30)],
     db: DatabaseDependency,
+    request: Request,
 ) -> JSONResponse:
     """
     Get JWT access token for provided user with `email` and `password`.
@@ -246,12 +247,24 @@ async def get_access_token(
     """
     user = db.query(User).filter(User.email == email).first()
     if user is None:
+        logger.info(
+            f"User with the given email {email} does not exist.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exist.")
 
     if user.role.name != UserRole.ADMIN.name:
+        logger.info(
+            "Access token available only for admin users.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Access token available only for admin users.")
 
     if not verify_password(password, str(user.hashed_password)):
+        logger.info(
+            "Incorrect email or password.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect email or password.")
 
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
@@ -309,7 +322,7 @@ async def send_otp_email(
         400: {"description": "Code is incorrect or expired"},
     },
 )
-async def compare_codes(body: EnteredCheckOTP, db: DatabaseDependency) -> JSONResponse:
+async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDependency) -> JSONResponse:
     """
     Compare OTP received from a client with OTP saved in database
     in order to verify user's email.
@@ -323,6 +336,7 @@ async def compare_codes(body: EnteredCheckOTP, db: DatabaseDependency) -> JSONRe
             - user ID in urlsafe_base64 format,
             - user token.
         db (DatabaseDependency): database session.
+        request (Request): HTTP request.
 
     Returns:
         JSONResponse: HTTP response with status about correctness of the provided code by a client.
@@ -343,11 +357,6 @@ async def compare_codes(body: EnteredCheckOTP, db: DatabaseDependency) -> JSONRe
     entered_otp_plain = body.entered_otp
     entered_otp_hashed = generate_hashed_otp(entered_otp_plain)
 
-    code_incorrect_response = JSONResponse(
-        {"error": "The code you entered is incorrect."},
-        status.HTTP_400_BAD_REQUEST,
-    )
-
     db_otp_hashed = (
         db.query(OTP)
         .join(User)
@@ -358,7 +367,14 @@ async def compare_codes(body: EnteredCheckOTP, db: DatabaseDependency) -> JSONRe
     ).first()
 
     if db_otp_hashed is None:
-        return code_incorrect_response
+        logger.info(
+            "Provided OTP does not exist in the database.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
+        return JSONResponse(
+            {"error": "The code you entered is incorrect."},
+            status.HTTP_400_BAD_REQUEST,
+        )
 
     if db_otp_hashed.is_expired:
         delete_otp(db_otp_hashed.id)  # type: ignore
