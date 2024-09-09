@@ -15,18 +15,12 @@ settings = get_settings()
 ENCODING = settings.default_encoding
 
 
-
-
 def get_socket_server_logger() -> logging.Logger:
     """
     Returns logger using for socket server logging.
     """
     logger = logging.getLogger("socket_server")
     if not logger.hasHandlers():  # Check if handlers are already set
-        logger.setLevel(logging.INFO)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s - lino: %(lineno)d", "%Y-%m-%d %H:%M:%S"
-        )
         logger.setLevel(logging.INFO)
         formatter = logging.Formatter(
             "%(asctime)s - %(levelname)s - %(message)s - lino: %(lineno)d", "%Y-%m-%d %H:%M:%S"

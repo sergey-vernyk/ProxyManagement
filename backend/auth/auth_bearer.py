@@ -5,12 +5,14 @@ from dependencies import DatabaseDependency
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from logs.logging_conf import get_endpoint_logger
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from users.models import User
 from users.schemas import UserRole
 
 settings = get_settings()
+logger = get_endpoint_logger()
 
 
 class JWTBearer(HTTPBearer):
@@ -90,13 +92,16 @@ class JWTBearer(HTTPBearer):
             payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
             email = payload.get("sub")
             if email is None:
+                logger.error("JWT has invalid 'sub' value.")
                 raise credentials_exception
 
             user = db.query(User).filter(User.email == email, User.role == UserRole.ADMIN).first()
             if user is None:
+                logger.error("User from JWT 'sub' was not found.")
                 raise credentials_exception
 
         except (JWTError, ValidationError) as exc:
+            logger.error(f"Error occurred while verifying JWT. Reason: {exc}.")
             raise credentials_exception from exc
 
         return True
