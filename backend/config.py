@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # variables for logging
     max_bytes_log_rotating: int = 100_048_576  # 1Mb
     backup_count: int = 10
+    root_dir_win: str
+    root_dir_linux: str
 
     # variables for nginx conf
     domain: str
@@ -50,6 +52,10 @@ class Settings(BaseSettings):
 
     # email verification
     otp_expire_time: int  # minutes
+
+    # socket
+    pid_file: str
+    conn_count_file: str
 
     model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH, env_file_encoding="utf-8")
 

@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import pathlib
 import signal
@@ -8,8 +7,9 @@ from datetime import datetime
 
 import click
 import uvicorn
+from logs.logging_conf import get_socket_server_logger
 
-logger = logging.getLogger("socket_server")
+logger = get_socket_server_logger()
 
 
 @click.group()
@@ -19,25 +19,16 @@ logger = logging.getLogger("socket_server")
     required=True,
     help="Location of the environment configuration file.",
 )
-@click.pass_context
-def cli_server(ctx: click.Context, env_file: pathlib.Path) -> None:
+def cli_server(env_file: pathlib.Path) -> None:
     """
     CLI entrypoint for socket server.
 
-    Function loads the environment variables from the provided file and stores
-    the settings object in the context object (ctx) to be shared among subcommands.
+    Loads the environment variables from the provided file.
 
     Args:
-        ctx (click.Context): Click's context object for passing data between commands.
         env_file (pathlib.Path): Path to the environment configuration file.
     """
     os.environ["ENV_FILE_PATH"] = str(env_file)
-    from config import get_settings  # pylint: disable=C0415
-
-    settings = get_settings()
-
-    ctx.ensure_object(object_type=dict)
-    ctx.obj["settings"] = settings
 
 
 @click.command()
@@ -62,8 +53,8 @@ def run(host: str, port: int) -> None:
         port (int): The port the server is listening on.
     """
     # pylint: disable=C0415
-    from sockets.async_server import (CONN_COUNT_FILE_LOCATION,
-                                      PID_FILE_LOCATION, AsyncSocketServer)
+    from sockets import CONN_COUNT_FILE, PID_FILE
+    from sockets.async_server import AsyncSocketServer
 
     server = AsyncSocketServer(host, port)
     try:
@@ -73,39 +64,32 @@ def run(host: str, port: int) -> None:
     except Exception as e:
         logger.error("Error %s occurred while starting server on %s:%d", str(e), host, port)
     finally:
-        if pathlib.Path(CONN_COUNT_FILE_LOCATION).exists():
-            os.remove(CONN_COUNT_FILE_LOCATION)
-        if pathlib.Path(PID_FILE_LOCATION).exists():
-            os.remove(PID_FILE_LOCATION)
+        if pathlib.Path(CONN_COUNT_FILE).exists():
+            os.remove(CONN_COUNT_FILE)
+        if pathlib.Path(PID_FILE).exists():
+            os.remove(PID_FILE)
 
 
 @click.command()
-@click.pass_context
-def stop(ctx: click.Context) -> None:
+def stop() -> None:
     """
     Gracefully stop the running socket server by sending a SIGTERM signal.
 
     This command retrieves the PID of the running server and sends a SIGTERM signal
     to stop the server gracefully. If any error occurs (e.g., invalid PID, permission issues),
     an appropriate message is logged.
-
-    Args:
-        ctx (click.Context): The click context object containing the settings.
     """
-    settings = ctx.obj["settings"]
-
     # pylint: disable=C0415
-    from sockets.async_server import (CONN_COUNT_FILE_LOCATION,
-                                      PID_FILE_LOCATION)
+    from sockets import CONN_COUNT_FILE, ENCODING, PID_FILE
 
-    server_pid_file = pathlib.Path(PID_FILE_LOCATION)
+    server_pid_file = pathlib.Path(PID_FILE)
 
     if not server_pid_file.exists():
         logger.error("PID file not found.")
         return
 
     try:
-        pid = int(server_pid_file.read_text(encoding=settings.default_encoding).strip())
+        pid = int(server_pid_file.read_text(encoding=ENCODING).strip())
 
         if pid is None:
             logger.error("PID is None or invalid.")
@@ -125,10 +109,10 @@ def stop(ctx: click.Context) -> None:
     except Exception as e:
         logger.error("Error reading PID file: %s", str(e))
     finally:
-        if pathlib.Path(CONN_COUNT_FILE_LOCATION).exists():
-            os.remove(CONN_COUNT_FILE_LOCATION)
-        if pathlib.Path(PID_FILE_LOCATION).exists():
-            os.remove(PID_FILE_LOCATION)
+        if pathlib.Path(CONN_COUNT_FILE).exists():
+            os.remove(CONN_COUNT_FILE)
+        if pathlib.Path(PID_FILE).exists():
+            os.remove(PID_FILE)
 
 
 @click.command()
@@ -143,15 +127,13 @@ def stop(ctx: click.Context) -> None:
 @click.option(
     "--last",
     "-l",
-    type=click.BOOL,
+    is_flag=True,
     default=True,
     show_default=True,
     help="Show last lines in the log file. If False show first lines.",
 )
-#? added follow param without specify true or false
-@click.option("--follow", "-f", type=click.BOOL, default=False, show_default=True, help="Follow the logs.")
-@click.pass_context
-def logs(ctx: click.Context, lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
+@click.option("--follow", "-f", is_flag=True, default=False, show_default=True, help="Follow the logs.")
+def logs(lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
     """
     Display the content of the most recent log file, considering log rotation.
 
@@ -159,13 +141,13 @@ def logs(ctx: click.Context, lines_count: int = 0, last: bool = True, follow: bo
     and follow the logs in real time if needed.
 
     Args:
-        ctx (click.Context): Click context object containing the settings.
         lines_count (int): Number of lines in the log to display. Defaults to 0 (all lines).
         last (bool): If True, display the last lines of the log file, otherwise display the first lines.
         follow (bool): If True, follow the logs as they are written (like `tail -f`).
     """
-    settings = ctx.obj["settings"]
-    from logs.logging_conf import server_logging_dir  # pylint: disable=C0415
+    # pylint: disable=C0415
+    from logs.logging_conf import server_logging_dir
+    from sockets import ENCODING
 
     logs_dir = pathlib.Path(server_logging_dir)
 
@@ -183,7 +165,7 @@ def logs(ctx: click.Context, lines_count: int = 0, last: bool = True, follow: bo
         return
 
     if last_log_file.exists():
-        with open(last_log_file, encoding=settings.default_encoding) as file:
+        with open(last_log_file, encoding=ENCODING) as file:
             log_lines: list[str] | None = None
             if not follow:
                 lines = file.readlines()
@@ -214,23 +196,17 @@ def logs(ctx: click.Context, lines_count: int = 0, last: bool = True, follow: bo
 
 
 @click.command()
-@click.pass_context
-def connection_number(ctx: click.Context) -> None:
+def connection_number() -> None:
     """
     Show the current number of connections to the server.
     This command reads the connection count from the appropriate file and displays it.
-
-    Args:
-        ctx (click.Context): Click context object containing the settings.
     """
-    settings = ctx.obj["settings"]
-
     # pylint: disable=C0415
-    from sockets.async_server import CONN_COUNT_FILE_LOCATION
+    from sockets import CONN_COUNT_FILE, ENCODING
 
-    conn_count_file = pathlib.Path(CONN_COUNT_FILE_LOCATION)
+    conn_count_file = pathlib.Path(CONN_COUNT_FILE)
     if conn_count_file.exists():
-        conn_number = int(conn_count_file.read_text(encoding=settings.default_encoding))
+        conn_number = int(conn_count_file.read_text(encoding=ENCODING))
         click.echo(click.style(f"Current number of connection to the server is {conn_number}.", bold=True, fg="cyan"))
     else:
         click.echo(

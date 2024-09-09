@@ -9,16 +9,10 @@ from conn_utils import build_default_route_ip, parse_modem_data_to_reboot
 from logs.logging_conf import get_socket_server_logger
 from modem_api import reboot_modem
 
+from . import (CONN_COUNT_FILE, ENCODING, PID_FILE, START_CONNECTION,
+               STOP_CONNECTION)
+
 settings = get_settings()
-
-ENCODING: str = settings.default_encoding
-START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
-STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
-# PID_FILE_LOCATION = "sockets/server.pid"
-# CONN_COUNT_FILE_LOCATION = "sockets/conn_count.txt"
-
-PID_FILE_LOCATION = pathlib.Path(r"C:\proxy\server.pid")
-CONN_COUNT_FILE_LOCATION = pathlib.Path(r"C:\proxy\conn_count.txt")
 
 logger = get_socket_server_logger()
 
@@ -195,7 +189,7 @@ class AsyncSocketServer:
         Args:
             conn_id (str): connection ID which will be saved.
         """
-        conn_count_file = pathlib.Path(CONN_COUNT_FILE_LOCATION)
+        conn_count_file = pathlib.Path(CONN_COUNT_FILE)
         conn_count_file.write_text(conn_id, encoding=ENCODING)
 
     @classmethod
@@ -256,7 +250,7 @@ class AsyncSocketServer:
         This PID will be used for graceful terminated a server by CLI.
         """
         pid = os.getpid()
-        pid_file = pathlib.Path(PID_FILE_LOCATION)
+        pid_file = pathlib.Path(PID_FILE)
         pid_file.write_text(str(pid), encoding=ENCODING)
 
     def _get_message_indexes(self, input_data: bytes) -> tuple[int, int]:
