@@ -6,12 +6,9 @@ from typing import Any
 from config import get_settings
 from logs.logging_conf import get_socket_client_logger
 
+from . import ENCODING, START_CONNECTION, STOP_CONNECTION
+
 settings = get_settings()
-
-
-ENCODING: str = settings.default_encoding
-START_CONNECTION: bytes = settings.socket_start_connection_cond.encode(ENCODING)
-STOP_CONNECTION: bytes = settings.socket_stop_connection_cond.encode(ENCODING)
 
 logger = get_socket_client_logger()
 
@@ -48,6 +45,8 @@ class AsyncSocketClient:
         _reader (asyncio.StreamReader): The reader stream for the client connection.
         _writer (asyncio.StreamWriter): The writer stream for the client connection.
         _connection_data (ClientConnectionData): Connection data for managing sent and received data.
+        _received_data (bytes | None): received data from the socket server.
+            None if no data was received. Default is None.
     """
 
     def __init__(self, host: str, port: int) -> None:
@@ -133,6 +132,7 @@ class AsyncSocketClient:
 
             if b"OK" in recv_data:
                 in_data = recv_data.split(b"\n")[:-1]
+                # `in_data` contains two IP addresses (after and before modem rebooting)
                 self._connection_data.inb += in_data[0] + b" "
                 self._connection_data.inb += in_data[1]
                 logger.info("Server confirmed reception. Closing connection.")
