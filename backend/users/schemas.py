@@ -1,5 +1,5 @@
 from datetime import datetime
-from enum import Enum, auto
+from enum import Enum
 
 from modems.schemas import ShowModemForUser
 from pydantic import BaseModel, EmailStr, Field
@@ -10,8 +10,8 @@ class UserRole(str, Enum):
     Users roles in the system.
     """
 
-    ADMIN = auto()
-    REGULAR = auto()
+    ADMIN = "admin"
+    REGULAR = "regular"
 
 
 class HashType(str, Enum):
@@ -19,8 +19,8 @@ class HashType(str, Enum):
     Type of the hash for a password.
     """
 
-    MD5 = auto()
-    SHA256 = auto()
+    MD5 = "md5"
+    SHA256 = "sha256"
 
 
 class UserBase(BaseModel):
