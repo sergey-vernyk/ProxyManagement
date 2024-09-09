@@ -73,6 +73,7 @@ class ShowUser(BaseModel):
     user_modems: list[ShowModemForUser]
 
 
+# ? think about deleting this schema, because `UpdateUser` schema is already has the same fields
 class UpdateUserProxyCredentials(BaseModel):
     """
     Class for defining proxy credentials fields for updating.
@@ -93,3 +94,8 @@ class UpdateUser(BaseModel):
     old_password: str | None = Field(max_length=30, min_length=10, default=None)
     new_password: str | None = Field(max_length=30, min_length=10, default=None)
     update_token: bool = False
+
+    update_proxy_login: bool = False
+    update_proxy_password: bool = False
+    proxy_password_plain: str | None = None
+    proxy_password_hash_type: HashType | None = None

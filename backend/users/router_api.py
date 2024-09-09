@@ -164,6 +164,7 @@ async def get_user(request: Request, email: EmailStr, db: DatabaseDependency) ->
     return db_user
 
 
+# ? think about deleting this endpoint, because `update_user` endpoint is already has the same implementation
 @router.patch(
     "/users/proxy/{ip}",
     response_model=schemas.ShowUser,
@@ -220,7 +221,7 @@ async def update_user_proxy_credentials(
     operation_id="update-user",
     responses={
         404: {"description": "User not found"},
-        400: {"description": "Invalid email format"},
+        400: {"description": "Invalid email format or passwords mismatch or proxy password hash type is not provided."},
         200: {"description": "Successfully"},
     },
 )
@@ -257,8 +258,29 @@ async def update_user(
         data_to_update["hashed_password"] = get_password_hash(body.new_password)
 
     if body.update_token:
-        token = token_urlsafe(32)[:32]
-        data_to_update["token"] = token
+        data_to_update["token"] = token_urlsafe(32)[:32]
+
+    if body.update_proxy_login:
+        proxy_login = token_urlsafe(32)[: random.randint(10, 20)]
+        data_to_update["proxy_login"] = proxy_login
+
+    proxy_password_hashed: str | None = None
+    if body.update_proxy_password and body.proxy_password_plain is not None:
+        if body.proxy_password_hash_type is None:
+            logger.info("Proxy password hash type must not be None if password to update is provided.")
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Proxy password hash type must not be None if password to update is provided.",
+            )
+
+        if body.proxy_password_hash_type == schemas.HashType.MD5:
+            proxy_password_hashed = generate_md5_crypt_hash_password(body.proxy_password_plain)
+        else:
+            proxy_password_hashed = encrypt_modem_password(body.proxy_password_hash_type, body.proxy_password_plain)
+
+        data_to_update["proxy_password_plain"] = body.proxy_password_plain
+        data_to_update["proxy_password_hashed"] = proxy_password_hashed
+        data_to_update["proxy_password_hash_type"] = body.proxy_password_hash_type
 
     data_to_update["email"] = body.email
 
