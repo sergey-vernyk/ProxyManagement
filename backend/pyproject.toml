@@ -14,7 +14,7 @@ packages = [
     { include = "cli" },
 ]
 
-include = [ 
+include = [
     "config.py",
     "conn_utils.py",
     "db_connection.py",
@@ -51,6 +51,6 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-socket-server = "cli.cli:cli_server"
-web-server = "cli.cli:cli_web"
-proxy-conf = "cli.cli:proxy"
+socket-server = "cli.socket_server:cli_socket_server"
+web-server = "cli.web_server:cli_web"
+proxy-conf = "cli.proxy:cli_proxy"
