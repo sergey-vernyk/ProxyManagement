@@ -4,14 +4,14 @@ import click
 import uvicorn
 
 
-@click.group()
+@click.group(help="CLI provides functionality for running uvicorn server with parameters.")
 def cli_web() -> None:
     """
     CLI entrypoint for web application.
     """
 
 
-@click.command()
+@click.command(help="Run the FastAPI server with the provided options.")
 @click.option("--host", "-h", type=click.STRING, show_default=True, default="0.0.0.0", help="Server host.")
 @click.option("--port", "-p", type=click.INT, show_default=True, default="8000", help="Server port.")
 @click.option("--workers", type=click.INT, show_default=True, default="2", help="Number of worker processes.")

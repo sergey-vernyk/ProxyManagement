@@ -67,7 +67,7 @@ def build_credentials_for_config(creds_from_db: Sequence[Row[tuple[str, str, str
     return "\n".join(file_lines)
 
 
-@click.group()
+@click.group(help="CLI for making CRUD operations for user proxy credentials.")
 @click.option(
     "--env-file",
     type=click.Path(exists=True),
