@@ -42,7 +42,12 @@ server {
 
         # location for http        
         location / {
-                proxy_pass      http://socket_backend;
+                proxy_pass              http://socket_backend;
+                
+                # proxy_cache name located in nginx.conf file
+                proxy_cache             wireguard_cache;
+                proxy_cache_valid       200 302 60m;
+                proxy_cache_valid       404 1m;
         }
 
         # location for wesockets
