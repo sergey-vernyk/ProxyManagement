@@ -21,8 +21,7 @@ from fastapi import (APIRouter, BackgroundTasks, Depends, HTTPException, Query,
 from fastapi.requests import Request
 from fastapi.templating import Jinja2Templates
 from logs.logging_conf import get_endpoint_logger
-from modems.crud import get_modem_by_ip
-from pydantic import EmailStr, IPvAnyAddress
+from pydantic import EmailStr
 from security import (encrypt_modem_password, generate_md5_crypt_hash_password,
                       get_password_hash, verify_password)
 from validators import validate_email_format
@@ -162,54 +161,6 @@ async def get_user(request: Request, email: EmailStr, db: DatabaseDependency) ->
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
     return db_user
-
-
-# ? think about deleting this endpoint, because `update_user` endpoint is already has the same implementation
-@router.patch(
-    "/users/proxy/{ip}",
-    response_model=schemas.ShowUser,
-    status_code=status.HTTP_200_OK,
-    dependencies=[Depends(JWTBearer())],
-    description="Update a proxy credentials for a modem with IP bind to user.",
-    operation_id="update-user-proxy-credentials",
-    responses={
-        400: {"description": "Invalid email format"},
-        404: {"description": "User not found"},
-        200: {"description": "Successfully"},
-    },
-)
-async def update_user_proxy_credentials(
-    request: Request, ip: IPvAnyAddress, body: schemas.UpdateUserProxyCredentials, db: DatabaseDependency
-) -> models.User:
-    """
-    Update user credentials for proxy.
-    """
-    db_modem = get_modem_by_ip(db, str(ip))
-    if db_modem is None:
-        logger.info(
-            f"Modem with the given IP {ip} does not exist.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exists.")
-
-    proxy_password: str | None = None
-
-    if body.proxy_password_plain is not None and body.proxy_password_hash_type is not None:
-        if body.proxy_password_hash_type == schemas.HashType.MD5:
-            proxy_password = generate_md5_crypt_hash_password(body.proxy_password_plain)
-        else:
-            proxy_password = encrypt_modem_password(body.proxy_password_hash_type, body.proxy_password_plain)
-    else:
-        proxy_password = body.proxy_password_plain
-
-    data_to_update = body.model_dump(exclude_unset=True, exclude={"password_hash_type", "update_login"})
-
-    if "proxy_password" in data_to_update:
-        data_to_update["proxy_password"] = proxy_password
-    if body.update_login:
-        data_to_update["proxy_login"] = token_urlsafe(32)[: random.randint(10, 20)]
-
-    return crud.update_user_proxy_credentials(db, db_modem.bind_user, data_to_update)
 
 
 @router.put(

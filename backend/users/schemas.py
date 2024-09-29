@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from modems.schemas import ShowModemForUser
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, SecretStr
 
 
 class UserRole(str, Enum):
@@ -28,9 +28,8 @@ class UserBase(BaseModel):
     Base class for user.
     """
 
-    email: EmailStr
-    password: str = Field(min_length=10, max_length=30)
-    role: UserRole
+    email: EmailStr = Field(examples=["example@example.com"], description="Email address of the user.")
+    password: str = Field(min_length=10, max_length=30, examples=["strongspassword"])
 
 
 class CreateRegularUser(UserBase):
@@ -38,8 +37,16 @@ class CreateRegularUser(UserBase):
     Class represents fields for creating a regular user.
     """
 
-    proxy_password_plain: str = Field(min_length=10, max_length=30)
-    proxy_password_hash_type: HashType | None = None
+    proxy_password_plain: str = Field(
+        min_length=10,
+        max_length=30,
+        examples=["proxypassword"],
+        description="Login for accessing a proxy.",
+    )
+    proxy_password_hash_type: HashType | None = Field(
+        description="Hash type for a proxy password for using in proxy config.",
+        default=None,
+    )
     role: UserRole = Field(default=UserRole.REGULAR)
 
 
@@ -48,7 +55,6 @@ class CreateAdminUser(UserBase):
     Class represents fields for creating an admin user.
     """
 
-    email: EmailStr
     password: str = Field(min_length=10, max_length=30)
     role: UserRole = Field(default=UserRole.ADMIN)
 
@@ -60,28 +66,17 @@ class ShowUser(BaseModel):
 
     id: int
     email: str
-    role: str
-    is_verified: bool
+    role: UserRole
+    is_verified: bool = Field(description="Flag, which defines whether a user verified their email.")
     hashed_password: str
-    token: str | None
-    proxy_login: str | None
-    proxy_password_plain: str | None
-    proxy_password_hashed: str | None
+    token: str | None = Field(description="Unique user token. Creates automatically during user creation.")
+    proxy_login: str | None = Field(description="Password for accessing a proxy.")
+    proxy_password_plain: SecretStr | None = Field(description="Login for accessing a proxy.")
+    proxy_password_hashed: str | None = Field(description="Hashed password for a proxy used in config file.")
     proxy_password_hash_type: str | None
     created: datetime
     updated: datetime | None
-    user_modems: list[ShowModemForUser]
-
-
-# ? think about deleting this schema, because `UpdateUser` schema is already has the same fields
-class UpdateUserProxyCredentials(BaseModel):
-    """
-    Class for defining proxy credentials fields for updating.
-    """
-
-    update_login: bool = False
-    proxy_password_plain: str | None = Field(min_length=10, max_length=30, default=None)
-    proxy_password_hash_type: HashType | None = None
+    user_modems: list[ShowModemForUser] = Field(description="List of modems binds to a user.")
 
 
 class UpdateUser(BaseModel):
@@ -90,12 +85,37 @@ class UpdateUser(BaseModel):
     """
 
     email: EmailStr | None = None
-    update_password: bool = False
-    old_password: str | None = Field(max_length=30, min_length=10, default=None)
-    new_password: str | None = Field(max_length=30, min_length=10, default=None)
-    update_token: bool = False
+    update_password: bool = Field(
+        description="Flag for indicating a user intention to update their password.",
+        default=False,
+    )
+    old_password: str | None = Field(
+        max_length=30,
+        min_length=10,
+        default=None,
+        description="Old user password. Must be used with the flag 'update_password'.",
+    )
+    new_password: str | None = Field(
+        max_length=30,
+        min_length=10,
+        default=None,
+        description="New user password. Must be used with the flag 'update_password'.",
+    )
+    update_token: bool = Field(
+        description="Flag for indicating a user intention to update their token.",
+        default=False,
+    )
 
-    update_proxy_login: bool = False
-    update_proxy_password: bool = False
-    proxy_password_plain: str | None = None
+    update_proxy_login: bool = Field(
+        description="Flag for indicating a user intention to update their proxy login. Generates automatically.",
+        default=False,
+    )
+    update_proxy_password: bool = Field(
+        description="Flag for indicating a user intention to update their proxy password.",
+        default=False,
+    )
+    proxy_password_plain: str | None = Field(
+        description="New proxy password. Must used with the flag 'update_proxy_login'.",
+        default=None,
+    )
     proxy_password_hash_type: HashType | None = None

@@ -86,16 +86,6 @@ def update_user_info(db: Session, instance: models.User, data_to_update: dict[An
     return instance
 
 
-def update_user_proxy_credentials(db: Session, instance: models.User, data_to_update: dict[Any, Any]) -> models.User:
-    """
-    Update proxy credentials for the given `instance`.
-    """
-    db.query(models.User).filter(models.User.id == instance.id).update(data_to_update)
-    db.commit()
-    db.refresh(instance)
-    return instance
-
-
 def delete_user(db: Session, email: str) -> None:
     """
     Remove user with `user_email` from database.

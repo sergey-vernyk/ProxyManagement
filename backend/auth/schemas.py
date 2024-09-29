@@ -7,12 +7,12 @@ class Token(BaseModel):
     """
 
     access_token: str
-    token_type: str
+    token_type: str = Field(default="bearer")
 
 
 class TokenData(BaseModel):
     """
-    Class represents data which contains JWT. 
+    Class represents data which contains JWT.
     """
 
     email: str | None = None
@@ -32,7 +32,10 @@ class ResetPassword(BaseModel):
     Class represents fields for requesting password reset.
     """
 
-    email: EmailStr
+    email: EmailStr = Field(
+        description="User email, which the user used while registration.",
+        examples=["example@gmail.com"],
+    )
 
 
 class ResetPasswordConfirm(BaseModel):
@@ -42,8 +45,12 @@ class ResetPasswordConfirm(BaseModel):
 
     new_password: str = Field(max_length=30, min_length=10)
     confirm_password: str = Field(max_length=30, min_length=10)
-    uid: str
-    token: str = Field(max_length=32, min_length=32)
+    uid: str = Field(description="User ID encoded in 'base64-urlsafe' format.")
+    token: str = Field(
+        max_length=32,
+        min_length=32,
+        description="Unique user token which generates automatically during user registration.",
+    )
 
 
 class EnteredCheckOTP(BaseModel):
@@ -52,7 +59,12 @@ class EnteredCheckOTP(BaseModel):
     along with identifying a user by the given uid and token from URL.
     """
 
-    entered_otp: str
+    entered_otp: str = Field(
+        description=(
+            "OTP which user entered in the browser after "
+            "following by the link in the user's email after registration."
+        )
+    )
     uid: str
     token: str = Field(max_length=32, min_length=32)
 

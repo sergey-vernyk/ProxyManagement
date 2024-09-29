@@ -3,7 +3,8 @@ from datetime import datetime
 from enum import Enum
 from ipaddress import IPv4Address
 
-from pydantic import BaseModel, EmailStr, Field, HttpUrl, IPvAnyAddress
+from pydantic import (BaseModel, EmailStr, Field, HttpUrl, IPvAnyAddress,
+                      SecretStr)
 
 
 class ModemAction(str, Enum):
@@ -55,16 +56,41 @@ class ModemActionsData:
 
 class CreateModem(BaseModel):
     """
-    Class represents fields for creating modem.
+    Class represents fields for creating a modem.
     """
 
-    ip: IPvAnyAddress
-    port: int = Field(lt=65536, gt=49152)
-    external_server_ip: IPvAnyAddress | None = None
-    internal_server_ip: IPvAnyAddress | None = None
-    bind_user_email: EmailStr | None = None
-    username: str | None = Field(default=None)
-    password: str | None = Field(default=None)
+    ip: IPvAnyAddress = Field(
+        description="Modem IP address in the server network.",
+        examples=["192.168.9.1"],
+    )
+    port: int = Field(lt=65536, gt=49152, description="Server port assigned to a modem.")
+    external_server_ip: IPvAnyAddress | None = Field(
+        default=None,
+        description="Server external IP, where a modem is connected.",
+        examples=["45.196.29.178"],
+    )
+    internal_server_ip: IPvAnyAddress | None = Field(
+        default=None,
+        description=(
+            "Server internal IP, where a modem is connected (internal address in the LAN). Used for getting modem IP."
+        ),
+        examples=["192.168.1.105"],
+    )
+    bind_user_email: EmailStr | None = Field(
+        default=None,
+        description="User email, who bind to a modem.",
+        examples=["ananymous@gmail.com"],
+    )
+    username: str | None = Field(
+        default=None,
+        description="Modem username for accessing to its API or WebUI.",
+        examples=["admin"],
+    )
+    password: str | None = Field(
+        default=None,
+        description="Modem password for accessing to its API or WebUI.",
+        examples=["password"],
+    )
 
 
 class ShowModem(BaseModel):
@@ -80,8 +106,8 @@ class ShowModem(BaseModel):
     hashed_value: str | None
     bind_user_email: str | None
     username: str | None
-    password: str | None
-    rebooted: datetime | None
+    password: SecretStr | None
+    rebooted: datetime | None = Field(description="Time when a modem was rebooted for the last time.")
     created: datetime
     updated: datetime | None
 
@@ -110,7 +136,7 @@ class ShowModemForUser(BaseModel):
     external_server_ip: IPvAnyAddress | None
     internal_server_ip: IPvAnyAddress | None
     port: int
-    hashed_value: str | None
+    hashed_value: str | None = Field(description="Unique value for each modem.")
     rebooted: datetime | None
     created: datetime | None
 
@@ -124,4 +150,10 @@ class ChangeIPUrl(BaseModel):
     port: int
     external_server_ip: IPv4Address | None = None
     internal_server_ip: IPv4Address | None = None
-    url: HttpUrl
+    url: HttpUrl = Field(
+        description="Url for rebooting a modem (change its IP).",
+        examples=[
+            "http://127.0.0.1:8000/modems/u-oyq9j3aihaqLPlduOT46y-_CfWQUI8/a9b38e70d9500981251034cd2107a37c",
+            "http://example.com/modems/u-oyq9j3aihaqLPlduOT46y-_CfWQUI8/a9b38e70d950051034cd2107a37c",
+        ],
+    )
