@@ -24,6 +24,8 @@ def get_proxy_credentials_from_db(users_emails: list[str]) -> Sequence[Row[tuple
     """
     # pylint: disable=C0415
     # pylint: disable=W0611
+    from auth.otp.models import OTP
+    from modems.models import Modem
     from users.models import User
 
     try:
@@ -223,6 +225,8 @@ def get_from_user_list(filename: pathlib.Path) -> None:
 
     # pylint: disable=C0415
     # pylint: disable=W0611
+    from auth.otp.models import OTP
+    from modems.models import Modem
     from users.models import User
 
     # credential config file looks like "X1C-HpxeWHnsdup2tie:CR:$1$5Cb2O1Da$r/BJBfSGuQt4it9ASUJiI/"
