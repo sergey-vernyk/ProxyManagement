@@ -1,5 +1,6 @@
 upstream socket_backend {
-        server 127.0.0.1:8000;
+        # server 127.0.0.1:8000;
+        server unix:/home/sergey/PycharmProjects/AsyncSocketExchange/backend/run/gunicorn.sock fail_timeout=0; 
 }
 
 #server {
