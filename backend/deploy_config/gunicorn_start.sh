@@ -1,17 +1,26 @@
 #!/bin/bash
 
-NAME=proxy_management
-DIR=/home/sergey/PycharmProjects/AsyncSocketExchange/backend
-USER=sergey
-GROUP=sergey
-WORKERS=3
+NAME=proxy-management
+DIR=/home/ubuntu/code/Proxy_Management/AsyncSocketExchange/backend
+USER=ubuntu
+GROUP=ubuntu
+WORKERS=2
 WORKER_CLASS=uvicorn.workers.UvicornWorker
-VENV=/home/sergey/.cache/pypoetry/virtualenvs/asyncsocketexchange-8pvtxjcX-py3.12/bin/activate
+VENV=/home/ubuntu/.cache/pypoetry/virtualenvs/asyncsocketexchange-rDKi4hjE-py3.12/bin/activate
 BIND=unix:$DIR/run/gunicorn.sock
 LOG_LEVEL=error
 
-cd $DIR
-source $VENV
+
+echo "Changing directory to $DIR"
+cd $DIR || { echo "Failed to change directory to $DIR"; exit 1; }
+
+echo "Activating virtual environment"
+source $VENV || { echo "Failed to activate virtual environment"; exit 1; }
+
+echo "Ensuring run directory exists"
+mkdir -p $DIR/run
+chown $USER:$GROUP $DIR/run
+
 
 exec gunicorn main:app \
     --name $NAME \
