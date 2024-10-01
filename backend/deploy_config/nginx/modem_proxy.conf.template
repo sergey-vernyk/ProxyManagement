@@ -18,8 +18,8 @@ server {
 }
 
 map $server_port $x_forwarded_port {
-	80      "";
-	443     "";
+	80      80;
+	443     443;
 	default $server_port;
 }
 
