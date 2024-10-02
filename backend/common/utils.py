@@ -17,5 +17,9 @@ def get_base_url(request: Request) -> str:
     """
     host = request.base_url.hostname
     port = request.headers.get("X-Forwarded-Port", request.base_url.port)
-    scheme = request.base_url.scheme
-    return f"{scheme}://{host}:{port}" if port not in {80, 443} else f"{scheme}://{host}"
+    scheme = request.headers.get("X-Forwarded-Proto", request.base_url.scheme)
+
+    if int(port) in {80, 443}:
+        return f"{scheme}://{host}"
+
+    return f"{scheme}://{host}:{port}"
