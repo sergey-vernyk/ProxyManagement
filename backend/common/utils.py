@@ -19,7 +19,10 @@ def get_base_url(request: Request) -> str:
     port = request.headers.get("X-Forwarded-Port", request.base_url.port)
     scheme = request.headers.get("X-Forwarded-Proto", request.base_url.scheme)
 
-    if int(port) in {80, 443}:
-        return f"{scheme}://{host}"
+    if port is not None and host is not None:
+        if int(port) in {80, 443}:
+            return f"{scheme}://{host}"
 
-    return f"{scheme}://{host}:{port}"
+        return f"{scheme}://{host}:{port}"
+
+    raise ValueError("Port and host for base url must not be None.")
