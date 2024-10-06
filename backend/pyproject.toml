@@ -54,4 +54,5 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 socket-server = "cli.socket_server:cli_socket_server"
 web-server = "cli.web_server:cli_web"
-proxy-conf = "cli.proxy:cli_proxy"
+proxy-conf-users = "cli.proxy_userlist:cli_proxy_userlist"
+proxy-conf-protocols = "cli.proxy_protocol_types:cli_proxy_protocols"

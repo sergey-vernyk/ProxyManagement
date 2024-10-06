@@ -36,9 +36,9 @@ from .utils import (build_credentials_for_config, fetch_env_file,
     help="Password for authenticating if the provided 'env_file' is URL.",
 )
 @click.pass_context
-def cli_proxy(ctx: click.Context, env_file: str, username: str | None, password: str | None) -> None:
+def cli_proxy_userlist(ctx: click.Context, env_file: str, username: str | None, password: str | None) -> None:
     """
-    CLI entrypoint for proxy configuration.
+    CLI entrypoint for interacting with proxy credentials for a user.
 
     Loads the environment variables from the provided file.
 
@@ -345,7 +345,7 @@ def delete_from_user_list(ctx: click.Context, filename: pathlib.Path, users: str
         )
 
 
-cli_proxy.add_command(create_user_list)
-cli_proxy.add_command(insert_into_user_list)
-cli_proxy.add_command(get_from_user_list)
-cli_proxy.add_command(delete_from_user_list)
+cli_proxy_userlist.add_command(create_user_list)
+cli_proxy_userlist.add_command(insert_into_user_list)
+cli_proxy_userlist.add_command(get_from_user_list)
+cli_proxy_userlist.add_command(delete_from_user_list)
