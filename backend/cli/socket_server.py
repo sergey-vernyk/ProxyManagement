@@ -5,14 +5,12 @@ import pathlib
 import signal
 import time
 from datetime import datetime
-from io import StringIO
 
 import click
-from dotenv import load_dotenv
 from pydantic import ValidationError
 
 from .schemas import EnvPathOrEnvUrl
-from .utils import fetch_env_file
+from .utils import fetch_env_file, load_env_in_memory, load_env_in_shell_env
 
 
 @click.group(
@@ -73,11 +71,9 @@ def cli_socket_server(ctx: click.Context, env_file: str, username: str | None, p
             raise click.Abort()
 
         env_file_content = fetch_env_file(path_or_url.env_file_or_url, username, password)
-        env_file_io = StringIO(env_file_content)
-        load_dotenv(stream=env_file_io)
+        load_env_in_memory(env_file_content)
     else:
-        os.environ["ENV_FILE_PATH"] = str(env_file)
-
+        load_env_in_shell_env(env_file)
     # pylint: disable=C0415
     from logs.logging_conf import get_socket_server_logger
 

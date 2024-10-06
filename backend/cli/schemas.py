@@ -1,5 +1,4 @@
 import pathlib
-from typing import Self, Type
 
 from pydantic import BaseModel, ValidationError, field_validator
 from pydantic_core import Url
@@ -17,7 +16,7 @@ class EnvPathOrEnvUrl(BaseModel):
 
     @field_validator("env_file_or_url")
     @classmethod
-    def validate_path_or_url(cls: Type[Self], value: str) -> str:
+    def validate_path_or_url(cls, value: str) -> str:
         """
         Validates the provided environment file path or URL.
 
@@ -26,7 +25,7 @@ class EnvPathOrEnvUrl(BaseModel):
         it checks for the existence of the specified file.
 
         Args:
-            cls (Type[Self]): The class type of the current instance.
+            cls: The class type of the current instance.
             value (str): The input value to validate, which can be a file path or a URL.
 
         Raises:

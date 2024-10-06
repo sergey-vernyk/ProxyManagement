@@ -1,13 +1,74 @@
+import os
+from io import StringIO
 from typing import Sequence
 
 import click
 import requests
-from db_connection import engine
+from dotenv import load_dotenv
 from fastapi import status
 from sqlalchemy import Row, select
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from users.schemas import HashType
+
+
+class EngineSingleton:
+    """
+    Singleton class to manage the database engine instance.
+    Ensures only one instance of the engine is created and provides methods
+    to reset and retrieve the engine.
+    """
+
+    _instance: Engine | None = None
+
+    @classmethod
+    def get_instance(cls) -> Engine:
+        """
+        Get the singleton instance of the database engine.
+        If the engine is not initialized, it initializes it first.
+
+        Returns:
+            Engine: The database engine instance.
+        """
+        if cls._instance is None:
+            from db_connection import engine  # pylint: disable=C0415
+
+            cls._instance = engine
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """
+        Reset the singleton instance of the database engine to None,
+        allowing it to be re-initialized when needed.
+        """
+        cls._instance = None
+
+
+def load_env_in_memory(content: str) -> None:
+    """
+    Load environment variables from a string content into memory
+    and reset the database engine instance.
+
+    Args:
+        content (str): The content of the environment file.
+    """
+    env_file_io = StringIO(content)
+    load_dotenv(stream=env_file_io)
+    EngineSingleton.reset_instance()
+
+
+def load_env_in_shell_env(path: str) -> None:
+    """
+    Load environment variables from a file path into the shell's environment
+    and reset the database engine instance.
+
+    Args:
+        path (str): The file path to the environment file.
+    """
+    os.environ["ENV_FILE_PATH"] = path
+    EngineSingleton.reset_instance()
 
 
 def fetch_env_file(url: str, username: str, password: str) -> str:
@@ -39,7 +100,7 @@ def fetch_env_file(url: str, username: str, password: str) -> str:
 
 def get_proxy_credentials_from_db(users_emails: list[str]) -> Sequence[Row[tuple[str, str, str]]]:
     """
-    Fetch proxy credentials for a list of user emails from database.
+    Fetch proxy credentials for the given list of users emails from database.
 
     Args:
         users_emails (list[str]): List of user email addresses.
@@ -54,6 +115,7 @@ def get_proxy_credentials_from_db(users_emails: list[str]) -> Sequence[Row[tuple
     from modems.models import Modem
     from users.models import User
 
+    engine = EngineSingleton.get_instance()
     try:
         with Session(engine) as session:
             return session.execute(
