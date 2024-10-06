@@ -1,49 +1,98 @@
-import os
 import pathlib
 
 import click
 from db_connection import engine
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from tabulate import tabulate
 
-from .utils import build_credentials_for_config, get_proxy_credentials_from_db
+from .schemas import EnvPathOrEnvUrl
+from .utils import (build_credentials_for_config, fetch_env_file,
+                    get_proxy_credentials_from_db, load_env_in_memory,
+                    load_env_in_shell_env)
 
 
 @click.group(help="CLI for making CRUD operations for user proxy credentials.")
 @click.option(
     "--env-file",
-    type=click.Path(exists=True),
+    type=click.STRING,
     required=True,
     help="Location of the environment configuration file.",
 )
-def cli_proxy(env_file: pathlib.Path) -> None:
+@click.option(
+    "--username",
+    "-u",
+    type=click.STRING,
+    required=False,
+    help="Username for authenticating if the provided 'env_file' is URL.",
+)
+@click.option(
+    "--password",
+    "-pass",
+    type=click.STRING,
+    required=False,
+    help="Password for authenticating if the provided 'env_file' is URL.",
+)
+@click.pass_context
+def cli_proxy(ctx: click.Context, env_file: str, username: str | None, password: str | None) -> None:
     """
     CLI entrypoint for proxy configuration.
 
     Loads the environment variables from the provided file.
 
     Args:
-        env_file (pathlib.Path): Path to the environment configuration file.
+        ctx (click.Context): Click context object for passing information across commands.
+        env_file (str): Path to the environment configuration file.
+        username (str | None): Username for authentication if the env_file is a URL.
+        password (str | None): Password for authentication if the env_file is a URL.
     """
-    os.environ["ENV_FILE_PATH"] = str(env_file)
+    ctx.ensure_object(dict)
+    try:
+        path_or_url = EnvPathOrEnvUrl(env_file_or_url=env_file)
+    except ValidationError as e:
+        click.echo(f"Invalid input: {e}")
+        ctx.obj["ENV_VALID"] = False
+        return
+
+    ctx.obj["ENV_VALID"] = True
+    if "http" in path_or_url.env_file_or_url:
+        if username is None or password is None:
+            click.echo(
+                click.style(
+                    "Username and password must be provided if param 'env_file' is URL.",
+                    bold=True,
+                    fg="red",
+                )
+            )
+            raise click.Abort()
+
+        env_file_content = fetch_env_file(path_or_url.env_file_or_url, username, password)
+        load_env_in_memory(env_file_content)
+    else:
+        load_env_in_shell_env(env_file)
 
 
 @click.command(help="Create a user list file with proxy credentials.")
 @click.argument("filename", type=click.Path())
 @click.argument("users", type=click.STRING)
-def create_user_list(filename: pathlib.Path, users: str) -> None:
+@click.pass_context
+def create_user_list(ctx: click.Context, filename: pathlib.Path, users: str) -> None:
     """
     Create a user list file with proxy credentials based on user emails.
 
     Args:
+        ctx (click.Context): Click context object for passing information across commands.
         filename (pathlib.Path): The path to the file where user credentials will be saved.
         users (str): A comma-separated string of user email addresses.
 
     This command creates a new file with proxy credentials for the specified users.
     If the file already exists, it will not overwrite it.
     """
+    if not ctx.obj["ENV_VALID"]:
+        return
+
     # ensure that filename is a path not str
     filename = pathlib.Path(filename)
     if filename.exists():
@@ -80,6 +129,13 @@ def create_user_list(filename: pathlib.Path, users: str) -> None:
     file_lines = build_credentials_for_config(db_users_proxy_credentials, users_emails)
     try:
         filename.write_text(file_lines, encoding)
+        click.echo(
+            click.style(
+                f"{len(users_emails)} credential(s) has been added into the created users list.",
+                bold=True,
+                fg="green",
+            )
+        )
     except PermissionError:
         click.echo(click.style(f"Error: Permission denied to write to: {filename}", fg="red", bold=True))
     except UnicodeEncodeError:
@@ -89,14 +145,19 @@ def create_user_list(filename: pathlib.Path, users: str) -> None:
 @click.command(help="Insert new user credentials into the user list file.")
 @click.argument("filename", type=click.Path(exists=True))
 @click.argument("users", type=click.STRING)
-def insert_into_user_list(filename: pathlib.Path, users: str) -> None:
+@click.pass_context
+def insert_into_user_list(ctx: click.Context, filename: pathlib.Path, users: str) -> None:
     """
     Insert new user credentials into the user list file if they don't already exist.
 
     Args:
+        ctx (click.Context): Click context object for passing information across commands.
         filename (pathlib.Path): Path to the configuration file where user credentials will be added.
         users (str): Comma-separated list of user emails for which credentials should be inserted.
     """
+    if not ctx.obj["ENV_VALID"]:
+        return
+
     # ensure that filename is a path not str
     filename = pathlib.Path(filename)
 
@@ -144,13 +205,18 @@ def insert_into_user_list(filename: pathlib.Path, users: str) -> None:
 
 @click.command(help="Display user credentials from the user list file.")
 @click.argument("filename", type=click.Path(exists=True))
-def get_from_user_list(filename: pathlib.Path) -> None:
+@click.pass_context
+def get_from_user_list(ctx: click.Context, filename: pathlib.Path) -> None:
     """
     Display user credentials from the user list file and their corresponding emails and hash types.
 
     Args:
+        ctx (click.Context): Click context object for passing information across commands.
         filename (pathlib.Path): Path to the configuration file where user credentials are stored.
     """
+    if not ctx.obj["ENV_VALID"]:
+        return
+
     # ensure that filename is a path not str
     filename = pathlib.Path(filename)
 
@@ -197,13 +263,19 @@ def get_from_user_list(filename: pathlib.Path) -> None:
 @click.command(help="Delete user credentials from the user list file.")
 @click.argument("filename", type=click.Path(exists=True))
 @click.argument("users", type=click.STRING)
-def delete_from_user_list(filename: pathlib.Path, users: str) -> None:
+@click.pass_context
+def delete_from_user_list(ctx: click.Context, filename: pathlib.Path, users: str) -> None:
     """
     Delete user credentials from the user list file.
 
     Args:
+        ctx (click.Context): Click context object for passing information across commands.
         filename (pathlib.Path): Path to the configuration file where user credentials are stored.
+        users (str): Comma-separated list of user emails for which credentials should be deleted.
     """
+    if not ctx.obj["ENV_VALID"]:
+        return
+
     # ensure that filename is a path not str
     filename = pathlib.Path(filename)
 
@@ -268,6 +340,18 @@ def delete_from_user_list(filename: pathlib.Path, users: str) -> None:
     )
 
 
+cli_proxy.add_command(create_user_list)
+cli_proxy.add_command(insert_into_user_list)
+cli_proxy.add_command(get_from_user_list)
+cli_proxy.add_command(delete_from_user_list)
+cli_proxy.add_command(create_user_list)
+cli_proxy.add_command(insert_into_user_list)
+cli_proxy.add_command(get_from_user_list)
+cli_proxy.add_command(delete_from_user_list)
+cli_proxy.add_command(create_user_list)
+cli_proxy.add_command(insert_into_user_list)
+cli_proxy.add_command(get_from_user_list)
+cli_proxy.add_command(delete_from_user_list)
 cli_proxy.add_command(create_user_list)
 cli_proxy.add_command(insert_into_user_list)
 cli_proxy.add_command(get_from_user_list)
