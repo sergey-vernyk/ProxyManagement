@@ -5,7 +5,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_ENV_PATH = Path(__file__).resolve().parent / ".env"
-CURRENT_ENV_PATH = os.environ.get("ENV_FILE_PATH", DEFAULT_ENV_PATH)
+CURRENT_ENV_PATH = os.environ.get("ENV_FILE_PATH")
 
 
 class Settings(BaseSettings):
@@ -57,7 +57,8 @@ class Settings(BaseSettings):
     pid_file: str
     conn_count_file: str
 
-    model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH, env_file_encoding="utf-8")
+    if DEFAULT_ENV_PATH.exists() or CURRENT_ENV_PATH and Path(CURRENT_ENV_PATH).exists():
+        model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH or DEFAULT_ENV_PATH, env_file_encoding="utf-8")
 
 
 @lru_cache

@@ -1,30 +1,88 @@
 import asyncio
+import logging
 import os
 import pathlib
 import signal
 import time
 from datetime import datetime
+from io import StringIO
 
 import click
-from logs.logging_conf import get_socket_server_logger
+from dotenv import load_dotenv
+from pydantic import ValidationError
 
-logger = get_socket_server_logger()
+from .schemas import EnvPathOrEnvUrl
+from .utils import fetch_env_file
 
 
 @click.group(
-    help="CLI provides functionality to start the socket server, stop the server, show its logs and accepted connections."
+    help=(
+        "CLI provides functionality to start the socket server, "
+        "stop the server, show its logs and accepted connections."
+    )
 )
-@click.argument("env_file", type=click.Path(exists=True))
-def cli_socket_server(env_file: pathlib.Path) -> None:
+@click.argument("env_file", type=click.STRING)
+@click.option(
+    "--username",
+    "-u",
+    type=click.STRING,
+    required=False,
+    help="Username for authenticating if the provided 'env_file' is URL.",
+)
+@click.option(
+    "--password",
+    "-pass",
+    type=click.STRING,
+    required=False,
+    help="Password for authenticating if the provided 'env_file' is URL.",
+)
+@click.pass_context
+def cli_socket_server(ctx: click.Context, env_file: str, username: str | None, password: str | None) -> None:
     """
-    CLI entrypoint for socket server.
+    CLI entry point for socket server operations.
 
-    Loads the environment variables from the provided file.
+    Loads the environment variables from the provided file (either a local file or a URL).
+    Handles validation and ensures that necessary environment variables are available
+    before running any further commands.
 
     Args:
-        env_file (pathlib.Path): Path to the environment configuration file.
+        ctx (click.Context): The context object that can be used to pass information between commands.
+        env_file (str): Path to the environment configuration file or URL.
+        username (str, optional): Username for authentication if 'env_file' is a URL.
+        password (str, optional): Password for authentication if 'env_file' is a URL.
     """
-    os.environ["ENV_FILE_PATH"] = str(env_file)
+    ctx.ensure_object(dict)
+    try:
+        path_or_url = EnvPathOrEnvUrl(env_file_or_url=env_file)
+    except ValidationError as e:
+        click.echo(f"Invalid input: {e}")
+        ctx.obj["ENV_VALID"] = False
+        return
+
+    ctx.obj["ENV_VALID"] = True
+
+    if "http" in path_or_url.env_file_or_url:
+        if username is None or password is None:
+            click.echo(
+                click.style(
+                    "Username and password must be provided if param 'env_file' is URL.",
+                    bold=True,
+                    fg="red",
+                )
+            )
+            raise click.Abort()
+
+        env_file_content = fetch_env_file(path_or_url.env_file_or_url, username, password)
+        env_file_io = StringIO(env_file_content)
+        load_dotenv(stream=env_file_io)
+    else:
+        os.environ["ENV_FILE_PATH"] = str(env_file)
+
+    # pylint: disable=C0415
+    from logs.logging_conf import get_socket_server_logger
+
+    logger = get_socket_server_logger()
+    ctx.obj["logger"] = logger
 
 
 @click.command(help="Run the socket server with provided host and port.")
@@ -38,15 +96,24 @@ def cli_socket_server(env_file: pathlib.Path) -> None:
     help="The host the server is running on.",
 )
 @click.option("--port", "-p", type=click.INT, required=True, help="Location of the environment configuration file.")
-def run(host: str, port: int) -> None:
+@click.pass_context
+def run(ctx: click.Context, host: str, port: int) -> None:
     """
-    Command starts the socket server with the specified host and port.
-    Handles server startup and graceful shutdown on interruption.
+    Starts the socket server with the specified host and port.
+
+    Command initializes the socket server and starts it with the provided
+    host and port settings.
 
     Args:
-        host (str): The host the server is running on.
-        port (int): The port the server is listening on.
+        ctx (click.Context): The context object passed from the parent command,
+            which contains environment validation info and logger.
+        host (str): The host on which the server will run.
+        port (int): The port on which the server will listen.
     """
+    if not ctx.obj["ENV_VALID"]:
+        return
+
+    logger: logging.Logger = ctx.obj["logger"]
     # pylint: disable=C0415
     from sockets import CONN_COUNT_FILE, PID_FILE
     from sockets.async_server import AsyncSocketServer
@@ -66,16 +133,27 @@ def run(host: str, port: int) -> None:
 
 
 @click.command(help="Stop the running socket server.")
-def stop() -> None:
+@click.pass_context
+def stop(ctx: click.Context) -> None:
     """
     Gracefully stop the running socket server by sending a SIGTERM signal.
 
-    This command retrieves the PID of the running server and sends a SIGTERM signal
-    to stop the server gracefully. If any error occurs (e.g., invalid PID, permission issues),
-    an appropriate message is logged.
+    This command stops the running socket server by reading the server's PID from the PID file
+    and sending a SIGTERM signal to gracefully terminate the process.
+    If the PID file is missing, or the server is not running, appropriate
+    error messages are logged and displayed.
+
+    Args:
+        ctx (click.Context): The context object that holds the environment validation state
+            and logger instance passed from the parent command.
     """
-    # pylint: disable=C0415
-    from sockets import CONN_COUNT_FILE, ENCODING, PID_FILE
+    if not ctx.obj["ENV_VALID"]:
+        return
+
+    logger: logging.Logger = ctx.obj["logger"]  # pylint: disable=W0621
+
+    from sockets import (CONN_COUNT_FILE, ENCODING,  # pylint: disable=C0415
+                         PID_FILE)
 
     server_pid_file = pathlib.Path(PID_FILE)
 
