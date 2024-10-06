@@ -154,4 +154,7 @@ def build_credentials_for_config(creds_from_db: Sequence[Row[tuple[str, str, str
         elif conf["password_type"] in {HashType.MD5, HashType.SHA256}:
             file_lines.append(f'"{conf["login"]}:CR:{conf["password"]}"')
 
+    if len(file_lines) == 1:
+        return f"{file_lines[0]}\n"
+
     return "\n".join(file_lines)
