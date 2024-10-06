@@ -126,9 +126,16 @@ def create_user_list(ctx: click.Context, filename: pathlib.Path, users: str) -> 
         )
         return
 
-    file_lines = build_credentials_for_config(db_users_proxy_credentials, users_emails)
     try:
+        file_lines = build_credentials_for_config(db_users_proxy_credentials, users_emails)
         filename.write_text(file_lines, encoding)
+    except PermissionError:
+        click.echo(click.style(f"Error: Permission denied to write to: {filename}", fg="red", bold=True))
+    except UnicodeEncodeError:
+        click.echo(click.style("Error: Could not encode the file with the provided encoding.", fg="red", bold=True))
+    except ValueError as e:
+        click.echo(click.style(str(e), bold=True, fg="red"))
+    else:
         click.echo(
             click.style(
                 f"{len(users_emails)} credential(s) has been added into the created users list.",
@@ -136,10 +143,6 @@ def create_user_list(ctx: click.Context, filename: pathlib.Path, users: str) -> 
                 fg="green",
             )
         )
-    except PermissionError:
-        click.echo(click.style(f"Error: Permission denied to write to: {filename}", fg="red", bold=True))
-    except UnicodeEncodeError:
-        click.echo(click.style("Error: Could not encode the file with the provided encoding.", fg="red", bold=True))
 
 
 @click.command(help="Insert new user credentials into the user list file.")
@@ -172,9 +175,9 @@ def insert_into_user_list(ctx: click.Context, filename: pathlib.Path, users: str
         click.echo(click.style(f"Database error: {e}", fg="red", bold=True))
         return
 
-    file_lines = build_credentials_for_config(db_users_proxy_credentials, users_emails)
     lines_inserted = 0
     try:
+        file_lines = build_credentials_for_config(db_users_proxy_credentials, users_emails)
         with open(filename, encoding=encoding) as file:
             existing_lines = {line.strip() for line in file.readlines()}
 
@@ -191,16 +194,18 @@ def insert_into_user_list(ctx: click.Context, filename: pathlib.Path, users: str
         with open(filename, mode="a", encoding=encoding) as file:
             file.write(file_lines)
 
-        lines_inserted: int = len(list(file_lines.split("\n")))
+        lines_inserted: int = len([line for line in file_lines.split("\n") if line.strip()])
 
     except PermissionError:
         click.echo(click.style(f"Error: Permission denied to write to: {filename}", fg="red", bold=True))
     except UnicodeEncodeError:
         click.echo(click.style("Error: Could not encode the file with the provided encoding.", fg="red", bold=True))
-
-    click.echo(
-        click.style(f"{lines_inserted} credential(s) have been inserted.", fg="green", bold=True),
-    )
+    except ValueError as e:
+        click.echo(click.style(str(e), bold=True, fg="red"))
+    else:
+        click.echo(
+            click.style(f"{lines_inserted} credential(s) have been inserted.", fg="green", bold=True),
+        )
 
 
 @click.command(help="Display user credentials from the user list file.")
@@ -334,24 +339,12 @@ def delete_from_user_list(ctx: click.Context, filename: pathlib.Path, users: str
         click.echo(click.style("Error: Could not encode the file with the provided encoding.", fg="red", bold=True))
     except PermissionError:
         click.echo(click.style(f"Error: Permission denied to write to: {filename}", fg="red", bold=True))
+    else:
+        click.echo(
+            click.style(f"{creds_to_delete} credential(s) have been deleted.", fg="green", bold=True),
+        )
 
-    click.echo(
-        click.style(f"{creds_to_delete} credential(s) have been deleted.", fg="green", bold=True),
-    )
 
-
-cli_proxy.add_command(create_user_list)
-cli_proxy.add_command(insert_into_user_list)
-cli_proxy.add_command(get_from_user_list)
-cli_proxy.add_command(delete_from_user_list)
-cli_proxy.add_command(create_user_list)
-cli_proxy.add_command(insert_into_user_list)
-cli_proxy.add_command(get_from_user_list)
-cli_proxy.add_command(delete_from_user_list)
-cli_proxy.add_command(create_user_list)
-cli_proxy.add_command(insert_into_user_list)
-cli_proxy.add_command(get_from_user_list)
-cli_proxy.add_command(delete_from_user_list)
 cli_proxy.add_command(create_user_list)
 cli_proxy.add_command(insert_into_user_list)
 cli_proxy.add_command(get_from_user_list)

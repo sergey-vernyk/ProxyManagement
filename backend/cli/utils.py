@@ -4,8 +4,10 @@ from typing import Sequence
 
 import click
 import requests
+import requests.auth
 from dotenv import load_dotenv
 from fastapi import status
+from requests.auth import HTTPBasicAuth
 from sqlalchemy import Row, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -90,7 +92,8 @@ def fetch_env_file(url: str, username: str, password: str) -> str:
     Returns:
         str: The content of the fetched .env file.
     """
-    response = requests.get(url, auth=(username, password), timeout=5)
+    basic_auth = HTTPBasicAuth(username, password)
+    response = requests.get(url, auth=basic_auth, timeout=5)
     if response.status_code == status.HTTP_200_OK:
         return response.text
 
@@ -129,17 +132,28 @@ def get_proxy_credentials_from_db(users_emails: list[str]) -> Sequence[Row[tuple
 
 def build_credentials_for_config(creds_from_db: Sequence[Row[tuple[str, str, str]]], users_emails: list[str]) -> str:
     """
-    Build a list of formatted credentials for a configuration file from database results.
+    Build a list of formatted proxy credentials for a configuration file.
+
+    The function generates the formatted credential strings for each user based on their hash type,
+    ready to be written to a configuration file.
 
     Args:
         creds_from_db (Sequence[Row[tuple[str, str, str]]]):
-            Sequence of database rows containing login, hashed password, and password hash type.
+            A sequence of database rows where each row is a tuple containing:
+            - login (str): The proxy login bind to the user.
+            - hashed password (str): The proxy hashed password bind to the user.
+            - password hash type (str): The type of password hash used (e.g., MD5, SHA256).
         users_emails (list[str]):
-            List of user email addresses corresponding to the database results.
+            A list of user email addresses corresponding to the database rows.
+
+    Raises:
+        ValueError: If any user's login or password is `None`.
 
     Returns:
-        str: A string containing formatted user credentials separated by newlines,
-            ready to be written to a config file.
+        str: A string containing the formatted credentials, where each credential is a line in the format:
+            - For plain (CL) passwords: {login}:CL:{hashed_password}
+            - For crypt (CR) passwords (e.g., MD5 or SHA256): "{login}:CR:{hashed_password}"
+            The resulting string ends with a newline character.
     """
     users_emails.sort()
     config_proxy_credentials: dict[str, dict[str, str]] = {
@@ -148,7 +162,11 @@ def build_credentials_for_config(creds_from_db: Sequence[Row[tuple[str, str, str
     }
 
     file_lines: list[str] = []
-    for conf in config_proxy_credentials.values():
+    for email, conf in config_proxy_credentials.items():
+        if conf["login"] is None and conf["password"] is None:
+            raise ValueError(
+                f"Proxy login and proxy password must not be None. Check proxy credentials for user with email: {email}."
+            )
         if conf["password_type"] is None:
             file_lines.append(f"{conf['login']}:CL:{conf['password']}")
         elif conf["password_type"] in {HashType.MD5, HashType.SHA256}:
@@ -157,4 +175,4 @@ def build_credentials_for_config(creds_from_db: Sequence[Row[tuple[str, str, str
     if len(file_lines) == 1:
         return f"{file_lines[0]}\n"
 
-    return "\n".join(file_lines)
+    return "\n".join(file_lines) + "\n"
