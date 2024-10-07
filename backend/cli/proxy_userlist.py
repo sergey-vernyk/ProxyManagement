@@ -19,7 +19,7 @@ from .utils import (build_credentials_for_config, fetch_env_file,
     "--env-file",
     type=click.STRING,
     required=True,
-    help="Location of the environment configuration file.",
+    help="Location or URL of the environment configuration file.",
 )
 @click.option(
     "--username",
