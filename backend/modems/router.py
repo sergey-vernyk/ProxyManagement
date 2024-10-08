@@ -13,7 +13,7 @@ Module contains endpoints for modems:
 import datetime
 import hashlib
 from ipaddress import IPv4Address
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from auth.auth_bearer import JWTBearer
 from common.utils import get_base_url
@@ -127,9 +127,10 @@ async def get_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency)
         )
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exist.")
 
+    db_modem_user = cast(User, db_modem.bind_user)
     show_modem = schemas.ShowModem(
         **jsonable_encoder(db_modem),
-        bind_user_email=str(db_modem.bind_user.email) if db_modem.bind_user is not None else None,
+        bind_user_email=str(db_modem_user.email) if db_modem.bind_user is not None else None,
     )
     return show_modem
 
@@ -347,12 +348,13 @@ async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
         modem: models.Modem | None = db.query(models.Modem).get(int(modem_id))
 
         if modem is not None:
+            modem_bind_user = cast(User, modem.bind_user)
             reboot_data = schemas.ModemActionsData(
                 ip=IPv4Address(modem.ip),
                 port=int(modem.port),  # type: ignore
                 internal_server_ip=IPv4Address(modem.internal_server_ip),
-                proxy_login=modem.bind_user.proxy_login,
-                proxy_password_plain=modem.bind_user.proxy_password_plain,
+                proxy_login=str(modem_bind_user.proxy_login),
+                proxy_password_plain=str(modem_bind_user.proxy_password_plain),
                 username=str(modem.username) if modem.username is not None else None,
                 password=str(modem.password) if modem.password is not None else None,
                 action=schemas.ModemAction.REBOOT,
