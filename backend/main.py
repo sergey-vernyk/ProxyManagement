@@ -10,6 +10,7 @@ from modems import router as modems_router
 from sqlalchemy.orm import DeclarativeBase
 from users import router_api as users_api_router
 from users import router_templates as users_templates_router
+from fastapi.middleware.cors import CORSMiddleware
 
 settings = get_settings()
 
@@ -21,6 +22,15 @@ app = FastAPI(
     title="Proxy Management With Sockets",
     version="0.1",
     swagger_ui_parameters={"persistAuthorization": True},
+    swagger_ui_oauth2_redirect_url="/auth/callback"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Update with your front-end URL in production
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
 )
 
 app.swagger_ui_init_oauth = {
