@@ -130,6 +130,10 @@ class UpdateModem(BaseModel):
     external_server_ip: IPvAnyAddress | None = None
     internal_server_ip: IPvAnyAddress | None = None
     external_server_port: int = Field(le=65535, ge=65000, default=None)
+    update_hashed_value: bool = Field(
+        description="Flag for indicating a user intention to update modem 'hashed_value' field.",
+        default=False,
+    )
     bind_user_email: EmailStr | None = None
     port: int | None = Field(le=65000, ge=49152, default=None)
     username: str | None = None

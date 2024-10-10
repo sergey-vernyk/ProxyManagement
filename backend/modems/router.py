@@ -191,10 +191,11 @@ async def update_modem(
     data_to_update: dict[str, Any] = body.model_dump(exclude={"ip", "bind_user_email"})
     data_to_update["ip"] = str(body.ip)
     data_to_update["external_server_ip"] = str(body.external_server_ip) if body.external_server_ip is not None else None
+    data_to_update["external_server_port"] = body.external_server_port
     data_to_update["internal_server_ip"] = str(body.internal_server_ip) if body.internal_server_ip is not None else None
     data_to_update["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
 
-    if bind_db_user is not None:
+    if bind_db_user is not None and body.update_hashed_value:
         data_to_update["hashed_value"] = hashlib.sha256(
             f"{bind_db_user.email}{data_to_update['ip']}".encode(ENCODING)
         ).hexdigest()[::2]
