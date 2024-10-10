@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from modems.schemas import ShowModemForUser
-from pydantic import BaseModel, EmailStr, Field, SecretStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserRole(str, Enum):
@@ -71,7 +71,7 @@ class ShowUser(BaseModel):
     hashed_password: str
     token: str | None = Field(description="Unique user token. Creates automatically during user creation.")
     proxy_login: str | None = Field(description="Password for accessing a proxy.")
-    proxy_password_plain: SecretStr | None = Field(description="Login for accessing a proxy.")
+    proxy_password_plain: str | None = Field(description="Login for accessing a proxy.")
     proxy_password_hashed: str | None = Field(description="Hashed password for a proxy used in config file.")
     proxy_password_hash_type: str | None
     created: datetime

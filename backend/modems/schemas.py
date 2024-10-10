@@ -3,8 +3,7 @@ from datetime import datetime
 from enum import Enum
 from ipaddress import IPv4Address
 
-from pydantic import (BaseModel, EmailStr, Field, HttpUrl, IPvAnyAddress,
-                      SecretStr)
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, IPvAnyAddress
 
 
 class ModemAction(str, Enum):
@@ -33,7 +32,7 @@ class ModemActionsData:
 
     def __post_init__(self) -> None:
         if not 49152 <= self.port <= 65000:
-            raise ValueError(f"Port value must be within 49152 and 65000. {self.port} was provided.")
+            raise ValueError(f"Port value must be within 49152 and 65000 inclusive. {self.port} was provided.")
 
     def convert_to_string_to_send(self) -> str:
         """
@@ -115,7 +114,7 @@ class ShowModem(BaseModel):
     hashed_value: str | None
     bind_user_email: str | None
     username: str | None
-    password: SecretStr | None
+    password: str | None
     rebooted: datetime | None = Field(description="Time when a modem was rebooted for the last time.")
     created: datetime
     updated: datetime | None
