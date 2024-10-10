@@ -32,6 +32,11 @@ logger = get_endpoint_logger()
 router = APIRouter()
 
 
+@router.get("/auth/callback")
+async def auth_callback(request: Request):
+    return {"message": f"Authorization successful: {request.headers}"}
+
+
 @router.post(
     "/auth/registration",
     response_class=JSONResponse,
