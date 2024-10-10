@@ -3,6 +3,7 @@ from datetime import timedelta
 from secrets import compare_digest, token_urlsafe
 from typing import Annotated
 
+import httpx
 from auth.schemas import EnteredCheckOTP
 from common.utils import get_base_url
 from config import get_settings
@@ -34,7 +35,39 @@ router = APIRouter()
 
 @router.get("/auth/callback")
 async def auth_callback(request: Request):
-    return {"message": f"Authorization successful: {request.headers}"}
+    code = request.query_params.get("code")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing code parameter")
+
+    # Exchange the authorization code for an access token
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://github.com/login/oauth/access_token",
+            params={
+                "client_id": settings.client_id,
+                "client_secret": settings.client_secret,
+                "code": code,
+            },
+            headers={"Accept": "application/json"},
+        )
+
+        # Check for errors
+        response.raise_for_status()
+        token_data = response.json()
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise HTTPException(status_code=400, detail="No access token received")
+
+    # Use the access token to fetch user information
+    user_response = await client.get(
+        "https://api.github.com/user",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    user_response.raise_for_status()
+    user_data = user_response.json()
+
+    # Here, you can handle the user data as needed
+    return {"message": "Authorization successful", "user": user_data}
 
 
 @router.post(
