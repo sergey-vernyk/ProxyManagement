@@ -18,6 +18,7 @@ class Modem(Base):
     id = Column(Integer, primary_key=True)
     external_server_ip = Column(INET(), nullable=True)
     internal_server_ip = Column(INET(), nullable=True)
+    external_server_port = Column(Integer, nullable=False, default=65000)
     ip = Column(INET(), nullable=False)
     port = Column(Integer, nullable=False)
     bind_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

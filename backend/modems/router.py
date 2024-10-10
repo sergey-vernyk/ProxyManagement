@@ -41,8 +41,6 @@ templates = Jinja2Templates(directory="templates")
 logger = get_endpoint_logger()
 router = APIRouter()
 
-SOCKET_HOST: str = settings.socket_host
-SOCKET_PORT: int = settings.socket_port
 ENCODING: str = settings.default_encoding
 
 
@@ -362,7 +360,11 @@ async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
 
             reboot_data_str = reboot_data.convert_to_string_to_send()
 
-            received_data = await send_data_to_socket_server(reboot_data_str, SOCKET_HOST, SOCKET_PORT)
+            received_data = await send_data_to_socket_server(
+                reboot_data_str,
+                str(modem.external_server_ip),
+                int(modem.external_server_port),  # type: ignore
+            )
             if received_data is not None:
                 if b"Failed" in received_data:
                     await websocket.send_json({"error": received_data.decode(ENCODING)})

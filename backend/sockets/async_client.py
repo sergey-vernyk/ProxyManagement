@@ -194,8 +194,8 @@ def handle_shutdown(client: AsyncSocketClient) -> None:
 
 
 if __name__ == "__main__":
-    host = settings.socket_host
-    port = settings.socket_port
+    host = "localhost"
+    port = 65432
     client = AsyncSocketClient(host, port)
 
     # Create the event loop explicitly

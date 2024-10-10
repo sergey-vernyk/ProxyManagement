@@ -24,8 +24,6 @@ class Settings(BaseSettings):
     db_echo_enable: bool = True
 
     # variables for socket server and client
-    socket_host: str
-    socket_port: int
     socket_stop_connection_cond: str
     socket_start_connection_cond: str
 

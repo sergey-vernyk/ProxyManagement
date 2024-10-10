@@ -32,8 +32,8 @@ class ModemActionsData:
     password: str | None = None
 
     def __post_init__(self) -> None:
-        if not 49152 < self.port < 65536:
-            raise ValueError(f"Port value must be within 49152 and 65536. {self.port} was provided.")
+        if not 49152 <= self.port <= 65000:
+            raise ValueError(f"Port value must be within 49152 and 65000. {self.port} was provided.")
 
     def convert_to_string_to_send(self) -> str:
         """
@@ -63,11 +63,19 @@ class CreateModem(BaseModel):
         description="Modem IP address in the server network.",
         examples=["192.168.9.1"],
     )
-    port: int = Field(lt=65536, gt=49152, description="Server port assigned to a modem.")
+    port: int = Field(le=65000, ge=49152, description="Server port assigned to a modem.")
     external_server_ip: IPvAnyAddress | None = Field(
         default=None,
         description="Server external IP, where a modem is connected.",
         examples=["45.196.29.178"],
+    )
+    external_server_port: int = Field(
+        description=(
+            "Server port, where a proxy is located and "
+            "the socket client can connect via this port to the socket server."
+        ),
+        le=65535,
+        ge=65000,
     )
     internal_server_ip: IPvAnyAddress | None = Field(
         default=None,
@@ -102,6 +110,7 @@ class ShowModem(BaseModel):
     ip: IPvAnyAddress
     external_server_ip: IPvAnyAddress | None
     internal_server_ip: IPvAnyAddress | None
+    external_server_port: int
     port: int
     hashed_value: str | None
     bind_user_email: str | None
@@ -120,8 +129,9 @@ class UpdateModem(BaseModel):
     ip: IPvAnyAddress
     external_server_ip: IPvAnyAddress | None = None
     internal_server_ip: IPvAnyAddress | None = None
+    external_server_port: int = Field(le=65535, ge=65000, default=None)
     bind_user_email: EmailStr | None = None
-    port: int | None = Field(lt=65536, gt=49152, default=None)
+    port: int | None = Field(le=65000, ge=49152, default=None)
     username: str | None = None
     password: str | None = None
     rebooted: datetime | None = None
