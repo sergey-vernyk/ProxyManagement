@@ -21,6 +21,7 @@ from users.crud import get_user_by_email
 from users.models import User
 from users.router_api import ENCODING, router
 from users.schemas import UserRole
+from users.utils import create_user_from_google
 from validators import validate_email_format
 
 from . import auth_bearer, crud, schemas, tasks
@@ -35,7 +36,7 @@ router = APIRouter()
 
 
 @router.get("/auth/callback", name="google_auth_callback")
-async def auth_callback(request: Request):
+async def auth_callback(request: Request, db: DatabaseDependency) -> None:
     code = request.query_params.get("code", "")
     if not code:
         raise HTTPException(
@@ -69,7 +70,9 @@ async def auth_callback(request: Request):
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        return user_info.json()
+        user_email: str | None = user_info.json().get("email")
+        if user_email is not None:
+            create_user_from_google(user_email, db)
 
 
 @router.post(

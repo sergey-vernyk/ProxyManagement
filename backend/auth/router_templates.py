@@ -1,5 +1,3 @@
-from secrets import token_urlsafe
-
 from common.utils import get_base_url
 from config import get_settings
 from fastapi import APIRouter, status

@@ -16,7 +16,7 @@ class UserAbstract(Base):
 
     id = Column(Integer, primary_key=True)
     email = Column(String(50), unique=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.REGULAR)
     is_verified = Column(Boolean, default=False, nullable=False)
     created = Column(DateTime(timezone=True), default=datetime.now, nullable=False)
