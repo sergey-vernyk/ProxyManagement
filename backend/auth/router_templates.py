@@ -29,7 +29,7 @@ async def registration_page(request: Request) -> _TemplateResponse:
         request (Request): Incoming HTTP request.
 
     Returns:
-        _TemplateResponse: Renders `registration.html` with registration URL and OAuth details.
+        _TemplateResponse: Renders `registration.html` with registration URL and OAuth URL.
     """
     base_url = get_base_url(request)
     reg_path = request.url_for("registration").components.path
@@ -40,14 +40,7 @@ async def registration_page(request: Request) -> _TemplateResponse:
         name="registration.html",
         context={
             "reg_url": reg_url,
-            "google_auth_url": "https://accounts.google.com/o/oauth2/auth",
-            "client_id": settings.google_client_id,
-            "redirect_uri": request.url_for("google_auth_callback"),
-            "state": token_urlsafe(),
-            "access_type": "offline",
-            "scope": "https://www.googleapis.com/auth/userinfo.email",
-            "response_type": "code",
-            "include_granted_scopes": "true",
+            "oauth_google_url": request.url_for("login_google"),
         },
     )
 

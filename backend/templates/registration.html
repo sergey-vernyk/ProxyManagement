@@ -107,10 +107,7 @@
 <body>
     <div class="container">
         <h2>Register</h2>
-        <form id="registration-form" data-reg-url="{{reg_url}}" data-auth-url="{{google_auth_url}}"
-            data-client-id="{{client_id}}" data-redirect-uri="{{redirect_uri}}" data-state="{{state}}"
-            data-scope="{{scope}}" data-response-type="{{response_type}}" data-access-type="{{access_type}}"
-            data-granted-scopes="{{include_granted_scopes}}">
+        <form id="registration-form" data-reg-url="{{reg_url}}" data-oauth-google-url="{{oauth_google_url}}">
             <div class="input-container">
                 <input type="email" id="email" name="email" placeholder="Email" required>
                 <div id="email-error" class="error-message"></div>
@@ -120,7 +117,7 @@
                 <div id="password-error" class="error-message"></div>
             </div>
             <button type="submit" id="register">Register</button>
-            <button type="button" id="google-oauth">SignUp via Google</button>
+            <button type="button" id="google-oauth">Login via Google</button>
         </form>
         <div id="reg-success"></div>
     </div>

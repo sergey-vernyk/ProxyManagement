@@ -1,3 +1,4 @@
+import urllib.parse
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import timedelta
 from secrets import compare_digest, token_urlsafe
@@ -8,15 +9,13 @@ from auth.schemas import EnteredCheckOTP
 from common.utils import get_base_url
 from config import get_settings
 from dependencies import DatabaseDependency
-from fastapi import (APIRouter, BackgroundTasks, Depends, Form, HTTPException,
-                     Request, status)
-from fastapi.responses import JSONResponse
+from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
+                     status)
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from jose import JWTError, jwt
 from logs.logging_conf import get_endpoint_logger
 from pydantic import EmailStr
-from security import (generate_hashed_otp, get_password_hash, oauth2_scheme,
-                      verify_password)
+from security import generate_hashed_otp, get_password_hash, verify_password
 from sqlalchemy import delete, update
 from users.crud import get_user_by_email
 from users.models import User
@@ -44,7 +43,6 @@ async def auth_callback(request: Request):
             "Missing code parameter.",
         )
 
-    # exchange the authorization code for an access token
     async with httpx.AsyncClient() as client:
         response = await client.post(
             "https://oauth2.googleapis.com/token",
@@ -57,7 +55,6 @@ async def auth_callback(request: Request):
             },
         )
 
-        # check for errors
         response.raise_for_status()
         token_data: dict[Any, Any] = response.json()
         access_token: str = token_data.get("access_token", "")
@@ -322,17 +319,29 @@ async def get_access_token(
     )
 
 
-@router.get("/auth/oauth2/token")
-async def get_oauth2_token(token: str = Depends(oauth2_scheme)) -> JSONResponse:
-    try:
-        decoded_jwt = jwt.decode(token, settings.google_client_secret, algorithms=[settings.algorithm])
-    except JWTError as exc:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED,
-            f"JWT Error: {exc}",
-        ) from exc
-        
-    return JSONResponse({"access_token": decoded_jwt}, status.HTTP_200_OK)
+@router.get("/auth/login/google", name="login_google")
+async def perform_google_auth(request: Request) -> RedirectResponse:
+    """
+    Redirects the user to Google's OAuth2 authorization page.
+
+    Args:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: A redirect to Google's OAuth2 authorization URL.
+    """
+    google_auth_url = "https://accounts.google.com/o/oauth2/auth"
+    query_params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": str(request.url_for("google_auth_callback")),
+        "state": token_urlsafe(),
+        "access_type": "offline",
+        "response_type": "code",
+        "scope": "https://www.googleapis.com/auth/userinfo.email",
+        "include_granted_scopes": "true",
+    }
+    google_auth_url = f"{google_auth_url}?{urllib.parse.urlencode(query_params)}"
+    return RedirectResponse(url=google_auth_url)
 
 
 @router.post(
