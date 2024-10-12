@@ -1,20 +1,22 @@
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import timedelta
 from secrets import compare_digest, token_urlsafe
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 from auth.schemas import EnteredCheckOTP
 from common.utils import get_base_url
 from config import get_settings
 from dependencies import DatabaseDependency
-from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
-                     status)
+from fastapi import (APIRouter, BackgroundTasks, Depends, Form, HTTPException,
+                     Request, status)
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
+from jose import JWTError, jwt
 from logs.logging_conf import get_endpoint_logger
 from pydantic import EmailStr
-from security import generate_hashed_otp, get_password_hash, verify_password
+from security import (generate_hashed_otp, get_password_hash, oauth2_scheme,
+                      verify_password)
 from sqlalchemy import delete, update
 from users.crud import get_user_by_email
 from users.models import User
@@ -33,41 +35,44 @@ logger = get_endpoint_logger()
 router = APIRouter()
 
 
-@router.get("/auth/callback")
+@router.get("/auth/callback", name="google_auth_callback")
 async def auth_callback(request: Request):
-    code = request.query_params.get("code")
+    code = request.query_params.get("code", "")
     if not code:
-        raise HTTPException(status_code=400, detail="Missing code parameter")
-
-    # Exchange the authorization code for an access token
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://github.com/login/oauth/access_token",
-            params={
-                "client_id": settings.client_id,
-                "client_secret": settings.client_secret,
-                "code": code,
-            },
-            headers={"Accept": "application/json"},
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Missing code parameter.",
         )
 
-        # Check for errors
+    # exchange the authorization code for an access token
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "grant_type": "authorization_code",
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "redirect_uri": str(request.url_for("google_auth_callback")),
+            },
+        )
+
+        # check for errors
         response.raise_for_status()
-        token_data = response.json()
-        access_token = token_data.get("access_token")
+        token_data: dict[Any, Any] = response.json()
+        access_token: str = token_data.get("access_token", "")
         if not access_token:
-            raise HTTPException(status_code=400, detail="No access token received")
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "No access token received.",
+            )
 
-    # Use the access token to fetch user information
-    user_response = await client.get(
-        "https://api.github.com/user",
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-    user_response.raise_for_status()
-    user_data = user_response.json()
+        user_info = await client.get(
+            "https://www.googleapis.com/oauth2/v1/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
 
-    # Here, you can handle the user data as needed
-    return {"message": "Authorization successful", "user": user_data}
+        return user_info.json()
 
 
 @router.post(
@@ -315,6 +320,19 @@ async def get_access_token(
         },
         status.HTTP_200_OK,
     )
+
+
+@router.get("/auth/oauth2/token")
+async def get_oauth2_token(token: str = Depends(oauth2_scheme)) -> JSONResponse:
+    try:
+        decoded_jwt = jwt.decode(token, settings.google_client_secret, algorithms=[settings.algorithm])
+    except JWTError as exc:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            f"JWT Error: {exc}",
+        ) from exc
+        
+    return JSONResponse({"access_token": decoded_jwt}, status.HTTP_200_OK)
 
 
 @router.post(

@@ -57,8 +57,12 @@ class Settings(BaseSettings):
     conn_count_file: str
 
     # GitHub OAuth
-    client_id: str
-    client_secret: str
+    github_client_id: str
+    github_client_secret: str
+
+    # Google OAuth
+    google_client_id: str
+    google_client_secret: str
 
     if DEFAULT_ENV_PATH.exists() or CURRENT_ENV_PATH and Path(CURRENT_ENV_PATH).exists():
         model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH or DEFAULT_ENV_PATH, env_file_encoding="utf-8")

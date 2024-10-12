@@ -19,18 +19,8 @@ Base = cast(DeclarativeBase, Base)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="Proxy Management With Sockets",
-    version="0.1",
-    swagger_ui_parameters={"persistAuthorization": True},
-    swagger_ui_oauth2_redirect_url="/auth/callback",
-    swagger_ui_init_oauth={
-        "clientId": settings.client_id,
-        "clientSecret": settings.client_secret,  # Only necessary for some flows
-        "usePkceWithAuthorizationCodeGrant": True,  # PKCE is recommended
-        "scopes": "read:user",
-        "authorizationUrl": "https://github.com/login/oauth/authorize",
-        "tokenUrl": "https://github.com/login/oauth/access_token",
-    },
+    title="Proxy Management",
+    version="0.2",
 )
 
 
@@ -44,8 +34,8 @@ app.include_router(users_templates_router.router, tags=["templates"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update with your front-end URL in production
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )

@@ -1,4 +1,7 @@
+from secrets import token_urlsafe
+
 from common.utils import get_base_url
+from config import get_settings
 from fastapi import APIRouter, status
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
@@ -7,6 +10,8 @@ from starlette.templating import _TemplateResponse
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter()
+settings = get_settings()
+
 
 @router.get(
     "/users/signup/",
@@ -18,19 +23,33 @@ router = APIRouter()
 )
 async def registration_page(request: Request) -> _TemplateResponse:
     """
-    Page for registration.
+    Renders the user registration page.
 
     Args:
-        request (Request): HTTP request.
+        request (Request): Incoming HTTP request.
 
     Returns:
-        _TemplateResponse: template `registration.htm` with the server registration URL.
+        _TemplateResponse: Renders `registration.html` with registration URL and OAuth details.
     """
     base_url = get_base_url(request)
     reg_path = request.url_for("registration").components.path
     reg_url = f"{base_url}{reg_path}"
 
-    return templates.TemplateResponse(request, name="registration.html", context={"reg_url": reg_url})
+    return templates.TemplateResponse(
+        request,
+        name="registration.html",
+        context={
+            "reg_url": reg_url,
+            "google_auth_url": "https://accounts.google.com/o/oauth2/auth",
+            "client_id": settings.google_client_id,
+            "redirect_uri": request.url_for("google_auth_callback"),
+            "state": token_urlsafe(),
+            "access_type": "offline",
+            "scope": "https://www.googleapis.com/auth/userinfo.email",
+            "response_type": "code",
+            "include_granted_scopes": "true",
+        },
+    )
 
 
 @router.get(

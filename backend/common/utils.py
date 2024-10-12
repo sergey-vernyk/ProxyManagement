@@ -10,9 +10,9 @@ def get_base_url(request: Request) -> str:
 
     Returns:
         str: base url like:
-            non-standard port:
+            - non-standard port:
                 http://example.com:1234 or https://example.com:1234.
-            standard port:
+            - standard port:
                 http://example.com or https://example.com.
     """
     host = request.base_url.hostname

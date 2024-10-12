@@ -1,4 +1,27 @@
 $(document).ready(() => {
+    $("#google-oauth").on("click", () => {
+        const googleHubAuthUrl = $("#registration-form").data("auth-url");
+        const clientId = $("#registration-form").data("client-id");
+        const redirectUri = $("#registration-form").data("redirect-uri");
+        const state = $("#registration-form").data("state");
+        const responseType = $("#registration-form").data("response-type")
+        const accessType = $("#registration-form").data("access-type")
+        const scope = $("#registration-form").data("scope")
+        const grantedScopes = $("#registration-form").data("granted-scopes")
+
+        const params = new URLSearchParams({
+            client_id: clientId,
+            redirect_uri: redirectUri,
+            state: state,
+            access_type: accessType,
+            response_type: responseType,
+            scope: scope,
+            include_granted_scopes: grantedScopes,
+        })
+        // redirect the user to GitHub's OAuth authorization page
+        window.location.href = `${googleHubAuthUrl}?${params}`;
+    });
+
     $("#registration-form").on("submit", (event) => {
         event.preventDefault();
         const enteredEmail = $("#email").val();

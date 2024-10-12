@@ -4,7 +4,7 @@ from string import digits
 
 import bcrypt
 from config import get_settings
-from fastapi.security import OAuth2AuthorizationCodeBearer
+from fastapi.security import OAuth2PasswordBearer
 from passlib.hash import md5_crypt
 
 settings = get_settings()
@@ -12,12 +12,7 @@ settings = get_settings()
 ENCODING: str = settings.default_encoding
 
 
-oauth2_scheme = OAuth2AuthorizationCodeBearer(
-    scheme_name="GitHub OAuth",
-    authorizationUrl="https://github.com/login/oauth/authorize",
-    tokenUrl="https://github.com/login/oauth/access_token",
-    scopes={"read:user": "Read info about a users."},
-)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/oauth2/token")
 
 
 def encrypt_modem_password(hash_type: str, plain_password: str) -> str:
