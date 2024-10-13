@@ -36,8 +36,8 @@ logger = get_endpoint_logger()
 router = APIRouter()
 
 
-@router.get("/auth/callback", name="google_auth_callback")
-async def auth_callback(request: Request, db: DatabaseDependency) -> Response:
+@router.get("/auth/callback", name="google_login_callback")
+async def google_login(request: Request, db: DatabaseDependency) -> JSONResponse:
     """
     Handles the Google OAuth2 callback.
 
@@ -74,7 +74,7 @@ async def auth_callback(request: Request, db: DatabaseDependency) -> Response:
                 "grant_type": "authorization_code",
                 "client_id": settings.google_client_id,
                 "client_secret": settings.google_client_secret,
-                "redirect_uri": str(request.url_for("google_auth_callback")),
+                "redirect_uri": str(request.url_for("google_login_callback")),
             },
         )
 
@@ -105,9 +105,85 @@ async def auth_callback(request: Request, db: DatabaseDependency) -> Response:
             if existing_user is None:
                 create_user_from_google(user_email, db)
 
-        response = Response("You are successfully log into the system.")
+        response = JSONResponse(
+            {
+                "message": "You are successfully log-in into the system.",
+                "access_token": id_token,
+                "token_type": "Bearer",
+            },
+            status.HTTP_200_OK,
+        )
         set_cookie(response, "X-Access-Token", id_token)
         return response
+
+
+@router.post(
+    "/auth/login",
+    response_model=schemas.Token,
+    status_code=status.HTTP_200_OK,
+    description="Login in the system by getting access bearer token.",
+    operation_id="basic-login",
+    responses={
+        400: {"description": "User no found or incorrect password or email"},
+        200: {"description": "Successfully"},
+    },
+)
+async def basic_login(
+    email: Annotated[EmailStr, Form()],
+    password: Annotated[str, Form(min_length=10, max_length=30)],
+    db: DatabaseDependency,
+    request: Request,
+) -> JSONResponse:
+    """
+    Get JWT access token for provided user with `email` and `password`.
+
+    Args:
+        email (Annotated[EmailStr, Form): user email.
+        db (DatabaseDependency): database session.
+        password (Annotated[str, Form, optional): user password. Defaults to 10, max_length=30)].
+
+    Raises:
+        HTTPException: the user with the given email does not exist.
+        HTTPException: if regular user tries to get access token, which available only for admin users.
+        HTTPException: if entered email or password is incorrect.
+
+    Returns:
+        JSONResponse: response with keys `access_token` and `token_type`.
+    """
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        logger.info(
+            f"User with the given email {email} does not exist.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exist.")
+
+    if user.role.name != UserRole.ADMIN.name:
+        logger.info(
+            "Access token available only for admin users.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Access token available only for admin users.")
+
+    if not verify_password(password, str(user.hashed_password)):
+        logger.info(
+            "Incorrect email or password.",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect email or password.")
+
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token: str = auth_bearer.create_access_token({"sub": user.email}, access_token_expires)
+    response = JSONResponse(
+        {
+            "message": "You are successfully log-in into the system.",
+            "access_token": access_token,
+            "token_type": "Bearer",
+        },
+        status.HTTP_200_OK,
+    )
+    set_cookie(response, "X-Access-Token", access_token)
+    return response
 
 
 @router.post(
@@ -290,73 +366,6 @@ async def reset_password_confirm(body: schemas.ResetPasswordConfirm, db: Databas
     return JSONResponse("Password has been reset successfully.", status.HTTP_200_OK)
 
 
-@router.post(
-    "/auth/token",
-    response_model=schemas.Token,
-    status_code=status.HTTP_200_OK,
-    description="Get access bearer token.",
-    operation_id="get-access-token",
-    responses={
-        400: {"description": "User no found or incorrect password or email"},
-        200: {"description": "Successfully"},
-    },
-)
-async def get_access_token(
-    email: Annotated[EmailStr, Form()],
-    password: Annotated[str, Form(min_length=10, max_length=30)],
-    db: DatabaseDependency,
-    request: Request,
-) -> JSONResponse:
-    """
-    Get JWT access token for provided user with `email` and `password`.
-
-    Args:
-        email (Annotated[EmailStr, Form): user email.
-        db (DatabaseDependency): database session.
-        password (Annotated[str, Form, optional): user password. Defaults to 10, max_length=30)].
-
-    Raises:
-        HTTPException: the user with the given email does not exist.
-        HTTPException: if regular user tries to get access token, which available only for admin users.
-        HTTPException: if entered email or password is incorrect.
-
-    Returns:
-        JSONResponse: response with keys `access_token` and `token_type`.
-    """
-    user = db.query(User).filter(User.email == email).first()
-    if user is None:
-        logger.info(
-            f"User with the given email {email} does not exist.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exist.")
-
-    if user.role.name != UserRole.ADMIN.name:
-        logger.info(
-            "Access token available only for admin users.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Access token available only for admin users.")
-
-    if not verify_password(password, str(user.hashed_password)):
-        logger.info(
-            "Incorrect email or password.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect email or password.")
-
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-    access_token: str = auth_bearer.create_access_token({"sub": user.email}, access_token_expires)
-
-    return JSONResponse(
-        {
-            "access_token": access_token,
-            "token_type": "bearer",
-        },
-        status.HTTP_200_OK,
-    )
-
-
 @router.get(
     "/auth/login/google",
     name="login_google",
@@ -377,7 +386,7 @@ async def perform_google_auth(request: Request) -> RedirectResponse:
     google_auth_url = "https://accounts.google.com/o/oauth2/auth"
     query_params = {
         "client_id": settings.google_client_id,
-        "redirect_uri": str(request.url_for("google_auth_callback")),
+        "redirect_uri": str(request.url_for("google_login_callback")),
         "state": token_urlsafe(),
         "access_type": "offline",
         "response_type": "code",

@@ -12,10 +12,9 @@ import random
 from secrets import token_urlsafe
 from typing import Annotated, Any
 
-from auth.auth_bearer import JWTBearer, verify_google_id_token
 from auth.otp.utils import send_otp_email_handler
 from config import get_settings
-from dependencies import DatabaseDependency
+from dependencies import DatabaseDependency, JWTBearer, jwt_verification
 from fastapi import (APIRouter, BackgroundTasks, Depends, HTTPException, Query,
                      status)
 from fastapi.requests import Request
@@ -103,7 +102,7 @@ async def create_user(
     "/users/",
     response_model=list[schemas.ShowUser],
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(verify_google_id_token)],
+    dependencies=[Depends(jwt_verification)],
     description="Get all users within `skip` and `limit` params.",
     operation_id="get-users",
     responses={200: {"description": "Successfully"}},

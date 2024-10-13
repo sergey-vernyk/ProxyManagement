@@ -15,11 +15,10 @@ import hashlib
 from ipaddress import IPv4Address
 from typing import Annotated, Any, cast
 
-from auth.auth_bearer import JWTBearer
 from common.utils import get_base_url
 from config import get_settings
 from conn_utils import send_data_to_socket_server
-from dependencies import DatabaseDependency
+from dependencies import DatabaseDependency, JWTBearer
 from fastapi import (APIRouter, Depends, HTTPException, Path, Query, WebSocket,
                      WebSocketDisconnect, status)
 from fastapi.encoders import jsonable_encoder
