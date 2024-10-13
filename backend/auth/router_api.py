@@ -36,7 +36,19 @@ logger = get_endpoint_logger()
 router = APIRouter()
 
 
-@router.get("/auth/callback", name="google_login_callback")
+@router.get(
+    "/auth/callback",
+    name="google_login_callback",
+    description="Handles the Google OAuth2 callback.",
+    operation_id="handle-google-login",
+    response_class=JSONResponse,
+    responses={
+        "200": {"description": "Successful"},
+        "400": {
+            "description": "Authorization code or access token or ID token is missing.",
+        },
+    },
+)
 async def google_login(request: Request, db: DatabaseDependency) -> JSONResponse:
     """
     Handles the Google OAuth2 callback.

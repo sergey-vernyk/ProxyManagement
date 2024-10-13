@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from modems import router as modems_router
+from modems import router_templates as modems_templates_router
 from sqlalchemy.orm import DeclarativeBase
 from users import router_api as users_api_router
 from users import router_templates as users_templates_router
@@ -29,6 +30,7 @@ app.include_router(modems_router.router, tags=["modems"])
 app.include_router(auth_api_router.router, tags=["auth"])
 app.include_router(auth_templates_router.router, tags=["templates"])
 app.include_router(users_templates_router.router, tags=["templates"])
+app.include_router(modems_templates_router.router, tags=["templates"])
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
