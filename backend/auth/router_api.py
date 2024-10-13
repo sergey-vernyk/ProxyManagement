@@ -6,11 +6,12 @@ from typing import Annotated, Any
 
 import httpx
 from auth.schemas import EnteredCheckOTP
+from auth.utils import set_cookie
 from common.utils import get_base_url
 from config import get_settings
 from dependencies import DatabaseDependency
 from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
-                     status)
+                     Response, status)
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from logs.logging_conf import get_endpoint_logger
@@ -36,20 +37,27 @@ router = APIRouter()
 
 
 @router.get("/auth/callback", name="google_auth_callback")
-async def auth_callback(request: Request, db: DatabaseDependency) -> JSONResponse:
+async def auth_callback(request: Request, db: DatabaseDependency) -> Response:
     """
     Handles the Google OAuth2 callback.
 
-    After the user authorizes access, the function exchanges the authorization code
-    for an access token, retrieves user information from Google, and either creates a
-    new user in the database or logs them in.
+    The function is triggered after the user authorizes access via Google OAuth2.
+    It exchanges the provided authorization code for an access token, retrieves user
+    information from Google, and then either creates a new user in the database or
+    confirms the user already exists.
+    The user's ID token is set in a cookie for session persistence.
 
     Args:
-        request (Request): The HTTP request, containing query parameters.
-        db (DatabaseDependency): Database session used for user management.
+        request (Request): The HTTP request, with the authorization code.
+        db (DatabaseDependency): Database session used for user management and verification.
 
     Returns:
-        JSONResponse: A JSON response indicating whether the user was created or already exists.
+        Response: A Response indicating the user has successfully logged into the system,
+        with the ID token set in the cookies for future authentication.
+
+    Raises:
+        HTTPException: If the authorization code is missing,
+            the access token retrieval fails or id token is missing.
     """
     code = request.query_params.get("code", "")
     if not code:
@@ -73,31 +81,33 @@ async def auth_callback(request: Request, db: DatabaseDependency) -> JSONRespons
         response.raise_for_status()
         token_data: dict[Any, Any] = response.json()
         access_token: str = token_data.get("access_token", "")
+        id_token: str = token_data.get("id_token", "")
         if not access_token:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 "No access token received.",
             )
 
-        response = await client.get(
+        if not id_token:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "No ID token received.",
+            )
+
+        user_info = await client.get(
             "https://www.googleapis.com/oauth2/v1/userinfo",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        user_email: str = response.json().get("email", "")
+        user_email: str = user_info.json().get("email", "")
         if user_email:
             existing_user = get_user_by_email(db, user_email)
-            if existing_user is not None:
-                return JSONResponse(
-                    f"The user with email '{user_email}' already exists. Please log in.",
-                    status.HTTP_200_OK,
-                )
+            if existing_user is None:
+                create_user_from_google(user_email, db)
 
-        create_user_from_google(user_email, db)
-        return JSONResponse(
-            f"User has been created. Authorization data: {token_data}",
-            status.HTTP_201_CREATED,
-        )
+        response = Response("You are successfully log into the system.")
+        set_cookie(response, "X-Access-Token", id_token)
+        return response
 
 
 @router.post(
