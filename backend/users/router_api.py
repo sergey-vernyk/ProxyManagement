@@ -12,7 +12,7 @@ import random
 from secrets import token_urlsafe
 from typing import Annotated, Any
 
-from auth.auth_bearer import JWTBearer
+from auth.auth_bearer import JWTBearer, verify_google_id_token
 from auth.otp.utils import send_otp_email_handler
 from config import get_settings
 from dependencies import DatabaseDependency
@@ -23,7 +23,7 @@ from fastapi.templating import Jinja2Templates
 from logs.logging_conf import get_endpoint_logger
 from pydantic import EmailStr
 from security import (encrypt_modem_password, generate_md5_crypt_hash_password,
-                      get_password_hash, oauth2_scheme, verify_password)
+                      get_password_hash, verify_password)
 from validators import validate_email_format
 
 from . import crud, models, schemas
@@ -103,7 +103,7 @@ async def create_user(
     "/users/",
     response_model=list[schemas.ShowUser],
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(JWTBearer()), Depends(oauth2_scheme)],
+    dependencies=[Depends(verify_google_id_token)],
     description="Get all users within `skip` and `limit` params.",
     operation_id="get-users",
     responses={200: {"description": "Successfully"}},

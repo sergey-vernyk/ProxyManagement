@@ -1,16 +1,57 @@
 from datetime import datetime, timedelta, timezone
+from typing import Annotated, Any
 
 from config import get_settings
 from dependencies import DatabaseDependency
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from google.auth.exceptions import GoogleAuthError
+from google.auth.transport import requests
+from google.oauth2 import id_token
 from jose import JWTError, jwt
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+from users.crud import get_user_by_email
 from users.models import User
 from users.schemas import UserRole
 
 settings = get_settings()
+security = HTTPBearer(scheme_name="OAuth JWT")
+
+
+async def verify_google_id_token(
+    db: DatabaseDependency, credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]
+) -> None:
+    """
+    Verifies the provided Google ID token and checks if the associated email exists in the database.
+
+    Args:
+        db (DatabaseDependency): Dependency for interacting with the database.
+        token (HTTPAuthorizationCredentials): The HTTP Bearer token retrieved from the request.
+
+    Raises:
+        HTTPException: Raised if the token is invalid, the issuer is invalid,
+            or no user is found in the database.
+    """
+    if credentials.scheme != "Bearer":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid authentication credentials.")
+
+    try:
+        token_info: dict[str, Any] = id_token.verify_oauth2_token(
+            credentials.credentials,
+            requests.Request(),
+            settings.google_client_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Token verification fails. Reason {e}.") from e
+    except GoogleAuthError as e:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"The token issuer is invalid. Reason {e}.") from e
+
+    email: str = token_info.get("email", "")
+    if email:
+        db_user = get_user_by_email(db, email)
+        if db_user is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is not bind to any user.")
 
 
 class JWTBearer(HTTPBearer):
@@ -102,7 +143,7 @@ class JWTBearer(HTTPBearer):
         return True
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """
     Returns generated jwt access token.
     """

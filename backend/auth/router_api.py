@@ -36,7 +36,21 @@ router = APIRouter()
 
 
 @router.get("/auth/callback", name="google_auth_callback")
-async def auth_callback(request: Request, db: DatabaseDependency) -> None:
+async def auth_callback(request: Request, db: DatabaseDependency) -> JSONResponse:
+    """
+    Handles the Google OAuth2 callback.
+
+    After the user authorizes access, the function exchanges the authorization code
+    for an access token, retrieves user information from Google, and either creates a
+    new user in the database or logs them in.
+
+    Args:
+        request (Request): The HTTP request, containing query parameters.
+        db (DatabaseDependency): Database session used for user management.
+
+    Returns:
+        JSONResponse: A JSON response indicating whether the user was created or already exists.
+    """
     code = request.query_params.get("code", "")
     if not code:
         raise HTTPException(
@@ -65,14 +79,25 @@ async def auth_callback(request: Request, db: DatabaseDependency) -> None:
                 "No access token received.",
             )
 
-        user_info = await client.get(
+        response = await client.get(
             "https://www.googleapis.com/oauth2/v1/userinfo",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        user_email: str | None = user_info.json().get("email")
-        if user_email is not None:
-            create_user_from_google(user_email, db)
+        user_email: str = response.json().get("email", "")
+        if user_email:
+            existing_user = get_user_by_email(db, user_email)
+            if existing_user is not None:
+                return JSONResponse(
+                    f"The user with email '{user_email}' already exists. Please log in.",
+                    status.HTTP_200_OK,
+                )
+
+        create_user_from_google(user_email, db)
+        return JSONResponse(
+            f"User has been created. Authorization data: {token_data}",
+            status.HTTP_201_CREATED,
+        )
 
 
 @router.post(
@@ -322,7 +347,13 @@ async def get_access_token(
     )
 
 
-@router.get("/auth/login/google", name="login_google")
+@router.get(
+    "/auth/login/google",
+    name="login_google",
+    response_class=RedirectResponse,
+    description="Redirects the user to Google's OAuth2 authorization page.",
+    operation_id="perform-google-auth",
+)
 async def perform_google_auth(request: Request) -> RedirectResponse:
     """
     Redirects the user to Google's OAuth2 authorization page.
