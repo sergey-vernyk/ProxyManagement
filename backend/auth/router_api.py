@@ -253,7 +253,7 @@ async def register_user(
             {"user_exists": "User with the given email is already registered."},
         )
 
-    token = token_urlsafe(32)[:32]
+    token = token_urlsafe(32)[: settings.unique_user_token_length]
     crud.register_regular_user(db, body, token)
 
     await send_otp_email_handler(bg_tasks, request, token, db)

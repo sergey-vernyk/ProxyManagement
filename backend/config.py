@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     google_client_id: str
     google_client_secret: str
 
+    unique_user_token_length: int = 32
+
     if DEFAULT_ENV_PATH.exists() or CURRENT_ENV_PATH and Path(CURRENT_ENV_PATH).exists():
         model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH or DEFAULT_ENV_PATH, env_file_encoding="utf-8")
 

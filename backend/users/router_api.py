@@ -77,7 +77,7 @@ async def create_user(
     proxy_password_hashed: str | None = None
 
     if isinstance(body, schemas.CreateRegularUser):
-        token = token_urlsafe(32)[:32]
+        token = token_urlsafe(32)[: settings.unique_user_token_length]
         proxy_login = token_urlsafe(32)[: random.randint(10, 20)]
 
         if body.proxy_password_hash_type is not None:
@@ -208,7 +208,7 @@ async def update_user(
         data_to_update["hashed_password"] = get_password_hash(body.new_password)
 
     if body.update_token:
-        data_to_update["token"] = token_urlsafe(32)[:32]
+        data_to_update["token"] = token_urlsafe(32)[: settings.unique_user_token_length]
 
     if body.update_proxy_login:
         proxy_login = token_urlsafe(32)[: random.randint(10, 20)]
