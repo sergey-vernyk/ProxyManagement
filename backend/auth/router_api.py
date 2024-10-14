@@ -6,21 +6,24 @@ from typing import Annotated, Any
 
 import httpx
 from auth.schemas import EnteredCheckOTP
-from auth.utils import set_cookie
+from auth.utils import delete_cookie, set_cookie
 from common.utils import get_base_url
 from config import get_settings
-from dependencies import DatabaseDependency
-from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
-                     status)
+from dependencies import DatabaseDependency, jwt_verification
+from fastapi import (APIRouter, BackgroundTasks, Depends, Form, HTTPException,
+                     Request, status)
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from google.auth.exceptions import GoogleAuthError
+from google.auth.transport import requests
+from google.oauth2 import id_token
 from logs.logging_conf import get_endpoint_logger
 from pydantic import EmailStr
 from security import generate_hashed_otp, get_password_hash, verify_password
 from sqlalchemy import delete, update
 from users.crud import get_user_by_email
 from users.models import User
-from users.router_api import ENCODING, router
+from users.router_api import router
 from users.utils import create_user_from_google
 from validators import validate_email_format
 
@@ -35,6 +38,79 @@ logger = get_endpoint_logger()
 router = APIRouter()
 
 
+@router.post(
+    "/auth/revoke/google",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(jwt_verification)],
+    response_class=JSONResponse,
+    description="Revokes Google authentication and disconnects the user's Google account from the application.",
+    operation_id="revoke-google-authentication",
+    responses={
+        200: {"description": "Successful"},
+        401: {"description": "User not authorized via Google or token issuer is invalid"},
+        400: {"description": "The token issuer is invalid."},
+        412: {"description": "Token issuer is not Google"},
+    },
+)
+async def revoke_google_auth(request: Request) -> JSONResponse:
+    """
+    Revokes Google authentication and disconnects the user's Google account from the application.
+
+    The endpoint verifies the user's Google ID token, ensuring its validity, and revokes the
+    Google access token by making a request to the Google OAuth 2.0 token revocation endpoint.
+    It also deletes the relevant cookies storing these tokens.
+
+    Args:
+        request (Request): The HTTP request object, which contains cookies for the Google access
+            token and ID token.
+
+    Returns:
+        JSONResponse: A JSON response confirming the successful revocation of Google authentication
+        and deletion of cookies.
+
+    Raises:
+        HTTPException: If the Google tokens are missing, invalid, or issued by an unauthorized source.
+    """
+    google_access_token = request.cookies.get(settings.cookies_google_access_token)
+    google_id_token = request.cookies.get(settings.cookies_key_jwt)
+
+    if google_access_token is None and google_id_token is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "You are not authorized via Google.",
+        )
+
+    try:
+        id_token_info: dict[str, Any] = id_token.verify_oauth2_token(
+            google_id_token,
+            requests.Request(),
+            settings.google_client_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Token verification fails: {e}.") from e
+    except GoogleAuthError as e:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"The token issuer is invalid: {e}.") from e
+
+    if id_token_info.get("iss", "") and id_token_info["iss"] != "https://accounts.google.com":
+        raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, "Token issuer is not Google.")
+
+    async with httpx.AsyncClient() as client:
+        google_response = await client.post(
+            "https://oauth2.googleapis.com/revoke",
+            params={"token": google_access_token},
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        google_response.raise_for_status()
+        response = JSONResponse(
+            {"message": "Your Google account has been successfully disconnected from the application."},
+            status.HTTP_200_OK,
+        )
+        for key in (settings.cookies_key_jwt, settings.cookies_google_access_token):
+            delete_cookie(response, key)
+
+    return response
+
+
 @router.get(
     "/auth/callback",
     name="google_login_callback",
@@ -44,7 +120,7 @@ router = APIRouter()
     responses={
         "200": {"description": "Successful"},
         "400": {
-            "description": "Authorization code or access token or ID token is missing.",
+            "description": "Authorization code or access token or ID token is missing",
         },
     },
 )
@@ -117,6 +193,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
 
         response = RedirectResponse(str(request.url_for("success_login_page")))
         set_cookie(response, settings.cookies_key_jwt, id_token, max_age=token_data["expires_in"])
+        set_cookie(response, settings.cookies_google_access_token, access_token, max_age=token_data["expires_in"])
         return response
 
 

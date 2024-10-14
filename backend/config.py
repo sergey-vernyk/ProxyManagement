@@ -68,6 +68,7 @@ class Settings(BaseSettings):
 
     # name of the key in cookies for persisting access JWT
     cookies_key_jwt: str
+    cookies_google_access_token: str
 
     if DEFAULT_ENV_PATH.exists() or CURRENT_ENV_PATH and Path(CURRENT_ENV_PATH).exists():
         model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH or DEFAULT_ENV_PATH, env_file_encoding="utf-8")
