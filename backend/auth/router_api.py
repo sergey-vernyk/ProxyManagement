@@ -89,7 +89,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         )
 
         response.raise_for_status()
-        token_data: dict[Any, Any] = response.json()
+        token_data: dict[str, Any] = response.json()
         access_token: str = token_data.get("access_token", "")
         id_token: str = token_data.get("id_token", "")
         if not access_token:
@@ -116,7 +116,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
                 create_user_from_google(user_email, db)
 
         response = RedirectResponse(str(request.url_for("success_login_page")))
-        set_cookie(response, settings.cookies_key_jwt, id_token)
+        set_cookie(response, settings.cookies_key_jwt, id_token, max_age=token_data["expires_in"])
         return response
 
 
@@ -184,13 +184,13 @@ async def basic_login(
             {"incorrect_email_or_password": "Incorrect email or password."},
         )
 
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token_expires = timedelta(seconds=settings.access_token_expire_seconds)
     access_token: str = auth_bearer.create_access_token({"sub": user.email}, access_token_expires)
     response = JSONResponse(
         {"redirect_url": str(request.url_for("success_login_page"))},
         status.HTTP_200_OK,
     )
-    set_cookie(response, settings.cookies_key_jwt, access_token)
+    set_cookie(response, settings.cookies_key_jwt, access_token, max_age=settings.access_token_expire_seconds)
     return response
 
 

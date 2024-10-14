@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     default_encoding: str
 
     # variables for JWT encoding and decoding without OAuth flow
-    access_token_expire_minutes: int
+    access_token_expire_seconds: int
     secret_key: str
     algorithm: str
 
