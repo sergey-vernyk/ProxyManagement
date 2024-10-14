@@ -57,7 +57,7 @@ async def login_page(request: Request) -> _TemplateResponse:
 
     Returns:
         _TemplateResponse: Renders `authentication.html` with authentication URLs
-            with login and password of with OAuth2 flow.
+            with login and password or with OAuth2 flow.
     """
     base_url = get_base_url(request)
     basic_login_path = request.url_for("basic_login").components.path

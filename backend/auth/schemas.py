@@ -1,15 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 
 
-class Token(BaseModel):
-    """
-    Class represents fields for JWT response.
-    """
-
-    access_token: str
-    token_type: str = Field(default="bearer")
-
-
 class TokenData(BaseModel):
     """
     Class represents data which contains JWT.

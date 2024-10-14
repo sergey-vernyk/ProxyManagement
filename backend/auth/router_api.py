@@ -21,7 +21,6 @@ from sqlalchemy import delete, update
 from users.crud import get_user_by_email
 from users.models import User
 from users.router_api import ENCODING, router
-from users.schemas import UserRole
 from users.utils import create_user_from_google
 from validators import validate_email_format
 
@@ -116,14 +115,14 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
             if existing_user is None:
                 create_user_from_google(user_email, db)
 
-        response = RedirectResponse(f"{request.url_for('success_login_page')}")
-        set_cookie(response, "X-Access-Token", id_token)
+        response = RedirectResponse(str(request.url_for("success_login_page")))
+        set_cookie(response, settings.cookies_key_jwt, id_token)
         return response
 
 
 @router.post(
     "/auth/login",
-    response_model=schemas.Token,
+    response_class=JSONResponse,
     status_code=status.HTTP_200_OK,
     name="basic_login",
     description="Login in the system by getting access bearer token.",
@@ -144,51 +143,54 @@ async def basic_login(
 
     Args:
         email (Annotated[EmailStr, Form): user email.
-        db (DatabaseDependency): database session.
         password (Annotated[str, Form, optional): user password. Defaults to 10, max_length=30)].
+        db (DatabaseDependency): database session.
+        request(Request): HTTP request.
 
     Raises:
         HTTPException: the user with the given email does not exist.
-        HTTPException: if regular user tries to get access token, which available only for admin users.
         HTTPException: if entered email or password is incorrect.
 
     Returns:
-        JSONResponse: response with keys `access_token` and `token_type`.
+        JSONResponse: response with the `redirect_url` content for using it
+            for redirecting users to a page after successful authentication.
     """
-    user = db.query(User).filter(User.email == email).first()
+    try:
+        valid_email = validate_email_format(email)
+    except ValueError as e:
+        logger.info(
+            f"Email is invalid. Reason: {e}",
+            extra={"client_ip": request.client.host if request.client is not None else None},
+        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, {"email_invalid": str(e)}) from e
+
+    user = db.query(User).filter(User.email == valid_email).first()
     if user is None:
         logger.info(
-            f"User with the given email {email} does not exist.",
+            f"User with the given email {valid_email} does not exist.",
             extra={"client_ip": request.client.host if request.client is not None else None},
         )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exist.")
-
-    if user.role.name != UserRole.ADMIN.name:
-        logger.info(
-            "Access token available only for admin users.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, {"user_not_exists": "User with the given email does not exist."}
         )
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Access token available only for admin users.")
 
     if not verify_password(password, str(user.hashed_password)):
         logger.info(
             "Incorrect email or password.",
             extra={"client_ip": request.client.host if request.client is not None else None},
         )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect email or password.")
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            {"incorrect_email_or_password": "Incorrect email or password."},
+        )
 
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token: str = auth_bearer.create_access_token({"sub": user.email}, access_token_expires)
     response = JSONResponse(
-        {
-            "message": "You are successfully log-in into the system.",
-            "access_token": access_token,
-            "token_type": "Bearer",
-            "redirect_url": f"{request.url_for('success_login_page')}",
-        },
+        {"redirect_url": str(request.url_for("success_login_page"))},
         status.HTTP_200_OK,
     )
-    set_cookie(response, "X-Access-Token", access_token)
+    set_cookie(response, settings.cookies_key_jwt, access_token)
     return response
 
 
@@ -252,7 +254,7 @@ async def register_user(
 
     await send_otp_email_handler(bg_tasks, request, token, db)
     return JSONResponse(
-        {"redirect_url": f"{request.url_for('success_registration_page')}"},
+        {"redirect_url": str(request.url_for("success_registration_page"))},
         status.HTTP_201_CREATED,
     )
 

@@ -1,7 +1,7 @@
 $(document).ready(() => {
     $("#google-oauth").on("click", () => {
-        const googleAuthUrl = $("#authentication-form").data("oauth-google-url");
-        window.location.href = googleAuthUrl;
+        const googleLoginUrl = $("#authentication-form").data("google-login-url");
+        window.location.href = googleLoginUrl;
     });
 
     $("#authentication-form").on("submit", (event) => {
@@ -15,14 +15,14 @@ $(document).ready(() => {
         $.ajax({
             url: basicLoginUrl,
             method: "POST",
-            dataType: "json",
-            contentType: "application/json",
-            data: JSON.stringify({
-                email: enteredEmail,
-                password: enteredPassword,
-            }),
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            data: new URLSearchParams({
+                "email": enteredEmail,
+                "password": enteredPassword,
+            }).toString(),
             success: (response, textStatus, xhr) => {
-                // redirect to page with text about successful registration.
                 const redirectUrl = response.redirect_url;
                 window.location.href = redirectUrl;
             },
@@ -36,8 +36,12 @@ $(document).ready(() => {
                         $("#email-error").text(jqXHR.responseJSON.detail["email_invalid"])
                     }
 
-                    if (jqXHR.responseJSON.detail["user_exists"] !== undefined) {
-                        $("#email-error").text(jqXHR.responseJSON.detail["user_exists"])
+                    if (jqXHR.responseJSON.detail["user_not_exists"] !== undefined) {
+                        $("#email-error").text(jqXHR.responseJSON.detail["user_not_exists"])
+                    }
+
+                    if (jqXHR.responseJSON.detail["incorrect_email_or_password"] !== undefined) {
+                        $("#password-error").text(jqXHR.responseJSON.detail["incorrect_email_or_password"])
                     }
                 }
             }

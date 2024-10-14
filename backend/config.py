@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     default_encoding: str
 
-    # variables for JWT encoding and decoding
+    # variables for JWT encoding and decoding without OAuth flow
     access_token_expire_minutes: int
     secret_key: str
     algorithm: str
@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     google_client_secret: str
 
     unique_user_token_length: int = 32
+
+    # name of the key in cookies for persisting access JWT
+    cookies_key_jwt: str
 
     if DEFAULT_ENV_PATH.exists() or CURRENT_ENV_PATH and Path(CURRENT_ENV_PATH).exists():
         model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH or DEFAULT_ENV_PATH, env_file_encoding="utf-8")
