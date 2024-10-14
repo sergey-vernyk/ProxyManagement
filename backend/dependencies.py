@@ -76,7 +76,8 @@ class JWTBearer(HTTPBearer):
 
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid authorization code.")
 
-    async def verify_jwt(self, token: str, db: Session) -> Literal[True]:
+    # TODO update return value in docstring.
+    async def verify_jwt(self, token: str, db: Session) -> User:
         """
         Verify the JWT token's validity and check if the user exists in the database.
 
@@ -117,13 +118,14 @@ class JWTBearer(HTTPBearer):
                 headers={"WWW-Authenticate": "Bearer"},
             ) from exc
 
-        return True
+        return user
 
 
+# TODO update return value in docstring.
 async def verify_google_id_token(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     db: Annotated[Session, Depends(get_db)],
-) -> Literal[True]:
+) -> User:
     """
     Verifies the provided Google ID token and checks if the associated email exists in the database.
 
@@ -158,13 +160,14 @@ async def verify_google_id_token(
         if db_user is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is not bind to any user.")
 
-    return True
+    return db_user
 
 
+# TODO update return value in docstring.
 async def jwt_verification(
     db: Annotated[Session, Depends(get_db)],
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-) -> Literal[True]:
+) -> User:
     """
     Verifies the provided authentication credentials
     by checking both Google ID tokens and JWT tokens.

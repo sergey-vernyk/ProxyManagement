@@ -1,11 +1,15 @@
 from functools import wraps
 from typing import Awaitable, Callable
 
+from config import get_settings
 from dependencies import DatabaseDependency, jwt_verification
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from starlette.templating import _TemplateResponse
+from users.models import User
+
+settings = get_settings()
 
 
 def template_jwt_verification(
@@ -25,14 +29,15 @@ def template_jwt_verification(
 
     @wraps(func)
     async def wrapper(request: Request, db: DatabaseDependency, *args, **kwargs) -> RedirectResponse | _TemplateResponse:
-        no_authorized_response = RedirectResponse(str(request.url_for("login_page_prompt")))
-        access_token = request.cookies.get("X-Access-Token")
+        no_authorized_response = RedirectResponse(str(request.url_for("login_page")))
+        access_token = request.cookies.get(settings.cookies_key_jwt)
 
         if access_token is None:
             return no_authorized_response
         try:
             credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=access_token)
-            await jwt_verification(db, credentials)
+            user: User = await jwt_verification(db, credentials)
+            request.state.user = user
         except HTTPException:
             return no_authorized_response
 

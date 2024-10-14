@@ -2,16 +2,23 @@ from typing import cast
 
 from auth import router_api as auth_api_router
 from auth import router_templates as auth_templates_router
+from common.decorators import template_jwt_verification
 from config import get_settings
 from db_connection import Base, engine
-from fastapi import FastAPI
+from dependencies import DatabaseDependency
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from modems import router as modems_router
 from modems import router_templates as modems_templates_router
 from sqlalchemy.orm import DeclarativeBase
+from starlette.templating import _TemplateResponse
 from users import router_api as users_api_router
 from users import router_templates as users_templates_router
+
+templates = Jinja2Templates(directory="templates")
 
 settings = get_settings()
 
@@ -41,3 +48,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/", status_code=status.HTTP_200_OK, response_class=HTMLResponse)
+@template_jwt_verification
+async def index_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:
+    return templates.TemplateResponse(
+        request,
+        name="index.html",
+        context={"user": request.state.user or None},
+    )
