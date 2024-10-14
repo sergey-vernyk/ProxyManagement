@@ -1,14 +1,19 @@
 $(document).ready(() => {
-    $("#registration-form").on("submit", (event) => {
+    $("#google-oauth").on("click", () => {
+        const googleAuthUrl = $("#authentication-form").data("oauth-google-url");
+        window.location.href = googleAuthUrl;
+    });
+
+    $("#authentication-form").on("submit", (event) => {
         event.preventDefault();
         const enteredEmail = $("#email").val();
         const enteredPassword = $("#password").val();
-        const regUrl = $("#registration-form").data("reg-url");
+        const basicLoginUrl = $("#authentication-form").data("basic-login-url");
         $("#password-error").text("");
         $("#email-error").text("");
 
         $.ajax({
-            url: regUrl,
+            url: basicLoginUrl,
             method: "POST",
             dataType: "json",
             contentType: "application/json",

@@ -1,9 +1,9 @@
 from typing import Annotated
 
+from common.decorators import template_jwt_verification
 from common.utils import get_base_url
 from dependencies import DatabaseDependency
 from fastapi import APIRouter, Path, Request, status
-from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.templating import _TemplateResponse
 from users.models import User
@@ -16,17 +16,18 @@ router = APIRouter()
 
 @router.get(
     "/modems/{token}/{hashed_value}",
-    response_class=HTMLResponse,
+    response_model=None,
     status_code=status.HTTP_200_OK,
     operation_id="change-ip-page",
     description="Provides possibility to change a modem IP address by rebooting the modem.",
     responses={200: {"description": "Successful"}},
 )
+@template_jwt_verification
 async def change_ip_page(
     request: Request,
+    db: DatabaseDependency,
     token: Annotated[str, Path(max_length=32, min_length=32, description="User token")],
     hashed_value: Annotated[str, Path(max_length=32, min_length=32, description="Modem hashed value")],
-    db: DatabaseDependency,
 ) -> _TemplateResponse:
     """
     HTTP GET endpoint to serve the modem IP change page.

@@ -27,7 +27,7 @@ async def registration_page(request: Request) -> _TemplateResponse:
         request (Request): Incoming HTTP request.
 
     Returns:
-        _TemplateResponse: Renders `registration.html` with registration URL and OAuth URL.
+        _TemplateResponse: Renders `registration.html` with registration URL.
     """
     base_url = get_base_url(request)
     reg_path = request.url_for("registration").components.path
@@ -36,10 +36,69 @@ async def registration_page(request: Request) -> _TemplateResponse:
     return templates.TemplateResponse(
         request,
         name="registration.html",
-        context={
-            "reg_url": reg_url,
-            "oauth_google_url": request.url_for("login_google"),
-        },
+        context={"reg_url": reg_url},
+    )
+
+
+@router.get(
+    "/users/login/",
+    status_code=status.HTTP_200_OK,
+    name="login_page",
+    response_class=HTMLResponse,
+    operation_id="Provides user login with the email and password or with Google Oauth2 flow.",
+    responses={200: {"description": "Successful"}},
+)
+async def login_page(request: Request) -> _TemplateResponse:
+    """
+    Renders the user login page.
+
+    Args:
+        request (Request): Incoming HTTP request.
+
+    Returns:
+        _TemplateResponse: Renders `authentication.html` with authentication URLs
+            with login and password of with OAuth2 flow.
+    """
+    base_url = get_base_url(request)
+    basic_login_path = request.url_for("basic_login").components.path
+    basic_login_url = f"{base_url}{basic_login_path}"
+    google_login_path = request.url_for("login_google").components.path
+    google_login_url = f"{base_url}{google_login_path}"
+
+    return templates.TemplateResponse(
+        request,
+        name="authentication.html",
+        context={"basic_login_url": basic_login_url, "google_login_url": google_login_url},
+    )
+
+
+@router.get(
+    "/users/login_prompt/",
+    status_code=status.HTTP_200_OK,
+    response_class=HTMLResponse,
+    name="login_page_prompt",
+    operation_id="Page with the link to login page.",
+    responses={200: {"description": "Successful"}},
+)
+async def login_prompt_page(request: Request) -> _TemplateResponse:
+    """
+    Renders the page with the message with the link to login page.
+
+    Args:
+        request (Request): Incoming HTTP request.
+
+    Returns:
+        _TemplateResponse: Renders `authentication_prompt.html` with link to
+            page with login fields.
+    """
+    base_url = get_base_url(request)
+    login_page_path = request.url_for("login_page").components.path
+    login_page_url = f"{base_url}{login_page_path}"
+
+    return templates.TemplateResponse(
+        request,
+        name="authentication_prompt.html",
+        context={"login_page_url": login_page_url},
     )
 
 
@@ -67,6 +126,28 @@ async def success_registration_page(request: Request) -> _TemplateResponse:
         name="registration_success.html",
         context={"message": "Check your email for verifying your account."},
     )
+
+
+@router.get(
+    "/users/success_login/",
+    status_code=status.HTTP_200_OK,
+    response_class=HTMLResponse,
+    name="success_login_page",
+    operation_id="user-login-success-page",
+    description="Redirect to this page after successful login.",
+    responses={200: {"description": "Successful"}},
+)
+async def success_login_page(request: Request) -> _TemplateResponse:
+    """
+    Page which will be displayed after successful login into the system.
+
+    Args:
+        request (Request): HTTP request.
+
+    Returns:
+        _TemplateResponse: template `authentication_success.html`.
+    """
+    return templates.TemplateResponse(request, name="authentication_success.html")
 
 
 @router.get(

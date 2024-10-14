@@ -1,7 +1,7 @@
 from fastapi import Response
 
 
-def set_cookie(response: Response, key: str, value: str) -> None:
+def set_cookie(response: Response, key: str, value: str, http_only: bool = True) -> None:
     """
     Create cookie from `key` and `value`.
 
@@ -9,12 +9,14 @@ def set_cookie(response: Response, key: str, value: str) -> None:
         response (Response): HTTP response.
         key (str): key, which holds cookies value.
         value (str): cookie value.
+        http_only (bool): define, whether the cookie value can be read using JavaScript.
+            Default to True.
     """
     response.set_cookie(
         key=key,
         value=value,
         max_age=3600,
-        httponly=True,
+        httponly=http_only,
         secure=True,
         samesite="strict",
     )

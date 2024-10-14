@@ -11,7 +11,7 @@ from common.utils import get_base_url
 from config import get_settings
 from dependencies import DatabaseDependency
 from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
-                     Response, status)
+                     status)
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from logs.logging_conf import get_endpoint_logger
@@ -41,7 +41,7 @@ router = APIRouter()
     name="google_login_callback",
     description="Handles the Google OAuth2 callback.",
     operation_id="handle-google-login",
-    response_class=JSONResponse,
+    response_class=RedirectResponse,
     responses={
         "200": {"description": "Successful"},
         "400": {
@@ -49,7 +49,7 @@ router = APIRouter()
         },
     },
 )
-async def google_login(request: Request, db: DatabaseDependency) -> JSONResponse:
+async def google_login(request: Request, db: DatabaseDependency) -> RedirectResponse:
     """
     Handles the Google OAuth2 callback.
 
@@ -64,8 +64,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> JSONResponse
         db (DatabaseDependency): Database session used for user management and verification.
 
     Returns:
-        Response: A Response indicating the user has successfully logged into the system,
-        with the ID token set in the cookies for future authentication.
+        RedirectResponse: Redirecting to the page which indicates successful login into the system.
 
     Raises:
         HTTPException: If the authorization code is missing,
@@ -117,14 +116,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> JSONResponse
             if existing_user is None:
                 create_user_from_google(user_email, db)
 
-        response = JSONResponse(
-            {
-                "message": "You are successfully log-in into the system.",
-                "access_token": id_token,
-                "token_type": "Bearer",
-            },
-            status.HTTP_200_OK,
-        )
+        response = RedirectResponse(f"{request.url_for('success_login_page')}")
         set_cookie(response, "X-Access-Token", id_token)
         return response
 
@@ -133,6 +125,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> JSONResponse
     "/auth/login",
     response_model=schemas.Token,
     status_code=status.HTTP_200_OK,
+    name="basic_login",
     description="Login in the system by getting access bearer token.",
     operation_id="basic-login",
     responses={
@@ -191,6 +184,7 @@ async def basic_login(
             "message": "You are successfully log-in into the system.",
             "access_token": access_token,
             "token_type": "Bearer",
+            "redirect_url": f"{request.url_for('success_login_page')}",
         },
         status.HTTP_200_OK,
     )
