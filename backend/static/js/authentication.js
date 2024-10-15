@@ -23,7 +23,8 @@ $(document).ready(() => {
                 "password": enteredPassword,
             }).toString(),
             success: (response, textStatus, xhr) => {
-                console.log(textStatus);
+                // Redirect the user after the cookie is set
+                window.location.href = response.redirect_url;
             },
             error: (jqXHR, textStatus, errorThrown) => {
                 if (jqXHR.status === 422) {

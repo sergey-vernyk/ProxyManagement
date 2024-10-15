@@ -8,14 +8,8 @@
 
 <h3>Select actions below:</h3>
 <ul>
-    {% if not user %}
-        <li>
-            <a href="{{signup_url}}">Registration</a>
-        </li>
-    {% else %}
-        <li>
-            <a href="/change-ip">Change IP address</a>
-        </li>
-    {% endif %}
+    <li>
+        <a href="/change-ip">Change IP address</a>
+    </li>
 </ul>
 {% endblock %}

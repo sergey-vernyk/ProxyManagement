@@ -197,7 +197,6 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         return response
 
 
-# TODO update docstring return value
 @router.post(
     "/auth/login",
     response_class=JSONResponse,
@@ -215,7 +214,7 @@ async def basic_login(
     password: Annotated[str, Form(min_length=10, max_length=30)],
     db: DatabaseDependency,
     request: Request,
-) -> RedirectResponse:
+) -> JSONResponse:
     """
     Get JWT access token for provided user with `email` and `password`.
 
@@ -264,7 +263,7 @@ async def basic_login(
 
     access_token_expires = timedelta(seconds=settings.access_token_expire_seconds)
     access_token: str = auth_bearer.create_access_token({"sub": user.email}, access_token_expires)
-    response = RedirectResponse(str(request.url_for("index")))
+    response = JSONResponse({"redirect_url": str(request.url_for("index"))})
     set_cookie(response, settings.cookies_key_jwt, access_token, max_age=settings.access_token_expire_seconds)
     return response
 

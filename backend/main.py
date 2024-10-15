@@ -59,15 +59,10 @@ app.add_middleware(
 )
 @template_jwt_verification
 async def index_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:
-    base_url = get_base_url(request)
-    signup_path = request.url_for("signup").components.path
-    signup_url = f"{base_url}{signup_path}"
-
     return templates.TemplateResponse(
         request,
         name="index.html",
         context={
-            "user": request.state.user or None,
-            "signup_url": signup_url,
+            "user": request.state.user if request.state.user is not None else None,
         },
     )
