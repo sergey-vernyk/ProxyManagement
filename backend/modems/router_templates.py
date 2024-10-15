@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from common.decorators import template_jwt_verification
-from common.utils import get_base_url
+from common.utils import build_full_endpoint_url
 from dependencies import DatabaseDependency
 from fastapi import APIRouter, Path, Request, status
 from fastapi.templating import Jinja2Templates
@@ -47,25 +47,32 @@ async def change_ip_page(
     3. Extract the hostname, port, and schema (HTTP/HTTPS) from the request's base URL.
     4. Construct the appropriate WebSocket root URL (`ws_root_url`).
     5. Render the "change_ip.html" template, passing the constructed `ws_root_url`, `token`, `hashed_value`,
-       and `link_is_valid` to the template context.
+       `link_is_valid`, the current authenticated `user` and `logout_url` to the template context.
     """
     modem = (
-        db.query(models.Modem).join(User).filter(models.Modem.hashed_value == hashed_value, User.token == token).first()
+        db.query(models.Modem)
+        .join(User)
+        .filter(
+            models.Modem.hashed_value == hashed_value,
+            User.token == token,
+        )
+        .first()
     )
-    link_is_valid = modem is not None
 
-    http_base_url = get_base_url(request)
-    ws_path = request.url_for("change_ip").components.path
-    ws_base_url = http_base_url.replace("http", "ws", 1)
+    ws_url = build_full_endpoint_url(request, "change_ip")
+    ws_url = ws_url.replace("http", "ws", 1)
+    logout_url = build_full_endpoint_url(request, "logout")
 
     return templates.TemplateResponse(
         request,
         name="change_ip.html",
         context={
-            "link_is_valid": link_is_valid,
+            "link_is_valid": modem is not None,
             "modem_id": modem.id if modem is not None else None,
-            "ws_root_url": f"{ws_base_url}{ws_path}",
+            "ws_root_url": ws_url,
             "token": token,
             "hashed_value": hashed_value,
+            "user": request.state.user if request.state.user is not None else None,
+            "logout_url": logout_url,
         },
     )

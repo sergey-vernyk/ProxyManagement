@@ -52,8 +52,11 @@ app.add_middleware(
 @app.get(
     "/",
     status_code=status.HTTP_200_OK,
+    description="Main page of the application.",
+    operation_id="main-page",
     response_class=HTMLResponse,
     name="index",
+    tags=["templates"],
 )
 @template_jwt_verification
 async def index_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:  # pylint: disable=W0613
