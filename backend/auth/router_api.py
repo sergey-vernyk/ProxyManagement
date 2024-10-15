@@ -39,6 +39,57 @@ router = APIRouter()
 
 
 @router.post(
+    "/auth/logout",
+    status_code=status.HTTP_200_OK,
+    response_class=JSONResponse,
+    description="Logging out from the system.",
+    operation_id="logout",
+    responses={
+        200: {"description": "Successful"},
+        401: {"description": "User not authorized"},
+    },
+)
+async def logout(request: Request) -> JSONResponse:
+    """
+    Log out the user by clearing the authentication-related cookies
+    (JWT and Google access token if available).
+
+    The endpoint checks for the JWT token in the cookies. If the token is present,
+    it will be deleted along with the Google access token (if set).
+    The user will be logged out successfully, and they will be redirected to the login page.
+
+    Returns:
+        JSONResponse: A JSON response with a message indicating successful logout
+        and a `redirect_url` to the login page.
+
+    Raises:
+        HTTPException: If no JWT token is found in the cookies
+    """
+    google_access_token = request.cookies.get(settings.cookies_google_access_token)
+    jwt = request.cookies.get(settings.cookies_key_jwt)
+
+    if jwt is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "You are not authorized.",
+        )
+
+    response = JSONResponse(
+        {
+            "message": "You are successfully logged out.",
+            "redirect_url": str(request.url_for("login_page")),
+        },
+        status.HTTP_200_OK,
+    )
+
+    delete_cookie(response, settings.cookies_key_jwt)
+    if google_access_token is not None:
+        delete_cookie(response, settings.cookies_google_access_token)
+
+    return response
+
+
+@router.post(
     "/auth/revoke/google",
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(jwt_verification)],
@@ -268,7 +319,37 @@ async def basic_login(
     return response
 
 
-# TODO update docstring return value
+@router.get(
+    "/auth/login/google",
+    name="login_google",
+    response_class=RedirectResponse,
+    description="Redirects the user to Google's OAuth2 authorization page.",
+    operation_id="perform-google-auth",
+)
+async def perform_google_auth(request: Request) -> RedirectResponse:
+    """
+    Redirects the user to Google's OAuth2 authorization page.
+
+    Args:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: A redirect to Google's OAuth2 authorization URL.
+    """
+    google_auth_url = "https://accounts.google.com/o/oauth2/auth"
+    query_params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": str(request.url_for("google_login_callback")),
+        "state": token_urlsafe(),
+        "access_type": "offline",
+        "response_type": "code",
+        "scope": "https://www.googleapis.com/auth/userinfo.email",
+        "include_granted_scopes": "true",
+    }
+    google_auth_url = f"{google_auth_url}?{urllib.parse.urlencode(query_params)}"
+    return RedirectResponse(url=google_auth_url)
+
+
 @router.post(
     "/auth/registration",
     response_class=JSONResponse,
@@ -301,8 +382,8 @@ async def register_user(
             If the given email is invalid.
 
     Returns:
-        JSONResponse: response with the `redirect_url` content for using it
-            for redirecting users to a page after successful registration.
+        JSONResponse: response with the message with info about verification
+            registered email.
     """
     try:
         valid_email = validate_email_format(body.email)
@@ -447,37 +528,6 @@ async def reset_password_confirm(body: schemas.ResetPasswordConfirm, db: Databas
     db.commit()
 
     return JSONResponse("Password has been reset successfully.", status.HTTP_200_OK)
-
-
-@router.get(
-    "/auth/login/google",
-    name="login_google",
-    response_class=RedirectResponse,
-    description="Redirects the user to Google's OAuth2 authorization page.",
-    operation_id="perform-google-auth",
-)
-async def perform_google_auth(request: Request) -> RedirectResponse:
-    """
-    Redirects the user to Google's OAuth2 authorization page.
-
-    Args:
-        request (Request): The incoming HTTP request.
-
-    Returns:
-        RedirectResponse: A redirect to Google's OAuth2 authorization URL.
-    """
-    google_auth_url = "https://accounts.google.com/o/oauth2/auth"
-    query_params = {
-        "client_id": settings.google_client_id,
-        "redirect_uri": str(request.url_for("google_login_callback")),
-        "state": token_urlsafe(),
-        "access_type": "offline",
-        "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/userinfo.email",
-        "include_granted_scopes": "true",
-    }
-    google_auth_url = f"{google_auth_url}?{urllib.parse.urlencode(query_params)}"
-    return RedirectResponse(url=google_auth_url)
 
 
 @router.post(

@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from config import get_settings
 from db_connection import SessionLocal
@@ -10,11 +10,9 @@ from google.oauth2 import id_token
 from jose import JWTError, jwt
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
-from users.crud import get_user_by_email
-from users.models import User
+from users import crud, models
 
 settings = get_settings()
-
 security = HTTPBearer(scheme_name="OAuth JWT")
 
 
@@ -76,8 +74,7 @@ class JWTBearer(HTTPBearer):
 
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid authorization code.")
 
-    # TODO update return value in docstring.
-    async def verify_jwt(self, token: str, db: Session) -> User:
+    async def verify_jwt(self, token: str, db: Session) -> models.User:
         """
         Verify the JWT token's validity and check if the user exists in the database.
 
@@ -87,7 +84,7 @@ class JWTBearer(HTTPBearer):
                           database.
 
         Returns:
-            bool: True if the token is valid and the user exists; False otherwise.
+            models.User: current authenticated user.
 
         Raises:
             HTTPException: If the token cannot be validated, or if the user
@@ -103,7 +100,7 @@ class JWTBearer(HTTPBearer):
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            user = db.query(User).filter(User.email == email).first()
+            user = db.query(models.User).filter(models.User.email == email).first()
             if user is None:
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST,
@@ -121,11 +118,10 @@ class JWTBearer(HTTPBearer):
         return user
 
 
-# TODO update return value in docstring.
 async def verify_google_id_token(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     db: Annotated[Session, Depends(get_db)],
-) -> User:
+) -> models.User:
     """
     Verifies the provided Google ID token and checks if the associated email exists in the database.
 
@@ -138,7 +134,8 @@ async def verify_google_id_token(
             or no user is found in the database.
 
     Returns:
-        bool: True if the token is valid.
+        models.User: current authenticated user.
+
     """
     if credentials.scheme != "Bearer":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid authentication credentials.")
@@ -156,18 +153,17 @@ async def verify_google_id_token(
 
     email: str = token_info.get("email", "")
     if email:
-        db_user = get_user_by_email(db, email)
+        db_user = crud.get_user_by_email(db, email)
         if db_user is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is not bind to any user.")
 
     return db_user
 
 
-# TODO update return value in docstring.
 async def jwt_verification(
     db: Annotated[Session, Depends(get_db)],
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-) -> User:
+) -> models.User:
     """
     Verifies the provided authentication credentials
     by checking both Google ID tokens and JWT tokens.
@@ -179,7 +175,7 @@ async def jwt_verification(
         credentials (HTTPAuthorizationCredentials): The HTTP Bearer token retrieved from the request.
 
     Returns:
-        Literal[True]: Returns True if either the Google ID token or the JWT token is valid.
+        models.User: current authenticated user.
 
     Raises:
         HTTPException: Raises a 401 Unauthorized error if both verifications fail,

@@ -17,7 +17,6 @@ from modems import router_templates as modems_templates_router
 from sqlalchemy.orm import DeclarativeBase
 from starlette.templating import _TemplateResponse
 from users import router_api as users_api_router
-from users import router_templates as users_templates_router
 
 templates = Jinja2Templates(directory="templates")
 
@@ -37,7 +36,6 @@ app.include_router(users_api_router.router, tags=["users"])
 app.include_router(modems_router.router, tags=["modems"])
 app.include_router(auth_api_router.router, tags=["auth"])
 app.include_router(auth_templates_router.router, tags=["templates"])
-app.include_router(users_templates_router.router, tags=["templates"])
 app.include_router(modems_templates_router.router, tags=["templates"])
 
 
@@ -58,11 +56,31 @@ app.add_middleware(
     name="index",
 )
 @template_jwt_verification
-async def index_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:
+async def index_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:  # pylint: disable=W0613
+    """
+    The root (home) page.
+
+    Args:
+        request (Request): HTTP request.
+        db (DatabaseDependency): Database session used for JWT verification.
+            (its needed for @template_jwt_verification).
+
+    Returns:
+        _TemplateResponse: template `index.html` with the user instance,
+            url for logout and login.
+    """
+    base_url = get_base_url(request)
+    logout_path = request.url_for("logout").components.path
+    logout_url = f"{base_url}{logout_path}"
+    login_path = request.url_for("login_page").components.path
+    login_url = f"{base_url}{login_path}"
+
     return templates.TemplateResponse(
         request,
         name="index.html",
         context={
             "user": request.state.user if request.state.user is not None else None,
+            "logout_url": logout_url,
+            "login_url": login_url,
         },
     )

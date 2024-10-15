@@ -2,14 +2,18 @@
 
 {% block title %}Home{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/index.css">
 {% endblock %}
-{% block content %}
 
-<h3>Select actions below:</h3>
-<ul>
-    <li>
-        <a href="/change-ip">Change IP address</a>
-    </li>
-</ul>
+{% block content %}
+    <h3>Select actions below:</h3>
+    <ul>
+        <li>
+            <a href="/change-ip">Change IP address</a>
+        </li>
+    </ul>
+{% endblock %}
+
+{% block scripts %}
+    <script src="/static/js/logout.js"></script>
 {% endblock %}

@@ -42,6 +42,46 @@ async def registration_page(request: Request) -> _TemplateResponse:
 
 
 @router.get(
+    "/users/verify_email/{uid}/{token}",
+    response_class=HTMLResponse,
+    name="verify_email",
+    status_code=status.HTTP_200_OK,
+    operation_id="verify-user-email",
+)
+async def verify_email_page(request: Request, uid: str, token: str) -> _TemplateResponse:
+    """
+    HTTP GET endpoint to serve user's email verification page.
+    User will be on the page, after following by URL in their email after registration.
+
+    Args:
+        request (Request): HTTP request.
+        uid (str): user ID, encoded in base64_urlsafe format.
+        token (str): user token which generates after user registration.
+
+    Returns:
+        _TemplateResponse: Renders the "verify_email.html" template.
+    """
+    base_url = get_base_url(request)
+
+    compare_path = request.url_for("compare_codes").components.path
+    repeat_path = request.url_for("send_verification_email").components.path
+
+    compare_codes_url = f"{base_url}{compare_path}"
+    repeat_compare_codes_url = f"{base_url}{repeat_path}"
+
+    return templates.TemplateResponse(
+        request,
+        name="verify_otp.html",
+        context={
+            "compare_codes_url": compare_codes_url,
+            "repeat_compare_codes_url": repeat_compare_codes_url,
+            "uid": uid,
+            "token": token,
+        },
+    )
+
+
+@router.get(
     "/users/login/",
     status_code=status.HTTP_200_OK,
     name="login_page",
@@ -80,84 +120,6 @@ async def login_page(request: Request) -> _TemplateResponse:
 
 
 @router.get(
-    "/users/login_prompt/",
-    status_code=status.HTTP_200_OK,
-    response_class=HTMLResponse,
-    name="login_page_prompt",
-    operation_id="Page with the link to login page.",
-    responses={200: {"description": "Successful"}},
-)
-async def login_prompt_page(request: Request) -> _TemplateResponse:
-    """
-    Renders the page with the message with the link to login page.
-
-    Args:
-        request (Request): Incoming HTTP request.
-
-    Returns:
-        _TemplateResponse: Renders `authentication_prompt.html` with link to
-            page with login fields.
-    """
-    base_url = get_base_url(request)
-    login_page_path = request.url_for("login_page").components.path
-    login_page_url = f"{base_url}{login_page_path}"
-
-    return templates.TemplateResponse(
-        request,
-        name="authentication_prompt.html",
-        context={"login_page_url": login_page_url},
-    )
-
-
-# @router.get(
-#     "/users/success_signup/",
-#     status_code=status.HTTP_200_OK,
-#     response_class=HTMLResponse,
-#     name="success_registration_page",
-#     operation_id="user-registration-success-page",
-#     description="Redirect to this page after successful registration.",
-#     responses={200: {"description": "Successful"}},
-# )
-# async def success_registration_page(request: Request) -> _TemplateResponse:
-#     """
-#     Page which will be displayed after successful registration.
-
-#     Args:
-#         request (Request): HTTP request.
-
-#     Returns:
-#         _TemplateResponse: template `registration_success.html` with the message.
-#     """
-#     return templates.TemplateResponse(
-#         request,
-#         name="registration_success.html",
-#         context={"message": "Check your email for verifying your account."},
-#     )
-
-
-# @router.get(
-#     "/users/success_login/",
-#     status_code=status.HTTP_200_OK,
-#     response_class=HTMLResponse,
-#     name="success_login_page",
-#     operation_id="user-login-success-page",
-#     description="Redirect to this page after successful login.",
-#     responses={200: {"description": "Successful"}},
-# )
-# async def success_login_page(request: Request) -> _TemplateResponse:
-#     """
-#     Page which will be displayed after successful login into the system.
-
-#     Args:
-#         request (Request): HTTP request.
-
-#     Returns:
-#         _TemplateResponse: template `authentication_success.html`.
-#     """
-#     return templates.TemplateResponse(request, name="authentication_success.html")
-
-
-@router.get(
     "/users/reset_password/",
     response_class=HTMLResponse,
     status_code=status.HTTP_200_OK,
@@ -171,7 +133,7 @@ async def reset_password_page(request: Request) -> _TemplateResponse:
     Page which will be displayed form for enter user email for reset password.
 
     Args:
-        request (Request): HTTP request
+        request (Request): HTTP request.
 
     Returns:
         _TemplateResponse: template `reset_password.html` with the reset password url link.
