@@ -59,8 +59,7 @@ async def change_ip_page(
         .first()
     )
 
-    ws_url = build_full_endpoint_url(request, "change_ip")
-    ws_url = ws_url.replace("http", "ws", 1)
+    ws_url = build_full_endpoint_url(request, "change_ip").replace("http", "ws", 1)
     logout_url = build_full_endpoint_url(request, "logout")
 
     return templates.TemplateResponse(
@@ -72,6 +71,7 @@ async def change_ip_page(
             "ws_root_url": ws_url,
             "token": token,
             "hashed_value": hashed_value,
+            # variables necessary for 'base.html' template
             "user": request.state.user if request.state.user is not None else None,
             "logout_url": logout_url,
         },

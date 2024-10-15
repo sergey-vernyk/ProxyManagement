@@ -357,7 +357,7 @@ async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
 
             received_data = await send_data_to_socket_server(
                 reboot_data_str,
-                str(modem.external_server_ip),
+                str(modem.internal_server_ip),
                 int(modem.external_server_port),  # type: ignore
             )
             if received_data is not None:
