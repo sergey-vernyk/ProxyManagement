@@ -20,8 +20,11 @@
         <button type="submit" id="signin">Sign In</button>
     </form>
     <button type="button" id="google-oauth">Login via Google</button>
+    
     <div id="auth-success"></div>
-    {% endblock %}
+    
+    <p>Don't have an account? <a href="{{reg_url}}">Register here</a></p>
+{% endblock %}
 
 {% block scripts %}
     <script src="/static/js/authentication.js"></script>

@@ -14,6 +14,7 @@ settings = get_settings()
 @router.get(
     "/users/signup/",
     status_code=status.HTTP_200_OK,
+    name="signup",
     response_class=HTMLResponse,
     operation_id="user-registration-page",
     description="Provides user registration with email and password.",
@@ -64,11 +65,17 @@ async def login_page(request: Request) -> _TemplateResponse:
     basic_login_url = f"{base_url}{basic_login_path}"
     google_login_path = request.url_for("login_google").components.path
     google_login_url = f"{base_url}{google_login_path}"
+    reg_path = request.url_for("signup").components.path
+    reg_url = f"{base_url}{reg_path}"
 
     return templates.TemplateResponse(
         request,
         name="authentication.html",
-        context={"basic_login_url": basic_login_url, "google_login_url": google_login_url},
+        context={
+            "basic_login_url": basic_login_url,
+            "google_login_url": google_login_url,
+            "reg_url": reg_url,
+        },
     )
 
 
@@ -102,52 +109,52 @@ async def login_prompt_page(request: Request) -> _TemplateResponse:
     )
 
 
-@router.get(
-    "/users/success_signup/",
-    status_code=status.HTTP_200_OK,
-    response_class=HTMLResponse,
-    name="success_registration_page",
-    operation_id="user-registration-success-page",
-    description="Redirect to this page after successful registration.",
-    responses={200: {"description": "Successful"}},
-)
-async def success_registration_page(request: Request) -> _TemplateResponse:
-    """
-    Page which will be displayed after successful registration.
+# @router.get(
+#     "/users/success_signup/",
+#     status_code=status.HTTP_200_OK,
+#     response_class=HTMLResponse,
+#     name="success_registration_page",
+#     operation_id="user-registration-success-page",
+#     description="Redirect to this page after successful registration.",
+#     responses={200: {"description": "Successful"}},
+# )
+# async def success_registration_page(request: Request) -> _TemplateResponse:
+#     """
+#     Page which will be displayed after successful registration.
 
-    Args:
-        request (Request): HTTP request.
+#     Args:
+#         request (Request): HTTP request.
 
-    Returns:
-        _TemplateResponse: template `registration_success.html` with the message.
-    """
-    return templates.TemplateResponse(
-        request,
-        name="registration_success.html",
-        context={"message": "Check your email for verifying your account."},
-    )
+#     Returns:
+#         _TemplateResponse: template `registration_success.html` with the message.
+#     """
+#     return templates.TemplateResponse(
+#         request,
+#         name="registration_success.html",
+#         context={"message": "Check your email for verifying your account."},
+#     )
 
 
-@router.get(
-    "/users/success_login/",
-    status_code=status.HTTP_200_OK,
-    response_class=HTMLResponse,
-    name="success_login_page",
-    operation_id="user-login-success-page",
-    description="Redirect to this page after successful login.",
-    responses={200: {"description": "Successful"}},
-)
-async def success_login_page(request: Request) -> _TemplateResponse:
-    """
-    Page which will be displayed after successful login into the system.
+# @router.get(
+#     "/users/success_login/",
+#     status_code=status.HTTP_200_OK,
+#     response_class=HTMLResponse,
+#     name="success_login_page",
+#     operation_id="user-login-success-page",
+#     description="Redirect to this page after successful login.",
+#     responses={200: {"description": "Successful"}},
+# )
+# async def success_login_page(request: Request) -> _TemplateResponse:
+#     """
+#     Page which will be displayed after successful login into the system.
 
-    Args:
-        request (Request): HTTP request.
+#     Args:
+#         request (Request): HTTP request.
 
-    Returns:
-        _TemplateResponse: template `authentication_success.html`.
-    """
-    return templates.TemplateResponse(request, name="authentication_success.html")
+#     Returns:
+#         _TemplateResponse: template `authentication_success.html`.
+#     """
+#     return templates.TemplateResponse(request, name="authentication_success.html")
 
 
 @router.get(

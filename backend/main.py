@@ -3,6 +3,7 @@ from typing import cast
 from auth import router_api as auth_api_router
 from auth import router_templates as auth_templates_router
 from common.decorators import template_jwt_verification
+from common.utils import get_base_url
 from config import get_settings
 from db_connection import Base, engine
 from dependencies import DatabaseDependency
@@ -50,11 +51,23 @@ app.add_middleware(
 )
 
 
-@app.get("/", status_code=status.HTTP_200_OK, response_class=HTMLResponse)
+@app.get(
+    "/",
+    status_code=status.HTTP_200_OK,
+    response_class=HTMLResponse,
+    name="index",
+)
 @template_jwt_verification
 async def index_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:
+    base_url = get_base_url(request)
+    signup_path = request.url_for("signup").components.path
+    signup_url = f"{base_url}{signup_path}"
+
     return templates.TemplateResponse(
         request,
         name="index.html",
-        context={"user": request.state.user or None},
+        context={
+            "user": request.state.user or None,
+            "signup_url": signup_url,
+        },
     )

@@ -17,9 +17,7 @@ $(document).ready(() => {
                 password: enteredPassword,
             }),
             success: (response, textStatus, xhr) => {
-                // redirect to page with text about successful registration.
-                const redirectUrl = response.redirect_url;
-                window.location.href = redirectUrl;
+                $("#reg-success").text(response["message"]);
             },
             error: (jqXHR, textStatus, errorThrown) => {
                 if (jqXHR.status === 422) {

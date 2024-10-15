@@ -23,8 +23,7 @@ $(document).ready(() => {
                 "password": enteredPassword,
             }).toString(),
             success: (response, textStatus, xhr) => {
-                const redirectUrl = response.redirect_url;
-                window.location.href = redirectUrl;
+                console.log(textStatus);
             },
             error: (jqXHR, textStatus, errorThrown) => {
                 if (jqXHR.status === 422) {

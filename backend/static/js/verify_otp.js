@@ -27,7 +27,6 @@ $(document).ready(() => {
                 uid: uid,
             }),
             success: (response, textStatus, xhr) => {
-                console.log(response);
                 $("#otp-message").text("Check your email for incoming message with the new code.");
             },
             error: (jqXHR, textStatus, errorThrown) => {
@@ -76,7 +75,10 @@ $(document).ready(() => {
                 uid: uid,
             }),
             success: (response, textStatus, xhr) => {
-                $("#otp-message").text(response["success"]).addClass("success").removeClass("error");
+                const successMsg = response["success"];
+                const indexPageUrl = response["index_page_url"];
+                $("#otp-message").text(successMsg).addClass("success").removeClass("error");
+                $("#index-page-url").text(`<a href="${indexPageUrl}">Home page</a>`);
             },
             error: (jqXHR, textStatus, errorThrown) => {
                 $("#otp-message").text(jqXHR.responseJSON["error"]).addClass("error").removeClass("success");

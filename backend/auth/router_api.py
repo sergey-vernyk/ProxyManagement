@@ -191,12 +191,13 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
             if existing_user is None:
                 create_user_from_google(user_email, db)
 
-        response = RedirectResponse(str(request.url_for("success_login_page")))
+        response = RedirectResponse(str(request.url_for("index")))
         set_cookie(response, settings.cookies_key_jwt, id_token, max_age=token_data["expires_in"])
         set_cookie(response, settings.cookies_google_access_token, access_token, max_age=token_data["expires_in"])
         return response
 
 
+# TODO update docstring return value
 @router.post(
     "/auth/login",
     response_class=JSONResponse,
@@ -214,7 +215,7 @@ async def basic_login(
     password: Annotated[str, Form(min_length=10, max_length=30)],
     db: DatabaseDependency,
     request: Request,
-) -> JSONResponse:
+) -> RedirectResponse:
     """
     Get JWT access token for provided user with `email` and `password`.
 
@@ -263,14 +264,12 @@ async def basic_login(
 
     access_token_expires = timedelta(seconds=settings.access_token_expire_seconds)
     access_token: str = auth_bearer.create_access_token({"sub": user.email}, access_token_expires)
-    response = JSONResponse(
-        {"redirect_url": str(request.url_for("success_login_page"))},
-        status.HTTP_200_OK,
-    )
+    response = RedirectResponse(str(request.url_for("index")))
     set_cookie(response, settings.cookies_key_jwt, access_token, max_age=settings.access_token_expire_seconds)
     return response
 
 
+# TODO update docstring return value
 @router.post(
     "/auth/registration",
     response_class=JSONResponse,
@@ -331,8 +330,8 @@ async def register_user(
 
     await send_otp_email_handler(bg_tasks, request, token, db)
     return JSONResponse(
-        {"redirect_url": str(request.url_for("success_registration_page"))},
-        status.HTTP_201_CREATED,
+        {"message": "Check your email for verifying your account."},
+        status.HTTP_200_OK,
     )
 
 
@@ -590,7 +589,15 @@ async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDep
     setattr(db_otp_hashed.user, "is_verified", True)
     db.commit()
     delete_otp(db_otp_hashed.id)  # type: ignore
+
+    base_url = get_base_url(request)
+    index_page_path = request.url_for("index").components.path
+    index_page_url = f"{base_url}{index_page_path}"
+
     return JSONResponse(
-        {"success": "The code you entered is correct. Email has been verified."},
+        {
+            "success": "The code you entered is correct. Email has been verified.",
+            "index_page_url": index_page_url,
+        },
         status.HTTP_200_OK,
     )

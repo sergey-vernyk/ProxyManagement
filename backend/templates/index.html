@@ -2,15 +2,20 @@
 
 {% block title %}Home{% endblock %}
 {% block styles %}
-    <link rel="stylesheet" href="/static/css/index.css">
+<link rel="stylesheet" href="/static/css/index.css">
 {% endblock %}
 {% block content %}
+
 <h3>Select actions below:</h3>
-<ul style="list-style-type: none; margin: 0; padding: 0;">
-    <li><a href="/change-ip">Change IP address</a></li>
-    <li><a href="/users/signup/">Registration</a></li>
+<ul>
     {% if not user %}
-    <li><a href="/logout">Logout</a></li>
+        <li>
+            <a href="{{signup_url}}">Registration</a>
+        </li>
+    {% else %}
+        <li>
+            <a href="/change-ip">Change IP address</a>
+        </li>
     {% endif %}
 </ul>
 {% endblock %}
