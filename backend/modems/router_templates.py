@@ -1,5 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Any
 
+import httpx
 from common.decorators import template_jwt_verification
 from common.utils import build_full_endpoint_url
 from dependencies import DatabaseDependency
@@ -73,6 +74,38 @@ async def change_ip_page(
             "hashed_value": hashed_value,
             # variables necessary for 'base.html' template
             "user": request.state.user if request.state.user is not None else None,
+            "logout_url": logout_url,
+        },
+    )
+
+
+@router.get(
+    "/modems/list/",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+    operation_id="modems-list-page",
+    description="Provides list with modems of a user with additional data.",
+    responses={200: {"description": "Successful"}},
+)
+@template_jwt_verification
+async def modems_list_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:  # pylint: disable=W0613
+    authenticated_user: User = request.state.user
+    proxies_list_endpoint = build_full_endpoint_url(
+        request,
+        "change_ip_urls",
+        {"email": str(authenticated_user.email)},
+    )
+    async with httpx.AsyncClient() as client:
+        response = await client.get(proxies_list_endpoint)
+        proxies_reboot_data: list[dict[str, Any]] = response.json()
+
+    logout_url = build_full_endpoint_url(request, "logout", {})
+    return templates.TemplateResponse(
+        request,
+        name="proxies.html",
+        context={
+            "proxies_reboot_data": proxies_reboot_data,
+            "user": authenticated_user,
             "logout_url": logout_url,
         },
     )

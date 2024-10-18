@@ -163,6 +163,7 @@ class ChangeIPUrl(BaseModel):
     port: int
     external_server_ip: IPv4Address | None = None
     internal_server_ip: IPv4Address | None = None
+    last_change_ip: str
     url: HttpUrl = Field(
         description="Url for rebooting a modem (change its IP).",
         examples=[

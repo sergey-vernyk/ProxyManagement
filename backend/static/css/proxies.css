@@ -1,0 +1,57 @@
+.container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    max-width: 1000px;
+    width: 100%;
+    text-align: left;
+}
+
+.change-ip-container {
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.proxy-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.proxy-item {
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.keyword {
+    padding: 5px 0;
+    overflow: hidden;
+    /* Clear floats */
+}
+
+.keyword .key {
+    font-weight: bold;
+    float: left;
+}
+
+.keyword .value {
+    float: right;
+    font-weight: normal;
+}
+
+.no-proxies {
+    text-align: center;
+    font-size: 19px;
+    color: rgb(242, 42, 16);
+}

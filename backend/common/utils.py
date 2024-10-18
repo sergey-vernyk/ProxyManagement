@@ -15,7 +15,7 @@ def get_base_url(request: Request) -> str:
             - standard port:
                 http://example.com or https://example.com.
     Raises:
-        ValueError: 
+        ValueError:
             if port and (or) host is not provided (None).
     """
     host = request.base_url.hostname
@@ -31,7 +31,7 @@ def get_base_url(request: Request) -> str:
     raise ValueError("Port and host for base url must not be None.")
 
 
-def build_full_endpoint_url(request: Request, endpoint_name: str) -> str:
+def build_full_endpoint_url(request: Request, endpoint_name: str, params: dict[str, str] | None = None) -> str:
     """
     Builds full url to an API endpoint.
 
@@ -39,12 +39,16 @@ def build_full_endpoint_url(request: Request, endpoint_name: str) -> str:
         request (Request): HTTP request.
         endpoint_name (str): name of the API endpoint for which
             full URL will be built.
+        params (dict[str, str]): path params for the endpoint. Default to None.
 
     Returns:
         str: full URL to an endpoint in format:
             - http://example.com/login/google
             - https://example.com/login/google
     """
+    if params is None:
+        params = {}
+
     base_url = get_base_url(request)
-    endpoint_path = request.url_for(endpoint_name).components.path
+    endpoint_path = request.url_for(endpoint_name, **params).components.path
     return f"{base_url}{endpoint_path}"

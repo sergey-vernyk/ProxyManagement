@@ -17,7 +17,7 @@ from typing import Annotated, Any, cast
 from common.utils import get_base_url
 from config import get_settings
 from conn_utils import send_data_to_socket_server
-from dependencies import DatabaseDependency, JWTBearer, jwt_verification
+from dependencies import DatabaseDependency, JWTBearer
 from fastapi import (APIRouter, Depends, HTTPException, Query, WebSocket,
                      WebSocketDisconnect, status)
 from fastapi.encoders import jsonable_encoder
@@ -228,7 +228,7 @@ async def delete_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependen
 @router.get(
     "/modems/change_ip_urls/{email}",
     response_model=list[schemas.ChangeIPUrl],
-    dependencies=[Depends(jwt_verification)],
+    name="change_ip_urls",
     status_code=status.HTTP_200_OK,
     description="Get urls for changing IP for a modem(s) for a user with the given email.",
     operation_id="get-change-ip-urls",
@@ -300,6 +300,7 @@ async def get_change_ip_urls(
                 internal_server_ip=(
                     IPv4Address(modem.internal_server_ip) if modem.internal_server_ip is not None else None
                 ),
+                last_change_ip=f"{modem.rebooted:%Y-%m-%d %H:%M}" if modem.rebooted is not None else "---",
                 url=Url(f"{base_url}/modems/{db_user.token}/{modem.hashed_value}"),
             )
             urls.append(data)
