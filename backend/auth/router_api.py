@@ -23,7 +23,7 @@ from security import generate_hashed_otp, get_password_hash, verify_password
 from sqlalchemy import delete, update
 from users.crud import get_user_by_email
 from users.models import User
-from users.router_api import router
+from users.router import router
 from users.utils import create_user_from_google
 from validators import validate_email_format
 
@@ -261,10 +261,10 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
     },
 )
 async def basic_login(
+    request: Request,
     email: Annotated[EmailStr, Form()],
     password: Annotated[str, Form(min_length=10, max_length=30)],
     db: DatabaseDependency,
-    request: Request,
 ) -> JSONResponse:
     """
     Get JWT access token for provided user with `email` and `password`.

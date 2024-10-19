@@ -15,6 +15,21 @@ settings = get_settings()
 ENCODING = settings.default_encoding
 
 
+def build_ip_address_for_log(ip_addr: str) -> str:
+    """
+    Return IP address in format 192.168.x.x
+    that applied for saving it in the log.
+
+    Args:
+        ip_addr (str): initial IP address.
+
+    Returns:
+        str: IP address in format 192.168.x.x
+    """
+    ip_addr_octets = ip_addr.split(".")
+    return f"{ip_addr_octets[0]}.{ip_addr_octets[1]}.x.x"
+
+
 def get_socket_server_logger() -> logging.Logger:
     """
     Returns logger using for socket server logging.
@@ -75,7 +90,7 @@ def get_endpoint_logger() -> logging.Logger:
     if not logger.hasHandlers():
         logger.setLevel(logging.INFO)
         formatter = logging.Formatter(
-            "{client_ip} - {asctime} - {levelname} - {message} [module:{module}|func:{funcName}]",
+            "{client_ip} - {asctime} - {levelname} - {message} [{module_name}.{func_name}():{lineno}]",
             "%Y-%m-%d %H:%M:%S",
             style="{",
         )

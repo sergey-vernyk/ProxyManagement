@@ -2,7 +2,7 @@
 name = "asyncsocketexchange"
 version = "0.1.0"
 description = "Async interaction beetwen socket server and client"
-authors = ["Sergey Vernigora <volt.awp@gmail.com>"]
+authors = ["Sergey Vernigora <volt.awp.dev@gmail.com>"]
 readme = "README.md"
 packages = [
     { include = "sockets" },
@@ -15,6 +15,7 @@ packages = [
 ]
 
 include = [
+    "exceptions.py",
     "config.py",
     "conn_utils.py",
     "db_connection.py",

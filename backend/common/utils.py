@@ -1,3 +1,7 @@
+import inspect
+from types import ModuleType
+from typing import Any
+
 from fastapi import Request
 
 
@@ -52,3 +56,19 @@ def build_full_endpoint_url(request: Request, endpoint_name: str, params: dict[s
     base_url = get_base_url(request)
     endpoint_path = request.url_for(endpoint_name, **params).components.path
     return f"{base_url}{endpoint_path}"
+
+
+def get_caller_info() -> dict[str, Any]:
+    """
+    Retrieves the function and module name of the caller.
+
+    Returns:
+        dict[str, Any]: A dictionary containing 'func_name' and 'module_name' keys,
+            representing the name of the calling function and its module.
+    """
+    frame: inspect.FrameInfo = inspect.stack()[1]
+    module: ModuleType | None = inspect.getmodule(frame[0])
+    return {
+        "func_name": frame.function,
+        "module_name": module.__name__ if module is not None else None,
+    }
