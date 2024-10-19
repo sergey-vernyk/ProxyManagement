@@ -3,7 +3,7 @@ from typing import cast
 from auth import router_api as auth_api_router
 from auth import router_templates as auth_templates_router
 from common.decorators import template_jwt_verification
-from common.utils import get_base_url
+from common.utils import build_full_endpoint_url
 from config import get_settings
 from db_connection import Base, engine
 from dependencies import DatabaseDependency
@@ -70,13 +70,18 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
 
     Returns:
         _TemplateResponse: template `index.html` with the user instance,
-            url for logout and login.
+            url for logout, login, modems which binds to the user instance and
+            url for fully disconnecting google account from the application.
     """
-    base_url = get_base_url(request)
-    logout_path = request.url_for("logout").components.path
-    logout_url = f"{base_url}{logout_path}"
-    login_path = request.url_for("login_page").components.path
-    login_url = f"{base_url}{login_path}"
+    logout_url = build_full_endpoint_url(request, "logout")
+    login_url = build_full_endpoint_url(request, "login_page")
+    modems_list_url = build_full_endpoint_url(request, "modems_list")
+
+    is_google_authentication = settings.cookies_google_access_token in request.cookies
+    google_disconnection_url = None
+
+    if is_google_authentication:
+        google_disconnection_url = build_full_endpoint_url(request, "revoke_google_auth")
 
     return templates.TemplateResponse(
         request,
@@ -85,5 +90,7 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
             "user": request.state.user if request.state.user is not None else None,
             "logout_url": logout_url,
             "login_url": login_url,
+            "modems_list_url": modems_list_url,
+            "google_disconnection_url": google_disconnection_url,
         },
     )

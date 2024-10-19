@@ -82,6 +82,7 @@ async def change_ip_page(
 @router.get(
     "/modems/list/",
     response_model=None,
+    name="modems_list",
     status_code=status.HTTP_200_OK,
     operation_id="modems-list-page",
     description="Provides list with modems of a user with additional data.",
@@ -89,6 +90,16 @@ async def change_ip_page(
 )
 @template_jwt_verification
 async def modems_list_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:  # pylint: disable=W0613
+    """
+    Fetches and renders a list of user modems with additional data.
+
+    Args:
+        request (Request): The HTTP request object containing user info.
+        db (DatabaseDependency): The database connection dependency.
+
+    Returns:
+        _TemplateResponse: Renders the template with modem data and user context.
+    """
     authenticated_user: User = request.state.user
     proxies_list_endpoint = build_full_endpoint_url(
         request,
@@ -99,7 +110,7 @@ async def modems_list_page(request: Request, db: DatabaseDependency) -> _Templat
         response = await client.get(proxies_list_endpoint)
         proxies_reboot_data: list[dict[str, Any]] = response.json()
 
-    logout_url = build_full_endpoint_url(request, "logout", {})
+    logout_url = build_full_endpoint_url(request, "logout")
     return templates.TemplateResponse(
         request,
         name="proxies.html",

@@ -74,12 +74,13 @@ async def create_modem(request: Request, body: schemas.CreateModem, db: Database
             raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
     modem_data: dict[str, Any] = body.model_dump(
-        exclude={"bind_user_email", "ip", "external_server_ip", "internal_server_ip"}
+        exclude={"bind_user_email", "ip", "external_server_ip", "internal_server_ip", "external_server_host"}
     )
     modem_data["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
     modem_data["ip"] = str(body.ip)
     modem_data["external_server_ip"] = str(body.external_server_ip) if body.external_server_ip is not None else None
     modem_data["internal_server_ip"] = str(body.internal_server_ip) if body.internal_server_ip is not None else None
+    modem_data["external_server_host"] = str(body.external_server_host)
 
     if bind_db_user is not None:
         modem_data["hashed_value"] = hashlib.sha256(
@@ -186,6 +187,7 @@ async def update_modem(
     data_to_update["ip"] = str(body.ip)
     data_to_update["external_server_ip"] = str(body.external_server_ip) if body.external_server_ip is not None else None
     data_to_update["external_server_port"] = body.external_server_port
+    data_to_update["external_server_host"] = body.external_server_host
     data_to_update["internal_server_ip"] = str(body.internal_server_ip) if body.internal_server_ip is not None else None
     data_to_update["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
 
@@ -297,6 +299,7 @@ async def get_change_ip_urls(
                 external_server_ip=(
                     IPv4Address(modem.external_server_ip) if modem.external_server_ip is not None else None
                 ),
+                external_server_host=Url(str(modem.external_server_host)),
                 internal_server_ip=(
                     IPv4Address(modem.internal_server_ip) if modem.internal_server_ip is not None else None
                 ),

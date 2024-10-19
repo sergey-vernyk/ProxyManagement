@@ -9,9 +9,9 @@ from auth.schemas import EnteredCheckOTP
 from auth.utils import delete_cookie, set_cookie
 from common.utils import get_base_url
 from config import get_settings
-from dependencies import DatabaseDependency, jwt_verification
-from fastapi import (APIRouter, BackgroundTasks, Depends, Form, HTTPException,
-                     Request, status)
+from dependencies import DatabaseDependency
+from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
+                     status)
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from google.auth.exceptions import GoogleAuthError
@@ -92,7 +92,7 @@ async def logout(request: Request) -> JSONResponse:
 @router.post(
     "/auth/revoke/google",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(jwt_verification)],
+    name="revoke_google_auth",
     response_class=JSONResponse,
     description="Revokes Google authentication and disconnects the user's Google account from the application.",
     operation_id="revoke-google-authentication",

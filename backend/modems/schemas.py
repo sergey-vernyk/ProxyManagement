@@ -76,6 +76,10 @@ class CreateModem(BaseModel):
         le=65535,
         ge=65000,
     )
+    external_server_host: HttpUrl = Field(
+        description="Public host of the server where a proxy is located.",
+        examples=["https://example.com"],
+    )
     internal_server_ip: IPvAnyAddress | None = Field(
         default=None,
         description=(
@@ -110,6 +114,7 @@ class ShowModem(BaseModel):
     external_server_ip: IPvAnyAddress | None
     internal_server_ip: IPvAnyAddress | None
     external_server_port: int
+    external_server_host: HttpUrl
     port: int
     hashed_value: str | None
     bind_user_email: str | None
@@ -129,6 +134,7 @@ class UpdateModem(BaseModel):
     external_server_ip: IPvAnyAddress | None = None
     internal_server_ip: IPvAnyAddress | None = None
     external_server_port: int = Field(le=65535, ge=65000, default=None)
+    external_server_host: HttpUrl
     update_hashed_value: bool = Field(
         description="Flag for indicating a user intention to update modem 'hashed_value' field.",
         default=False,
@@ -148,6 +154,7 @@ class ShowModemForUser(BaseModel):
     ip: IPvAnyAddress
     external_server_ip: IPvAnyAddress | None
     internal_server_ip: IPvAnyAddress | None
+    external_server_host: HttpUrl
     port: int
     hashed_value: str | None = Field(description="Unique value for each modem.")
     rebooted: datetime | None
@@ -163,6 +170,7 @@ class ChangeIPUrl(BaseModel):
     port: int
     external_server_ip: IPv4Address | None = None
     internal_server_ip: IPv4Address | None = None
+    external_server_host: HttpUrl
     last_change_ip: str
     url: HttpUrl = Field(
         description="Url for rebooting a modem (change its IP).",

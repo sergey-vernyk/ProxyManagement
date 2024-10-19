@@ -1,4 +1,4 @@
-from common.utils import get_base_url
+from common.utils import build_full_endpoint_url, get_base_url
 from config import get_settings
 from fastapi import APIRouter, status
 from fastapi.requests import Request
@@ -30,14 +30,16 @@ async def registration_page(request: Request) -> _TemplateResponse:
     Returns:
         _TemplateResponse: Renders `registration.html` with registration URL.
     """
-    base_url = get_base_url(request)
-    reg_path = request.url_for("registration").components.path
-    reg_url = f"{base_url}{reg_path}"
+    reg_url = build_full_endpoint_url(request, "registration")
+    login_url = build_full_endpoint_url(request, "login_page")
 
     return templates.TemplateResponse(
         request,
         name="registration.html",
-        context={"reg_url": reg_url},
+        context={
+            "reg_url": reg_url,
+            "login_url": login_url,
+        },
     )
 
 
