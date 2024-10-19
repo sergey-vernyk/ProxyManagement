@@ -34,7 +34,7 @@ h2 {
 }
 
 button {
-    background-color: #4CAF50;
+    background-color: #2980b9;
     font-family: Georgia, 'Times New Roman', Times, serif, sans-serif;
     color: white;
     padding: 10px 20px;
@@ -46,12 +46,12 @@ button {
 }
 
 button:disabled {
-    background-color: #759a76;
+    background-color: #2674a8;
     cursor: default
 }
 
 button:hover {
-    background-color: #45a049;
+    background-color: #3498db;;
 }
 
 .spinner {

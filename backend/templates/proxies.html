@@ -1,46 +1,45 @@
 {% extends "base.html" %}
 
-
-{% block title %}My proxies{% endblock%}
+{% block title %}My proxies{% endblock %}
 {% block styles %}
     <link rel="stylesheet" href="/static/css/proxies.css">
 {% endblock %}
 
 {% block content %}
-<h2>My Proxies</h2>
+    <h2>My Proxies</h2>
     {% if not proxies_reboot_data %}
         <div class="no-proxies">You don't have any proxy</div>
     {% endif %}
-        <ul class="proxy-list">
-            {% for data in proxies_reboot_data %}
-                <li class="proxy-item">
-                    <span class="credentials">
-                        <div class="keyword change-ip-container">
-                            <a class="reboot-url" href="{{ data.url }}">Change IP</a>
-                        </div>
-                        <div class="keyword">
-                            <span class="key">Last rebooted: </span>
-                            <span class="value">{{data.last_change_ip }}</span>
-                        </div> 
-                        <div class="keyword">
-                            <span class="key">Host: </span>
-                            <span class="value">host1</span>
-                        </div> 
-                        <div class="keyword">
-                            <span class="key">Port:</span> 
-                            <span class="value">{{data.port}}</span></div> 
-                        <div class="keyword">
-                            <span class="key">Login:</span> 
-                            <span class="value">{{user.proxy_login}}</span>
-                        </div>
-                        <div class="keyword">
-                            <span class="key">Password:</span> 
-                            <span class="value">{{user.proxy_password_plain}}</span>
-                        </div>
-                    </span> 
-                </li>
-            {% endfor %}
-        </ul>
-    </div>
+    <ul class="proxy-list">
+        {% for data in proxies_reboot_data %}
+            <li class="proxy-item">
+                <span class="credentials">
+                    <div class="keyword change-ip-container">
+                        <a class="reboot-url" href="{{ data.url }}">Change IP</a>
+                    </div>
+                    <div class="keyword">
+                        <span class="key">Last rebooted:</span>
+                        <span class="value">{{data.last_change_ip }}</span>
+                    </div>
+                    <div class="keyword">
+                        <span class="key">Host:</span>
+                        <span class="value">{{data.external_server_host}}</span>
+                    </div>
+                    <div class="keyword">
+                        <span class="key">Port:</span>
+                        <span class="value">{{data.port}}</span>
+                    </div>
+                    <div class="keyword">
+                        <span class="key">Login:</span>
+                        <span class="value">{{user.proxy_login}}</span>
+                    </div>
+                    <div class="keyword">
+                        <span class="key">Password:</span>
+                        <span class="value">{{user.proxy_password_plain}}</span>
+                    </div>
+                </span>
+            </li>
+        {% endfor %}
+    </ul>
 {% endblock %}
 {% block scripts %}{% endblock %}
