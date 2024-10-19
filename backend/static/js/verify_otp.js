@@ -78,7 +78,6 @@ $(document).ready(() => {
                 const successMsg = response["success"];
                 const indexPageUrl = response["index_page_url"];
                 $("#otp-message").text(successMsg).addClass("success").removeClass("error");
-                $("#index-page-url").html(`<a href="${indexPageUrl}">Home page</a>`);
             },
             error: (jqXHR, textStatus, errorThrown) => {
                 $("#otp-message").text(jqXHR.responseJSON["error"]).addClass("error").removeClass("success");

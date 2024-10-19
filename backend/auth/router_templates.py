@@ -1,4 +1,4 @@
-from common.utils import build_full_endpoint_url, get_base_url
+from common.utils import build_full_endpoint_url
 from config import get_settings
 from fastapi import APIRouter, status
 from fastapi.requests import Request
@@ -28,7 +28,7 @@ async def registration_page(request: Request) -> _TemplateResponse:
         request (Request): Incoming HTTP request.
 
     Returns:
-        _TemplateResponse: Renders `registration.html` with registration URL.
+        _TemplateResponse: Renders `registration.html` with registration and login URLs.
     """
     reg_url = build_full_endpoint_url(request, "registration")
     login_url = build_full_endpoint_url(request, "login_page")
@@ -63,18 +63,15 @@ async def verify_email_page(request: Request, uid: str, token: str) -> _Template
     Returns:
         _TemplateResponse: Renders the "verify_email.html" template.
     """
-    base_url = get_base_url(request)
-
-    compare_path = request.url_for("compare_codes").components.path
-    repeat_path = request.url_for("send_verification_email").components.path
-
-    compare_codes_url = f"{base_url}{compare_path}"
-    repeat_compare_codes_url = f"{base_url}{repeat_path}"
+    compare_codes_url = build_full_endpoint_url(request, "compare_codes")
+    repeat_compare_codes_url = build_full_endpoint_url(request, "send_verification_email")
+    login_url = build_full_endpoint_url(request, "login_page")
 
     return templates.TemplateResponse(
         request,
         name="verify_otp.html",
         context={
+            "login_url": login_url,
             "compare_codes_url": compare_codes_url,
             "repeat_compare_codes_url": repeat_compare_codes_url,
             "uid": uid,
@@ -100,15 +97,12 @@ async def login_page(request: Request) -> _TemplateResponse:
 
     Returns:
         _TemplateResponse: Renders `authentication.html` with authentication URLs
-            with login and password or with OAuth2 flow.
+            with login and password or with OAuth2 flow and link for resetting password.
     """
-    base_url = get_base_url(request)
-    basic_login_path = request.url_for("basic_login").components.path
-    basic_login_url = f"{base_url}{basic_login_path}"
-    google_login_path = request.url_for("login_google").components.path
-    google_login_url = f"{base_url}{google_login_path}"
-    reg_path = request.url_for("signup").components.path
-    reg_url = f"{base_url}{reg_path}"
+    reg_url = build_full_endpoint_url(request, "signup")
+    basic_login_url = build_full_endpoint_url(request, "basic_login")
+    google_login_url = build_full_endpoint_url(request, "login_google")
+    reset_password_page_url = build_full_endpoint_url(request, "reset_password_page")
 
     return templates.TemplateResponse(
         request,
@@ -117,6 +111,7 @@ async def login_page(request: Request) -> _TemplateResponse:
             "basic_login_url": basic_login_url,
             "google_login_url": google_login_url,
             "reg_url": reg_url,
+            "reset_password_page_url": reset_password_page_url,
         },
     )
 
@@ -140,13 +135,16 @@ async def reset_password_page(request: Request) -> _TemplateResponse:
     Returns:
         _TemplateResponse: template `reset_password.html` with the reset password url link.
     """
-    base_url = get_base_url(request)
-    reset_password_path = request.url_for("reset_password").components.path
-    reset_password_url = f"{base_url}{reset_password_path}"
+    reset_password_url = build_full_endpoint_url(request, "reset_password")
+    login_url = build_full_endpoint_url(request, "login_page")
+
     return templates.TemplateResponse(
         request,
         name="reset_password.html",
-        context={"reset_password_url": reset_password_url},
+        context={
+            "reset_password_url": reset_password_url,
+            "login_url": login_url,
+        },
     )
 
 
@@ -171,15 +169,16 @@ async def reset_password_confirm_page(request: Request, uid: str, token: str) ->
 
     Returns:
         _TemplateResponse: template `reset_password_confirm.html`
-            with the confirm reset password url link uid and token.
+            with the confirm reset password url link uid, token and login url.
     """
-    base_url = get_base_url(request)
-    reset_password_confirm_path = request.url_for("reset_password_confirm").components.path
-    reset_password_confirm_url = f"{base_url}{reset_password_confirm_path}"
+    reset_password_confirm_url = build_full_endpoint_url(request, "reset_password_confirm")
+    login_url = build_full_endpoint_url(request, "login_page")
+
     return templates.TemplateResponse(
         request,
         name="reset_password_confirm.html",
         context={
+            "login_url": login_url,
             "reset_password_confirm_url": reset_password_confirm_url,
             "uid": uid,
             "token": token,

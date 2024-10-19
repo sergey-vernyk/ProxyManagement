@@ -7,7 +7,7 @@ from typing import Annotated, Any
 import httpx
 from auth.schemas import EnteredCheckOTP
 from auth.utils import delete_cookie, set_cookie
-from common.utils import get_base_url
+from common.utils import build_full_endpoint_url
 from config import get_settings
 from dependencies import DatabaseDependency
 from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
@@ -454,10 +454,15 @@ async def reset_password(
         logger.info(f"User with the given email {body.email} does not exist.")
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exist.")
 
-    base_url = get_base_url(request)
     uid = urlsafe_b64encode(str(db_user.id).encode(ENCODING)).decode(ENCODING)
-    reset_link_path = request.url_for("reset_password_confirm_page", uid=uid, token=db_user.token).components.path
-    reset_link_url = f"{base_url}{reset_link_path}"
+    reset_link_url = build_full_endpoint_url(
+        request,
+        "reset_password_confirm_page",
+        {
+            "uid": uid,
+            "token": str(db_user.token),
+        },
+    )
 
     bg_tasks.add_task(
         tasks.send_reset_password_email,
@@ -639,14 +644,7 @@ async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDep
     db.commit()
     delete_otp(db_otp_hashed.id)  # type: ignore
 
-    base_url = get_base_url(request)
-    index_page_path = request.url_for("index").components.path
-    index_page_url = f"{base_url}{index_page_path}"
-
     return JSONResponse(
-        {
-            "success": "The code you entered is correct. Email has been verified.",
-            "index_page_url": index_page_url,
-        },
+        {"success": "The code you entered is correct. Email has been verified."},
         status.HTTP_200_OK,
     )
