@@ -31,6 +31,7 @@ Base = cast(DeclarativeBase, Base)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
+    debug=settings.debug,
     title="Proxy Management",
     version="0.2",
 )
@@ -43,7 +44,9 @@ app.include_router(auth_templates_router.router, tags=["templates"])
 app.include_router(modems_templates_router.router, tags=["templates"])
 
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+if settings.debug:
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

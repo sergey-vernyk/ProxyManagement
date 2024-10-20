@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     Class with settings for environment variables.
     """
 
+    debug: bool
     default_encoding: str
 
     # variables for JWT encoding and decoding without OAuth flow
