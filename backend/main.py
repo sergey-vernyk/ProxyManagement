@@ -31,6 +31,13 @@ Base = cast(DeclarativeBase, Base)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
+    servers=[
+        {
+         "url": "https://proxman.pp.ua", 
+         "description": "Production environment"
+        },
+    ],
+    root_path_in_servers=False,
     debug=settings.debug,
     title="Proxy Management",
     version="0.2",
@@ -46,6 +53,9 @@ app.include_router(modems_templates_router.router, tags=["templates"])
 
 if settings.debug:
     app.mount("/static", StaticFiles(directory="static"), name="static")
+
+if settings.use_root_path:
+    app.root_path = "/api/v1"
 
 app.add_middleware(
     CORSMiddleware,

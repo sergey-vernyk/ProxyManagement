@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     """
 
     debug: bool
+    use_root_path: bool
     default_encoding: str
 
     # variables for JWT encoding and decoding without OAuth flow
