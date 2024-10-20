@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import httpx
 from common.decorators import template_jwt_verification
@@ -62,6 +62,7 @@ async def change_ip_page(
 
     ws_url = build_full_endpoint_url(request, "change_ip").replace("http", "ws", 1)
     logout_url = build_full_endpoint_url(request, "logout")
+    user: User = cast(User, request.state.user)
 
     return templates.TemplateResponse(
         request,
@@ -73,7 +74,7 @@ async def change_ip_page(
             "token": token,
             "hashed_value": hashed_value,
             # variables necessary for 'base.html' template
-            "user": request.state.user if request.state.user is not None else None,
+            "user": user if user is not None else None,
             "logout_url": logout_url,
         },
     )

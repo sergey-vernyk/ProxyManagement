@@ -5,8 +5,11 @@ Module provides logger settings for socket server, socket client and endpoints.
 import logging
 import logging.handlers
 from datetime import datetime
+from typing import Any
 
+from common.utils import get_caller_info
 from config import get_settings
+from fastapi import Request
 
 from . import (client_logging_dir, endpoint_logging_dir, server_logging_dir,
                settings)
@@ -28,6 +31,28 @@ def build_ip_address_for_log(ip_addr: str) -> str:
     """
     ip_addr_octets = ip_addr.split(".")
     return f"{ip_addr_octets[0]}.{ip_addr_octets[1]}.x.x"
+
+
+def build_logger_extra_data(request: Request, **kwargs: str | Any) -> dict[str, Any]:
+    """
+    Builds and returns extra data for logging purposes, including the client's IP address
+    and additional caller information.
+
+    Args:
+        request (Request): HTTP request.
+        **kwargs: Additional keyword arguments to include in the logger data.
+
+    Returns:
+        dict[str, Any]: A dictionary containing:
+            - `client_ip` (str or None): The client's IP address if available, otherwise None.
+            - Additional caller information (`func_name`, `module_name`).
+            - Any additional data passed through `kwargs`.
+    """
+    return {
+        "client_ip": build_ip_address_for_log(request.client.host) if request.client is not None else None,
+        **get_caller_info(),
+        **kwargs,
+    }
 
 
 def get_socket_server_logger() -> logging.Logger:

@@ -10,6 +10,8 @@ from auth.utils import delete_cookie, set_cookie
 from common.utils import build_full_endpoint_url
 from config import get_settings
 from dependencies import DatabaseDependency
+from exceptions import (ClientRequestError, EntityDoesNotExistError,
+                        UserUnauthorizedError)
 from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
                      status)
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -17,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from google.auth.exceptions import GoogleAuthError
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from logs.logging_conf import get_endpoint_logger
+from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import EmailStr
 from security import generate_hashed_otp, get_password_hash, verify_password
 from sqlalchemy import delete, update
@@ -69,9 +71,9 @@ async def logout(request: Request) -> JSONResponse:
     jwt = request.cookies.get(settings.cookies_key_jwt)
 
     if jwt is None:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED,
+        raise UserUnauthorizedError(
             "You are not authorized.",
+            logger_extra_data=build_logger_extra_data(request),
         )
 
     response = JSONResponse(
@@ -120,15 +122,18 @@ async def revoke_google_auth(request: Request) -> JSONResponse:
         and deletion of cookies.
 
     Raises:
-        HTTPException: If the Google tokens are missing, invalid, or issued by an unauthorized source.
+        UserUnauthorizedError: if the user is not authenticated via Google or
+            the token issuer is invalid.
+        ClientRequestError: if the token verification is fails.
+        HTTPException: if the token issuer is not Google.
     """
     google_access_token = request.cookies.get(settings.cookies_google_access_token)
     google_id_token = request.cookies.get(settings.cookies_key_jwt)
 
     if google_access_token is None and google_id_token is None:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED,
+        raise UserUnauthorizedError(
             "You are not authorized via Google.",
+            logger_extra_data=build_logger_extra_data(request),
         )
 
     try:
@@ -138,9 +143,15 @@ async def revoke_google_auth(request: Request) -> JSONResponse:
             settings.google_client_id,
         )
     except ValueError as e:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Token verification fails: {e}.") from e
+        raise ClientRequestError(
+            f"Token verification fails: {e}.",
+            logger_extra_data=build_logger_extra_data(request),
+        ) from e
     except GoogleAuthError as e:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"The token issuer is invalid: {e}.") from e
+        raise UserUnauthorizedError(
+            f"The token issuer is invalid: {e}.",
+            logger_extra_data=build_logger_extra_data(request),
+        ) from e
 
     if id_token_info.get("iss", "") and id_token_info["iss"] != "https://accounts.google.com":
         raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, "Token issuer is not Google.")
@@ -193,14 +204,14 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         RedirectResponse: Redirecting to the page which indicates successful login into the system.
 
     Raises:
-        HTTPException: If the authorization code is missing,
+        ClientRequestError: If the authorization code is missing,
             the access token retrieval fails or id token is missing.
     """
     code = request.query_params.get("code", "")
     if not code:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
+        raise ClientRequestError(
             "Missing code parameter.",
+            logger_extra_data=build_logger_extra_data(request),
         )
 
     async with httpx.AsyncClient() as client:
@@ -220,15 +231,15 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         access_token: str = token_data.get("access_token", "")
         id_token: str = token_data.get("id_token", "")
         if not access_token:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
+            raise ClientRequestError(
                 "No access token received.",
+                logger_extra_data=build_logger_extra_data(request),
             )
 
         if not id_token:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
+            raise ClientRequestError(
                 "No ID token received.",
+                logger_extra_data=build_logger_extra_data(request),
             )
 
         user_info = await client.get(
@@ -237,10 +248,8 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         )
 
         user_email: str = user_info.json().get("email", "")
-        if user_email:
-            existing_user = get_user_by_email(db, user_email)
-            if existing_user is None:
-                create_user_from_google(user_email, db)
+        if user_email and get_user_by_email(db, user_email) is not None:
+            create_user_from_google(user_email, db)
 
         response = RedirectResponse(str(request.url_for("index")))
         set_cookie(response, settings.cookies_key_jwt, id_token, max_age=token_data["expires_in"])
@@ -276,8 +285,8 @@ async def basic_login(
         request(Request): HTTP request.
 
     Raises:
-        HTTPException: the user with the given email does not exist.
-        HTTPException: if entered email or password is incorrect.
+        ClientRequestError: the user with the given email does not exist or
+            if entered email or password is incorrect.
 
     Returns:
         JSONResponse: response with the `redirect_url` content for using it
@@ -286,30 +295,22 @@ async def basic_login(
     try:
         valid_email = validate_email_format(email)
     except ValueError as e:
-        logger.info(
-            f"Email is invalid. Reason: {e}",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, {"email_invalid": str(e)}) from e
+        raise ClientRequestError(
+            {"email_invalid": str(e)},
+            logger_extra_data=build_logger_extra_data(request),
+        ) from e
 
     user = db.query(User).filter(User.email == valid_email).first()
     if user is None:
-        logger.info(
-            f"User with the given email {valid_email} does not exist.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, {"user_not_exists": "User with the given email does not exist."}
+        raise EntityDoesNotExistError(
+            message={"user_not_exists": "User with the given email does not exist."},
+            logger_extra_data=build_logger_extra_data(request),
         )
 
     if not verify_password(password, str(user.hashed_password)):
-        logger.info(
-            "Incorrect email or password.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
+        raise ClientRequestError(
             {"incorrect_email_or_password": "Incorrect email or password."},
+            logger_extra_data=build_logger_extra_data(request),
         )
 
     access_token_expires = timedelta(seconds=settings.access_token_expire_seconds)
@@ -378,7 +379,7 @@ async def register_user(
         bg_tasks (BackgroundTasks): Background tasks implemented by FastAPI.
 
     Raises:
-        HTTPException: If the user with the provided email is already registered.
+        ClientRequestError: If the user with the provided email is already registered.
             If the given email is invalid.
 
     Returns:
@@ -388,21 +389,16 @@ async def register_user(
     try:
         valid_email = validate_email_format(body.email)
     except ValueError as e:
-        logger.info(
-            f"Email is invalid. Reason: {e}",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, {"email_invalid": str(e)}) from e
+        raise ClientRequestError(
+            {"email_invalid": str(e)},
+            logger_extra_data=build_logger_extra_data(request),
+        ) from e
 
     db_user = get_user_by_email(db, valid_email)
     if db_user is not None:
-        logger.info(
-            f"User with the given email {body.email} is already registered.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
+        raise ClientRequestError(
             {"user_exists": "User with the given email is already registered."},
+            logger_extra_data=build_logger_extra_data(request),
         )
 
     token = token_urlsafe(32)[: settings.unique_user_token_length]
@@ -444,15 +440,17 @@ async def reset_password(
         db (DatabaseDependency): database session.
 
     Raises:
-        HTTPException: If user does not exist by the entered email.
+        EntityDoesNotExistError: If user does not exist by the entered email.
 
     Returns:
         JSONResponse: response with message, which will be displayed to a client.
     """
     db_user = db.query(User).filter(User.email == body.email).first()
     if db_user is None:
-        logger.info(f"User with the given email {body.email} does not exist.")
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exist.")
+        raise EntityDoesNotExistError(
+            message="User with the given email does not exist.",
+            logger_extra_data=build_logger_extra_data(request),
+        )
 
     uid = urlsafe_b64encode(str(db_user.id).encode(ENCODING)).decode(ENCODING)
     reset_link_url = build_full_endpoint_url(
@@ -494,13 +492,16 @@ async def reset_password(
         400: {"description": "Passwords are mismatch or reset link is invalid"},
     },
 )
-async def reset_password_confirm(body: schemas.ResetPasswordConfirm, db: DatabaseDependency) -> JSONResponse:
+async def reset_password_confirm(
+    request: Request, body: schemas.ResetPasswordConfirm, db: DatabaseDependency
+) -> JSONResponse:
     """
     Compares passwords, entered by the client.
     If the passwords will turn to be the same, then decodes UID,
     get a user from database by their ID and set they the new password (hashed it before).
 
     Args:
+        request(Request): HTTP request.
         body (schemas.ResetPasswordConfirm): request body with:
             - new password,
             - confirmed new password,
@@ -509,8 +510,8 @@ async def reset_password_confirm(body: schemas.ResetPasswordConfirm, db: Databas
         db (DatabaseDependency): database session.
 
     Raises:
-        HTTPException: If the given password are mismatch.
-        HTTPException: If the the URL link in user's email is invalid.
+        ClientRequestError: If the given password are mismatch or
+            if the the URL link in user's email is invalid
 
     Returns:
         JSONResponse: response with the message that the password has been reset.
@@ -519,17 +520,26 @@ async def reset_password_confirm(body: schemas.ResetPasswordConfirm, db: Databas
     password_confirm = body.confirm_password
 
     if not compare_digest(new_password, password_confirm):
-        logger.info("Entered passwords are mismatch.")
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Entered passwords are mismatch.")
+        raise ClientRequestError(
+            "Entered passwords are mismatch.",
+            logger_extra_data=build_logger_extra_data(request),
+        )
 
     user_id = int(urlsafe_b64decode(body.uid).decode(ENCODING))
     db_user = db.query(User).filter(User.id == user_id, User.token == body.token).first()
     if db_user is None:
-        logger.info("Password reset link is invalid.")
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password reset link is invalid.")
+        raise ClientRequestError(
+            "Password reset link is invalid.",
+            logger_extra_data=build_logger_extra_data(request),
+        )
 
-    stmt = update(User.__table__).where(User.id == user_id).values(hashed_password=get_password_hash(new_password))
-    db.execute(stmt)
+    db.execute(
+        update(User.__table__)
+        .where(User.id == user_id)
+        .values(
+            hashed_password=get_password_hash(new_password),
+        )
+    )
     db.commit()
 
     return JSONResponse("Password has been reset successfully.", status.HTTP_200_OK)
@@ -606,8 +616,7 @@ async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDep
         Args:
             pk (int): OTP primary key.
         """
-        stmt = delete(OTP.__table__).where(OTP.id == pk)
-        db.execute(stmt)
+        db.execute(delete(OTP.__table__).where(OTP.id == pk))
         db.commit()
 
     entered_otp_plain = body.entered_otp
@@ -625,7 +634,7 @@ async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDep
     if db_otp_hashed is None:
         logger.info(
             "Provided OTP does not exist in the database.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
+            extra=build_logger_extra_data(request),
         )
         return JSONResponse(
             {"error": "The code you entered is incorrect."},

@@ -12,15 +12,13 @@ from secrets import token_urlsafe
 from typing import Annotated, Any
 
 from auth.otp.utils import send_otp_email_handler
-from common.utils import get_caller_info
 from config import get_settings
 from dependencies import DatabaseDependency, JWTBearer, jwt_verification
-from exceptions import EntityDoesNotExistError
-from fastapi import (APIRouter, BackgroundTasks, Depends, HTTPException, Query,
-                     status)
+from exceptions import ClientRequestError, EntityDoesNotExistError
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from fastapi.requests import Request
 from fastapi.templating import Jinja2Templates
-from logs.logging_conf import build_ip_address_for_log, get_endpoint_logger
+from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import EmailStr
 from security import (encrypt_modem_password, generate_md5_crypt_hash_password,
                       get_password_hash, verify_password)
@@ -59,19 +57,17 @@ async def create_user(
     try:
         valid_email = validate_email_format(body.email)
     except ValueError as e:
-        logger.info(
-            f"Email is invalid. Reason: {e}",
-            extra={"client_ip": build_ip_address_for_log(request.client.host) if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+        raise ClientRequestError(
+            f"Email is invalid. Reason: {e}.",
+            logger_extra_data=build_logger_extra_data(request),
+        ) from e
 
     db_user = crud.get_user_by_email(db, valid_email)
     if db_user is not None:
-        logger.info(
-            f"User with the given email {body.email} is already registered.",
-            extra={"client_ip": build_ip_address_for_log(request.client.host) if request.client is not None else None},
+        raise ClientRequestError(
+            "User with the given email is already registered.",
+            logger_extra_data=build_logger_extra_data(request),
         )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email is already registered.")
 
     token: str | None = None
     proxy_login: str | None = None
@@ -146,20 +142,16 @@ async def get_user(request: Request, email: EmailStr, db: DatabaseDependency) ->
     try:
         valid_email = validate_email_format(email)
     except ValueError as e:
-        logger.info(
-            f"Email is invalid. Reason: {e}",
-            extra={"client_ip": build_ip_address_for_log(request.client.host) if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+        raise ClientRequestError(
+            f"Email is invalid. Reason: {e}.",
+            logger_extra_data=build_logger_extra_data(request),
+        ) from e
 
     db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise EntityDoesNotExistError(
             message="User with the given email does not exist.",
-            logger_extra_data={
-                "client_ip": build_ip_address_for_log(request.client.host) if request.client is not None else None,
-                **get_caller_info(),
-            },
+            logger_extra_data=build_logger_extra_data(request),
         )
 
     return db_user
@@ -187,28 +179,27 @@ async def update_user(
     try:
         valid_email = validate_email_format(email)
     except ValueError as e:
-        logger.info(
-            f"Email is invalid. Reason: {e}",
-            extra={"client_ip": build_ip_address_for_log(request.client.host) if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+        raise ClientRequestError(
+            f"Email is invalid. Reason: {e}.",
+            logger_extra_data=build_logger_extra_data(request),
+        ) from e
 
     db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise EntityDoesNotExistError(
             "User with the given email does not exist",
-            logger_extra_data={
-                "client_ip": build_ip_address_for_log(request.client.host) if request.client is not None else None
-            },
+            logger_extra_data=build_logger_extra_data(request),
         )
 
     data_to_update: dict[str, Any] = {}
 
     if body.update_password and body.old_password is not None and body.new_password is not None:
         if not verify_password(body.old_password, str(db_user.hashed_password)):
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, "Entered old password not matches with the existing user password."
+            raise ClientRequestError(
+                "Entered old password not matches with the existing user password.",
+                logger_extra_data=build_logger_extra_data(request),
             )
+
         data_to_update["hashed_password"] = get_password_hash(body.new_password)
 
     if body.update_token:
@@ -221,10 +212,9 @@ async def update_user(
     proxy_password_hashed: str | None = None
     if body.update_proxy_password and body.proxy_password_plain is not None:
         if body.proxy_password_hash_type is None:
-            logger.info("Proxy password hash type must not be None if password to update is provided.")
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
+            raise ClientRequestError(
                 "Proxy password hash type must not be None if password to update is provided.",
+                logger_extra_data=build_logger_extra_data(request),
             )
 
         if body.proxy_password_hash_type == schemas.HashType.MD5:
@@ -260,19 +250,16 @@ async def delete_user(request: Request, email: EmailStr, db: DatabaseDependency)
     try:
         valid_email = validate_email_format(email)
     except ValueError as e:
-        logger.info(
-            f"Email is invalid. Reason: {e}",
-            extra={"client_ip": build_ip_address_for_log(request.client.host) if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+        raise ClientRequestError(
+            f"Email is invalid. Reason: {e}.",
+            logger_extra_data=build_logger_extra_data(request),
+        ) from e
 
     db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise EntityDoesNotExistError(
             "User with the given email does not exist",
-            logger_extra_data={
-                "client_ip": build_ip_address_for_log(request.client.host) if request.client is not None else None
-            },
+            logger_extra_data=build_logger_extra_data(request),
         )
 
     crud.delete_user(db, valid_email)

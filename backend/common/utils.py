@@ -63,7 +63,7 @@ def get_caller_info() -> dict[str, Any]:
     Retrieves the function and module name of the caller.
 
     Returns:
-        dict[str, Any]: A dictionary containing 'func_name' and 'module_name' keys,
+        dict[str, Any]: A dictionary containing `func_name` and `module_name` keys,
             representing the name of the calling function and its module.
     """
     frame: inspect.FrameInfo = inspect.stack()[1]

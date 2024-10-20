@@ -14,15 +14,17 @@ import hashlib
 from ipaddress import IPv4Address
 from typing import Annotated, Any, cast
 
-from common.utils import get_base_url
+from common.utils import get_base_url, get_caller_info
 from config import get_settings
 from conn_utils import send_data_to_socket_server
 from dependencies import DatabaseDependency, JWTBearer
+from exceptions import ClientRequestError, EntityDoesNotExistError
 from fastapi import (APIRouter, Depends, HTTPException, Query, WebSocket,
                      WebSocketDisconnect, status)
 from fastapi.encoders import jsonable_encoder
 from fastapi.requests import Request
-from logs.logging_conf import get_endpoint_logger
+from logs.logging_conf import (build_ip_address_for_log,
+                               build_logger_extra_data, get_endpoint_logger)
 from pydantic import EmailStr, IPvAnyAddress
 from pydantic_core import Url
 from users.crud import get_user_by_email
@@ -57,24 +59,28 @@ async def create_modem(request: Request, body: schemas.CreateModem, db: Database
     """
     db_modem = crud.get_modem_by_ip(db, str(body.ip))
     if db_modem is not None:
-        logger.info(
-            f"Modem with the given IP {body.ip} is already exists.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
+        raise ClientRequestError(
+            "Modem with the given IP is already exists.",
+            logger_extra_data=build_logger_extra_data(request),
         )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Modem with the given IP is already exists.")
 
     bind_db_user: User | None = None
     if body.bind_user_email is not None:
         bind_db_user = db.query(User).filter(User.email == body.bind_user_email).first()
         if bind_db_user is None:
-            logger.info(
-                f"User with the given email {body.bind_user_email} does not exist.",
-                extra={"client_ip": request.client.host if request.client is not None else None},
+            raise EntityDoesNotExistError(
+                "User with the given email does not exist.",
+                logger_extra_data=build_logger_extra_data(request),
             )
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exist.")
 
     modem_data: dict[str, Any] = body.model_dump(
-        exclude={"bind_user_email", "ip", "external_server_ip", "internal_server_ip", "external_server_host"}
+        exclude={
+            "bind_user_email",
+            "ip",
+            "external_server_ip",
+            "internal_server_ip",
+            "external_server_host",
+        }
     )
     modem_data["bind_user_id"] = bind_db_user.id if bind_db_user is not None else None
     modem_data["ip"] = str(body.ip)
@@ -114,11 +120,10 @@ async def get_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency)
     """
     db_modem = crud.get_modem_by_ip(db, str(ip))
     if db_modem is None:
-        logger.info(
-            f"Modem with the given IP {ip} does not exist.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
+        raise EntityDoesNotExistError(
+            "Modem with the given IP does not exist.",
+            logger_extra_data=build_logger_extra_data(request),
         )
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exist.")
 
     db_modem_user = cast(User, db_modem.bind_user)
     show_modem = schemas.ShowModem(
@@ -167,21 +172,19 @@ async def update_modem(
     """
     db_modem = crud.get_modem_by_ip(db, str(ip))
     if db_modem is None:
-        logger.info(
-            f"Modem with the given IP {ip} does not exist.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
+        raise EntityDoesNotExistError(
+            "Modem with the given IP does not exist.",
+            logger_extra_data=build_logger_extra_data(request),
         )
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exist.")
 
     bind_db_user: User | None = None
     if body.bind_user_email is not None:
         bind_db_user = db.query(User).filter(User.email == body.bind_user_email).first()
         if bind_db_user is None:
-            logger.info(
-                f"User with the given email {body.bind_user_email} does not exist.",
-                extra={"client_ip": request.client.host if request.client is not None else None},
+            raise EntityDoesNotExistError(
+                "User with the given email does not exist.",
+                logger_extra_data=build_logger_extra_data(request),
             )
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "User with the given email does not exists.")
 
     data_to_update: dict[str, Any] = body.model_dump(exclude={"ip", "bind_user_email"})
     data_to_update["ip"] = str(body.ip)
@@ -218,11 +221,10 @@ async def delete_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependen
     """
     db_modem = crud.get_modem_by_ip(db, str(ip))
     if db_modem is None:
-        logger.info(
-            f"Modem with the given IP {ip} does not exist.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
+        raise EntityDoesNotExistError(
+            "Modem with the given IP does not exist.",
+            logger_extra_data=build_logger_extra_data(request),
         )
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Modem with the given IP does not exist.")
 
     crud.delete_modem(db, str(ip))
 
@@ -252,19 +254,17 @@ async def get_change_ip_urls(
     try:
         valid_email = validate_email_format(email)
     except ValueError as e:
-        logger.info(
-            f"Email is invalid. Reason: {e}",
-            extra={"client_ip": request.client.host if request.client is not None else None},
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+        raise ClientRequestError(
+            f"Email is invalid. Reason: {e}.",
+            logger_extra_data=build_logger_extra_data(request),
+        ) from e
 
     db_user = get_user_by_email(db, valid_email)
     if db_user is None:
-        logger.info(
-            f"User with the given email {email} does not exist.",
-            extra={"client_ip": request.client.host if request.client is not None else None},
+        raise EntityDoesNotExistError(
+            message="User with the given email does not exist.",
+            logger_extra_data=build_logger_extra_data(request),
         )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User with the given email does not exists.")
 
     def get_urls_list(request: Request) -> list[schemas.ChangeIPUrl]:
         """
@@ -277,13 +277,12 @@ async def get_change_ip_urls(
 
         # try to sort user modems by the given criteria
         # if any of user modems has nullable values an exception will be raised
-
         try:
             user_modems: list[models.Modem] = sorted(db_user.user_modems, key=lambda m: getattr(m, order_by))
         except TypeError as e:
             logger.error(
                 "Unable to sort records because some entries contains null values.",
-                extra={"client_ip": request.client.host if request.client is not None else None},
+                extra=build_logger_extra_data(request),
             )
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -378,7 +377,10 @@ async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
     except WebSocketDisconnect as e:
         logger.info(
             f"Websocket client has been disconnected. Code: {e}",
-            extra={"client_ip": websocket.client.host if websocket.client is not None else None},
+            extra={
+                "client_ip": build_ip_address_for_log(websocket.client.host) if websocket.client is not None else None,
+                **get_caller_info(),
+            },
         )
     else:
         await websocket.close()

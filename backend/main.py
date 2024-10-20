@@ -7,7 +7,8 @@ from common.utils import build_full_endpoint_url
 from config import get_settings
 from db_connection import Base, engine
 from dependencies import DatabaseDependency
-from exceptions import EntityDoesNotExistError, custom_error_handler
+from exceptions import (ClientRequestError, EntityDoesNotExistError,
+                        UserUnauthorizedError, custom_error_handler)
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -51,12 +52,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# exception handler used in API endpoints
 app.add_exception_handler(
     exc_class_or_status_code=EntityDoesNotExistError,
     handler=custom_error_handler(
         status_code=status.HTTP_404_NOT_FOUND,
         initial_detail="Not Found",
+        logger=endpoint_logger,
+    ),
+)
+
+app.add_exception_handler(
+    exc_class_or_status_code=ClientRequestError,
+    handler=custom_error_handler(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        initial_detail="Invalid client request",
+        logger=endpoint_logger,
+    ),
+)
+
+app.add_exception_handler(
+    exc_class_or_status_code=UserUnauthorizedError,
+    handler=custom_error_handler(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        initial_detail="Not authorized",
         logger=endpoint_logger,
     ),
 )
