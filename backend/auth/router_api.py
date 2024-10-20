@@ -248,7 +248,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         )
 
         user_email: str = user_info.json().get("email", "")
-        if user_email and get_user_by_email(db, user_email) is not None:
+        if user_email and get_user_by_email(db, user_email) is None:
             create_user_from_google(user_email, db)
 
         response = RedirectResponse(str(request.url_for("index")))
