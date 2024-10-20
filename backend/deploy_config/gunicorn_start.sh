@@ -30,5 +30,6 @@ exec gunicorn main:app \
     --group=$GROUP \
     --bind=$BIND \
     --log-level=$LOG_LEVEL \
-    --log-file=- \
+    --access-logfile='/home/ubuntu/code/logs/gunicorn_access.log' \
+    --log-file='/home/ubuntu/code/logs/gunicorn_error.log' \
     --forwarded-allow-ips='*'
