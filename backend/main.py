@@ -11,7 +11,6 @@ from exceptions import (ClientRequestError, EntityDoesNotExistError,
                         UserUnauthorizedError, custom_error_handler)
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -52,7 +51,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(HTTPSRedirectMiddleware)
 
 app.add_exception_handler(
     exc_class_or_status_code=EntityDoesNotExistError,

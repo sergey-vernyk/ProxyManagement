@@ -30,4 +30,5 @@ exec gunicorn main:app \
     --group=$GROUP \
     --bind=$BIND \
     --log-level=$LOG_LEVEL \
-    --log-file=-
+    --log-file=- \
+    --forwarded-allow-ips='*'
