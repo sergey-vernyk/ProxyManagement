@@ -57,4 +57,15 @@ server {
                 proxy_set_header Upgrade $http_upgrade;
                 proxy_set_header Connection "upgrade";
         }
+
+        location /conf/ {
+                alias /home/ubuntu/code/vars/;
+                auth_basic "Restricted site";
+                auth_basic_user_file /home/ubuntu/.htpasswd;
+        }
+
+        location /docs/ {
+                auth_basic "Restricted site";
+                auth_basic_user_file /home/ubuntu/.htpasswd;
+        }
 }

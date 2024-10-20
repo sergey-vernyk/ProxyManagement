@@ -21,7 +21,7 @@ ENCODING = settings.default_encoding
 def build_ip_address_for_log(ip_addr: str) -> str:
     """
     Return IP address in format 192.168.x.x
-    that applied for saving it in the log.
+    that can be applied for saving it in the log.
 
     Args:
         ip_addr (str): initial IP address.
