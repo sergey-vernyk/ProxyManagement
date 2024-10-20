@@ -33,11 +33,11 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     servers=[
         {
-         "url": "https://proxman.pp.ua", 
-         "description": "Production environment"
+            "url": f"https://{settings.domain}",
+            "description": "Production environment",
         },
     ],
-    root_path_in_servers=False,
+    root_path_in_servers=True,
     debug=settings.debug,
     title="Proxy Management",
     version="0.2",
