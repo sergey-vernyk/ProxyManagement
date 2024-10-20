@@ -26,16 +26,18 @@ def custom_error_handler(
 
     Usage Example:
         ```python
-            app = FastAPI()
+        from fastapi import FastAPI
 
-            app.add_exception_handler(
-                exc_class_or_status_code=EntityDoesNotExistError,
-                handler=custom_error_handler(
-                    status_code=404,
-                    initial_detail="Not Found",
-                    logger=my_logger,
-                ),
-            )
+        app = FastAPI()
+
+        app.add_exception_handler(
+            exc_class_or_status_code=EntityDoesNotExistError,
+            handler=custom_error_handler(
+                status_code=404,
+                initial_detail="Not Found",
+                logger=my_logger,
+            ),
+        )
         ```
     """
     detail = {"message": initial_detail}
@@ -62,7 +64,6 @@ class ProxyManagementApiError(Exception):
     """
 
     def __init__(self, message: str | dict[str, str], logger_extra_data: dict[str, Any] | None = None) -> None:
-
         self.message = message
         self.logger_extra_data = logger_extra_data
         super().__init__(self.message)

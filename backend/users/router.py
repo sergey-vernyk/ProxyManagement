@@ -13,7 +13,7 @@ from typing import Annotated, Any
 
 from auth.otp.utils import send_otp_email_handler
 from config import get_settings
-from dependencies import DatabaseDependency, JWTBearer, jwt_verification
+from dependencies import DatabaseDependency, jwt_verification
 from exceptions import ClientRequestError, EntityDoesNotExistError
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from fastapi.requests import Request
@@ -161,7 +161,7 @@ async def get_user(request: Request, email: EmailStr, db: DatabaseDependency) ->
     "/users/{email}",
     response_model=schemas.ShowUser,
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(JWTBearer())],
+    dependencies=[Depends(jwt_verification)],
     description="Update a user by the given email.",
     operation_id="update-user",
     responses={
@@ -235,7 +235,7 @@ async def update_user(
     "/users/{email}",
     status_code=status.HTTP_204_NO_CONTENT,
     description="Delete a user by the given email.",
-    dependencies=[Depends(JWTBearer())],
+    dependencies=[Depends(jwt_verification)],
     operation_id="delete-user-by-email",
     responses={
         400: {"description": "Invalid email format"},

@@ -17,7 +17,7 @@ from typing import Annotated, Any, cast
 from common.utils import get_base_url, get_caller_info
 from config import get_settings
 from conn_utils import send_data_to_socket_server
-from dependencies import DatabaseDependency, JWTBearer
+from dependencies import DatabaseDependency, jwt_verification
 from exceptions import ClientRequestError, EntityDoesNotExistError
 from fastapi import (APIRouter, Depends, HTTPException, Query, WebSocket,
                      WebSocketDisconnect, status)
@@ -44,7 +44,7 @@ ENCODING: str = settings.default_encoding
     "/modems/",
     response_model=schemas.ShowModem,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(JWTBearer())],
+    dependencies=[Depends(jwt_verification)],
     description="Create a modem for a proxy.",
     operation_id="create-modem",
     responses={
@@ -106,7 +106,7 @@ async def create_modem(request: Request, body: schemas.CreateModem, db: Database
     "/modems/{ip}",
     response_model=schemas.ShowModem,
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(JWTBearer())],
+    dependencies=[Depends(jwt_verification)],
     description="Get modem by the given IP.",
     operation_id="get-modem-by-ip",
     responses={
@@ -137,7 +137,7 @@ async def get_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency)
     "/modems/",
     response_model=list[schemas.ShowModem],
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(JWTBearer())],
+    dependencies=[Depends(jwt_verification)],
     description="Get all modems within `skip` and `limit` params.",
     operation_id="get-modems",
     responses={200: {"description": "Successfully"}},
@@ -160,7 +160,7 @@ async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100
     "/modems/{ip}",
     response_model=schemas.ShowModem,
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(JWTBearer())],
+    dependencies=[Depends(jwt_verification)],
     description="Update a  modem data by the given IP.",
     responses={404: {"description": "Modem not found"}, 200: {"description": "Successfully"}},
 )
@@ -210,7 +210,7 @@ async def update_modem(
 @router.delete(
     "/modems/{ip}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(JWTBearer())],
+    dependencies=[Depends(jwt_verification)],
     description="Delete a modem by the given IP.",
     operation_id="delete-modem-by-ip",
     responses={204: {"description": "Successfully"}},

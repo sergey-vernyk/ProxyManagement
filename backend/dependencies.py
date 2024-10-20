@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Generator
 
 from config import get_settings
 from db_connection import SessionLocal
@@ -13,19 +13,19 @@ from sqlalchemy.orm import Session
 from users import crud, models
 
 settings = get_settings()
-security = HTTPBearer(scheme_name="OAuth JWT")
+security = HTTPBearer(
+    scheme_name="JWT Authorization",
+    description="JSON Web Token authorization with Google OAuth or token generating with PyJWT.",
+)
 
 
-def get_db():
+def get_db() -> Generator[Session, Any, None]:
     """
     Creates a new SQLAlchemy Session instance
     that will be used in a single request.
     """
-    db: Session = SessionLocal()
-    try:
+    with SessionLocal() as db:
         yield db
-    finally:
-        db.close()
 
 
 DatabaseDependency = Annotated[Session, Depends(get_db)]
