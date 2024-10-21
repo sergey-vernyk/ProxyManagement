@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     cookies_key_jwt: str
     cookies_google_access_token: str
 
+    # CSRF
+    cookies_key_csrf: str
+    csrf_number_of_bytes: int
+
     if DEFAULT_ENV_PATH.exists() or CURRENT_ENV_PATH and Path(CURRENT_ENV_PATH).exists():
         model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH or DEFAULT_ENV_PATH, env_file_encoding="utf-8")
 

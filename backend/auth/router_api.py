@@ -21,7 +21,8 @@ from google.auth.transport import requests
 from google.oauth2 import id_token
 from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import EmailStr
-from security import generate_hashed_otp, get_password_hash, verify_password
+from security import (generate_csrf_token, generate_hashed_otp,
+                      get_password_hash, verify_password)
 from sqlalchemy import delete, update
 from users.crud import get_user_by_email
 from users.models import User
@@ -85,6 +86,7 @@ async def logout(request: Request) -> JSONResponse:
     )
 
     delete_cookie(response, settings.cookies_key_jwt)
+    delete_cookie(response, settings.cookies_key_csrf)
     if google_access_token is not None:
         delete_cookie(response, settings.cookies_google_access_token)
 
@@ -252,8 +254,10 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
             create_user_from_google(user_email, db)
 
         response = RedirectResponse(str(request.url_for("index")))
+        csrf_token = generate_csrf_token(n_bytes=settings.csrf_number_of_bytes)
         set_cookie(response, settings.cookies_key_jwt, id_token, max_age=token_data["expires_in"])
         set_cookie(response, settings.cookies_google_access_token, access_token, max_age=token_data["expires_in"])
+        set_cookie(response, settings.cookies_key_csrf, value=csrf_token)
         return response
 
 
@@ -315,8 +319,10 @@ async def basic_login(
 
     access_token_expires = timedelta(seconds=settings.access_token_expire_seconds)
     access_token: str = auth_bearer.create_access_token({"sub": user.email}, access_token_expires)
+    csrf_token = generate_csrf_token(n_bytes=settings.csrf_number_of_bytes)
     response = JSONResponse({"redirect_url": str(request.url_for("index"))})
     set_cookie(response, settings.cookies_key_jwt, access_token, max_age=settings.access_token_expire_seconds)
+    set_cookie(response, settings.cookies_key_csrf, value=csrf_token)
     return response
 
 

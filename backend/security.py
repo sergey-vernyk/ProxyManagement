@@ -1,5 +1,6 @@
 import hashlib
 import random
+import secrets
 from string import digits
 
 import bcrypt
@@ -70,3 +71,17 @@ def generate_hashed_otp(plain_code: str) -> str:
         str: hash value.
     """
     return hashlib.sha256(plain_code.encode(ENCODING)).hexdigest()
+
+
+def generate_csrf_token(n_bytes: int | None = None) -> str:
+    """
+    Generates a CSRF token consisting of `n_bytes` random bytes, encoded in a URL-safe format.
+
+    Args:
+        n_bytes (int | None): The number of random bytes to use for the token. Defaults to None,
+                              which generates a reasonable default token size.
+
+    Returns:
+        str: A URL-safe CSRF token as a string.
+    """
+    return secrets.token_urlsafe(n_bytes)

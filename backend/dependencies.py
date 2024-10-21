@@ -1,17 +1,20 @@
-from typing import Annotated, Any, Generator
+from secrets import compare_digest
+from typing import Annotated, Any, Generator, NoReturn
 
 from config import get_settings
 from db_connection import SessionLocal
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.exceptions import GoogleAuthError
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from jose import JWTError, jwt
+from logs.logging_conf import get_endpoint_logger
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from users import crud, models
 
+logger = get_endpoint_logger()
 settings = get_settings()
 security = HTTPBearer(
     scheme_name="JWT Authorization",
@@ -198,3 +201,50 @@ async def jwt_verification(
         {"errors": [exc.detail for exc in exceptions]},
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+def verify_csrf_token(
+    cookie_token: str = Cookie(
+        default=None,
+        include_in_schema=False,
+        alias="csrftoken",
+    ),
+    header_token: str = Header(
+        default=None,
+        convert_underscores=False,
+        include_in_schema=False,
+        alias="X-CSRFToken",
+    ),
+) -> None:
+    """
+    Verifies the CSRF tokens provided by the client in the request's cookie and header.
+
+    Args:
+        cookie_token (str): CSRF token extracted from the client's `csrftoken` cookie.
+        header_token (str): CSRF token extracted from the `X-CSRFToken` header.
+
+    Raises:
+        HTTPException: Raised with HTTP 403 status if the tokens are missing or do not match.
+    """
+
+    def raise_csrf_error(detail: str) -> NoReturn:
+        logger.error(detail)
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail,
+        )
+
+    if not header_token:
+        raise_csrf_error("CSRF token is missing in Headers.")
+
+    if not cookie_token:
+        raise_csrf_error("CSRF token is missing in Cookies.")
+
+    from_header_bytes = header_token.encode(settings.default_encoding)
+    from_cookie_bytes = cookie_token.encode(settings.default_encoding)
+
+    if not compare_digest(from_header_bytes, from_cookie_bytes):
+        raise_csrf_error("CSRF token is incorrect.")
+
+
+CsrfVerifyDependency = Depends(verify_csrf_token)

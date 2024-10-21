@@ -289,4 +289,5 @@ async def delete_user(request: Request, email: EmailStr, db: DatabaseDependency)
 
     delete_cookie(response, settings.cookies_key_jwt)
     delete_cookie(response, settings.cookies_google_access_token)
+    delete_cookie(response, settings.cookies_key_csrf)
     return response
