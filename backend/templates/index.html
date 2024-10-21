@@ -30,10 +30,29 @@
             </a>
         </li>
     </ul>
+
+    <div id="delete-account-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Confirm Account Deletion</h3>
+            <p>Please type <strong>"delete"</strong> to confirm account deletion.</p>
+            <input type="text" id="confirm-delete-input" placeholder="Type 'delete'">
+            <button id="confirm-delete-btn" class="btn btn-danger">Delete</button>
+        </div>
+    </div>
+    <div id="google-disconnect-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" id="google-disconnect-close">&times;</span>
+            <h3>Confirm Disconnection</h3>
+            <p>Please type <strong>"disconnect"</strong> to confirm account disconnection.</p>
+            <input type="text" id="confirm-disconnect-input" placeholder="Type 'disconnect' here">
+            <button id="confirm-disconnect-btn" disabled>Disconnect</button>
+        </div>
+    </div>
 {% endblock %}
 
 {% block scripts %}
     <script src="/static/js/logout.js"></script>
-    <script src="/static/js/disconnect_google_account.js"></script>
-    <script src="/static/js/index.js"></script>
+    <script src="/static/js/disconnect_google_account.js" type="module"></script>
+    <script src="/static/js/delete_account.js" type="module"></script>
 {% endblock %}
