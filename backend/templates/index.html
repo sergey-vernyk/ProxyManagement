@@ -3,17 +3,24 @@
 {% block title %}Home{% endblock %}
 {% block styles %}
     <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 {% endblock %}
 
 {% block content %}
     <h3>Select actions below:</h3>
     <ul>
         <li>
-            <a href="{{modems_list_url}}">Change IP address</a>
+            <a href="{{modems_list_url}}">
+                <span class="material-symbols-outlined">checklist</span>
+                Proxies list
+            </a>
         </li>
         {% if google_disconnection_url %}
             <li>
-                <a id="google-disconnect" href="{{google_disconnection_url}}">Disconnect from  Google account</a>
+                <a id="google-disconnect" href="{{google_disconnection_url}}">
+                    <span class="material-symbols-outlined">logout</span>
+                    Disconnect from  Google
+                </a>
             </li>
         {% endif %}
     </ul>

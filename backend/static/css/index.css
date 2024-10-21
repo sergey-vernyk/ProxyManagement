@@ -16,18 +16,24 @@ ul {
 
 li {
     margin: 10px 0;
-    width: 100%;
+    width: 50%;
 }
 
 a {
-    display: inline-block;
-    padding: 12px 20px;
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 12px;
     text-decoration: none;
     color: white;
     background-color: #2980b9;
-    border-radius: 8px;
+    border-radius: 10px;
     text-align: center;
     font-size: 1rem;
+    border: 1px rgb(108, 106, 106) solid;
+}
+
+.material-symbols-outlined {
+    margin-right: 5px;
 }
 
 a:hover {

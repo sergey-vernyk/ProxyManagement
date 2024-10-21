@@ -29,8 +29,9 @@ body {
 }
 
 .navbar a {
-    display: inline-block;
-    padding: 12px 20px;
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 10px;
     text-decoration: none;
     color: white;
     background-color: #2980b9;
@@ -65,4 +66,8 @@ body {
 .user-email {
     padding: 10px;
     text-decoration: underline;
+}
+
+.material-symbols-outlined {
+    margin-right: 5px;
 }
