@@ -12,11 +12,14 @@ from secrets import token_urlsafe
 from typing import Annotated, Any
 
 from auth.otp.utils import send_otp_email_handler
+from auth.utils import delete_cookie
+from common.utils import build_full_endpoint_url
 from config import get_settings
 from dependencies import DatabaseDependency, jwt_verification
 from exceptions import ClientRequestError, EntityDoesNotExistError
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from fastapi.requests import Request
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import EmailStr
@@ -234,8 +237,9 @@ async def update_user(
 @router.delete(
     "/users/{email}",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_class=JSONResponse,
+    name="delete_user",
     description="Delete a user by the given email.",
-    dependencies=[Depends(jwt_verification)],
     operation_id="delete-user-by-email",
     responses={
         400: {"description": "Invalid email format"},
@@ -243,9 +247,21 @@ async def update_user(
         200: {"description": "Successfully"},
     },
 )
-async def delete_user(request: Request, email: EmailStr, db: DatabaseDependency) -> None:
+async def delete_user(request: Request, email: EmailStr, db: DatabaseDependency) -> JSONResponse:
     """
-    Delete user with the given `email`.
+    Deletes a user with the specified email.
+
+    Args:
+        request (Request): The incoming HTTP request.
+        email (EmailStr): The email of the user to be deleted.
+        db (DatabaseDependency): The database dependency for user data access.
+
+    Returns:
+        JSONResponse: A JSON response indicating success and additional information.
+
+    Raises:
+        ClientRequestError: If the provided email format is invalid.
+        EntityDoesNotExistError: If no user exists with the given email.
     """
     try:
         valid_email = validate_email_format(email)
@@ -263,3 +279,14 @@ async def delete_user(request: Request, email: EmailStr, db: DatabaseDependency)
         )
 
     crud.delete_user(db, valid_email)
+
+    response = JSONResponse(
+        {
+            "message": "User has been successfully deleted.",
+            "redirect_url": build_full_endpoint_url(request, "login_page"),
+        }
+    )
+
+    delete_cookie(response, settings.cookies_key_jwt)
+    delete_cookie(response, settings.cookies_google_access_token)
+    return response

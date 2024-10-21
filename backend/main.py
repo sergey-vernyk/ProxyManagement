@@ -20,6 +20,7 @@ from modems import router_templates as modems_templates_router
 from sqlalchemy.orm import DeclarativeBase
 from starlette.templating import _TemplateResponse
 from users import router as users_router
+from users.models import User
 
 templates = Jinja2Templates(directory="templates")
 endpoint_logger = get_endpoint_logger()
@@ -117,9 +118,12 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
             url for logout, login, modems which binds to the user instance and
             url for fully disconnecting google account from the application.
     """
+    user = cast(User, request.state.user) if request.state.user is not None else None
+
     logout_url = build_full_endpoint_url(request, "logout")
     login_url = build_full_endpoint_url(request, "login_page")
     modems_list_url = build_full_endpoint_url(request, "modems_list")
+    delete_user_url = build_full_endpoint_url(request, "delete_user", {"email": str(user.email)})
 
     is_google_authentication = settings.cookies_google_access_token in request.cookies
     google_disconnection_url = None
@@ -131,10 +135,11 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
         request,
         name="index.html",
         context={
-            "user": request.state.user if request.state.user is not None else None,
+            "user": user,
             "logout_url": logout_url,
             "login_url": login_url,
             "modems_list_url": modems_list_url,
             "google_disconnection_url": google_disconnection_url,
+            "delete_user_url": delete_user_url,
         },
     )

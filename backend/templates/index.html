@@ -10,23 +10,30 @@
     <h3>Select actions below:</h3>
     <ul>
         <li>
-            <a href="{{modems_list_url}}">
+            <a class="actions" href="{{modems_list_url}}">
                 <span class="material-symbols-outlined">checklist</span>
                 Proxies list
             </a>
         </li>
         {% if google_disconnection_url %}
             <li>
-                <a id="google-disconnect" href="{{google_disconnection_url}}">
+                <a class="actions" id="google-disconnect" href="{{google_disconnection_url}}">
                     <span class="material-symbols-outlined">logout</span>
                     Disconnect from  Google
                 </a>
             </li>
         {% endif %}
+        <li>
+            <a class="actions" id="delete-account" href="{{delete_user_url}}">
+                <span class="material-symbols-outlined">delete</span>
+                Delete account
+            </a>
+        </li>
     </ul>
 {% endblock %}
 
 {% block scripts %}
     <script src="/static/js/logout.js"></script>
     <script src="/static/js/disconnect_google_account.js"></script>
+    <script src="/static/js/index.js"></script>
 {% endblock %}
