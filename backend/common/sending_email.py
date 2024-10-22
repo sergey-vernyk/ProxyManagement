@@ -172,7 +172,8 @@ class EmailWithAttachments:
 
         return self.mime_types[doc_type](content)
 
-    def _read_media_content(self, source: Path | str) -> bytes:
+    @staticmethod
+    def _read_media_content(source: Path | str) -> bytes:
         """
         Reading media content from the given `source`.
         """
@@ -182,7 +183,8 @@ class EmailWithAttachments:
         except FileNotFoundError as e:
             raise e
 
-    def _read_string_content(self, source: str | Path) -> str:
+    @staticmethod
+    def _read_string_content(source: str | Path) -> str:
         """
         Reading string content from the given `source`.
         """
@@ -195,7 +197,8 @@ class EmailWithAttachments:
         except FileNotFoundError as e:
             raise e
 
-    def _read_bytes_content(self, source: bytes) -> str:
+    @staticmethod
+    def _read_bytes_content(source: bytes) -> str:
         """
         Reading bytes content from the given `source`.
         """
@@ -254,7 +257,8 @@ class EmailWithAttachments:
 
         return self._attachments_data
 
-    def render_to_string(self, template_name: str, context: dict[str, Any]) -> str:
+    @staticmethod
+    def render_to_string(template_name: str, context: dict[str, Any]) -> str:
         """
         Return the rendered template with the as a string with the provided `context`.
         """
