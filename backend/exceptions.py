@@ -14,7 +14,7 @@ def custom_error_handler(
 
     Args:
         status_code (int): The HTTP status code to return with the JSON response.
-            initial_detail (str | dict[str, str]): The initial detail message to return in the response
+        initial_detail (str | dict[str, str]): The initial detail message to return in the response
             if no specific message is provided by the exception.
         logger (logging.Logger | None): An optional logger for logging exception details.
             If provided, the logger will log the exception message and additional context if available.

@@ -194,9 +194,9 @@ def handle_shutdown(client: AsyncSocketClient) -> None:
 
 
 if __name__ == "__main__":
-    host = "localhost"
-    port = 65432
-    client = AsyncSocketClient(host, port)
+    SOCKET_HOST = "localhost"
+    SOCKET_PORT = 65432
+    socket_client = AsyncSocketClient(SOCKET_HOST, SOCKET_PORT)
 
     # Create the event loop explicitly
     loop = asyncio.new_event_loop()
@@ -204,10 +204,10 @@ if __name__ == "__main__":
 
     # Register the signal handler for shutdown
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, handle_shutdown, client)
+        loop.add_signal_handler(sig, handle_shutdown, socket_client)
 
     try:
-        loop.run_until_complete(client.run("hello world!"))
+        loop.run_until_complete(socket_client.run("hello world!"))
     except KeyboardInterrupt:
         logger.info("Client interrupted by user")
     finally:

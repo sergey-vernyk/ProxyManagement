@@ -26,7 +26,6 @@ from security import (generate_csrf_token, generate_hashed_otp,
 from sqlalchemy import delete, update
 from users.crud import get_user_by_email
 from users.models import User
-from users.router import router
 from users.utils import create_user_from_google
 from validators import validate_email_format
 

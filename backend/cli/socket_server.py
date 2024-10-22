@@ -232,7 +232,6 @@ def logs(lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
 
     if last_log_file.exists():
         with open(last_log_file, encoding=ENCODING) as file:
-            log_lines: list[str] = []
             if not follow:
                 lines = file.readlines()
                 # show all log lines

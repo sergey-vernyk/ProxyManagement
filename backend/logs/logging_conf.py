@@ -7,13 +7,11 @@ import logging.handlers
 from datetime import datetime
 from typing import Any
 
-from config import get_settings
 from fastapi import Request
 
 from . import (client_logging_dir, endpoint_logging_dir, server_logging_dir,
                settings)
 
-settings = get_settings()
 ENCODING = settings.default_encoding
 
 

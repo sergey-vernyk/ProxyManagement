@@ -234,7 +234,6 @@ async def update_user(
         proxy_login = token_urlsafe(32)[: random.randint(10, 20)]
         data_to_update["proxy_login"] = proxy_login
 
-    proxy_password_hashed: str | None = None
     if body.update_proxy_password and body.proxy_password_plain is not None:
         if body.proxy_password_hash_type is None:
             raise ClientRequestError(

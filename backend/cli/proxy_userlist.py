@@ -175,7 +175,6 @@ def insert_into_user_list(ctx: click.Context, filename: pathlib.Path, users: str
         click.echo(click.style(f"Database error: {e}", fg="red", bold=True))
         return
 
-    lines_inserted = 0
     try:
         file_lines = build_credentials_for_config(db_users_proxy_credentials, users_emails)
         with open(filename, encoding=encoding) as file:
@@ -306,7 +305,6 @@ def delete_from_user_list(ctx: click.Context, filename: pathlib.Path, users: str
         return
 
     proxy_logins: set[str] = {cred[index] for index, cred in enumerate(db_users_proxy_credentials)}
-    creds_to_delete = 0
 
     try:
         with open(filename, "r+", encoding=encoding) as file:
