@@ -62,7 +62,10 @@ async def create_modem(request: Request, body: schemas.CreateModem, db: Database
     if db_modem is not None:
         raise ClientRequestError(
             "Modem with the given IP is already exists.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     bind_db_user: User | None = None
@@ -71,7 +74,10 @@ async def create_modem(request: Request, body: schemas.CreateModem, db: Database
         if bind_db_user is None:
             raise EntityDoesNotExistError(
                 "User with the given email does not exist.",
-                logger_extra_data=build_logger_extra_data(request),
+                logger_extra_data={
+                    **build_logger_extra_data(request),
+                    **get_caller_info(),
+                },
             )
 
     modem_data: dict[str, Any] = body.model_dump(
@@ -123,7 +129,10 @@ async def get_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency)
     if db_modem is None:
         raise EntityDoesNotExistError(
             "Modem with the given IP does not exist.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     db_modem_user = cast(User, db_modem.bind_user)
@@ -175,7 +184,10 @@ async def update_modem(
     if db_modem is None:
         raise EntityDoesNotExistError(
             "Modem with the given IP does not exist.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     bind_db_user: User | None = None
@@ -184,7 +196,10 @@ async def update_modem(
         if bind_db_user is None:
             raise EntityDoesNotExistError(
                 "User with the given email does not exist.",
-                logger_extra_data=build_logger_extra_data(request),
+                logger_extra_data={
+                    **build_logger_extra_data(request),
+                    **get_caller_info(),
+                },
             )
 
     data_to_update: dict[str, Any] = body.model_dump(exclude={"ip", "bind_user_email"})
@@ -224,7 +239,10 @@ async def delete_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependen
     if db_modem is None:
         raise EntityDoesNotExistError(
             "Modem with the given IP does not exist.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     crud.delete_modem(db, str(ip))
@@ -247,7 +265,7 @@ async def get_change_ip_urls(
     request: Request,
     db: DatabaseDependency,
     email: EmailStr,
-    order_by: Annotated[str, Query(description="Sorting criteria: ip, public_server_ip, port")] = "ip",
+    order_by: Annotated[str, Query(description="Sorting criteria: ip, public_server_ip, port, etc.")] = "ip",
 ) -> list[schemas.ChangeIPUrl]:
     """
     Get url(s) for changing IP (by rebooting a modem) for a modem(s) for a user with the given email.
@@ -257,14 +275,20 @@ async def get_change_ip_urls(
     except ValueError as e:
         raise ClientRequestError(
             f"Email is invalid. Reason: {e}.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         ) from e
 
     db_user = get_user_by_email(db, valid_email)
     if db_user is None:
         raise EntityDoesNotExistError(
             message="User with the given email does not exist.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     def get_urls_list(request: Request) -> list[schemas.ChangeIPUrl]:
@@ -283,7 +307,10 @@ async def get_change_ip_urls(
         except TypeError as e:
             logger.error(
                 "Unable to sort records because some entries contains null values.",
-                extra=build_logger_extra_data(request),
+                extra={
+                    **build_logger_extra_data(request),
+                    **get_caller_info(),
+                },
             )
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,

@@ -1,6 +1,7 @@
 from secrets import compare_digest
 from typing import Annotated, Any, Generator, NoReturn
 
+from common.utils import get_caller_info
 from config import get_settings
 from db_connection import SessionLocal
 from fastapi import Cookie, Depends, Header, HTTPException, Request, status
@@ -229,7 +230,10 @@ def verify_csrf_token(
     """
 
     def raise_csrf_error(detail: str) -> NoReturn:
-        logger.error(detail, extra=build_logger_extra_data(request))
+        logger.error(
+            detail,
+            extra={**build_logger_extra_data(request), **get_caller_info()},
+        )
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             detail,

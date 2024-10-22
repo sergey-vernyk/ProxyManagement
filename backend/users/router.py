@@ -13,7 +13,7 @@ from typing import Annotated, Any
 
 from auth.otp.utils import send_otp_email_handler
 from auth.utils import delete_cookie
-from common.utils import build_full_endpoint_url
+from common.utils import build_full_endpoint_url, get_caller_info
 from config import get_settings
 from dependencies import (CsrfVerifyDependency, DatabaseDependency,
                           jwt_verification)
@@ -63,14 +63,20 @@ async def create_user(
     except ValueError as e:
         raise ClientRequestError(
             f"Email is invalid. Reason: {e}.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         ) from e
 
     db_user = crud.get_user_by_email(db, valid_email)
     if db_user is not None:
         raise ClientRequestError(
             "User with the given email is already registered.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     token: str | None = None
@@ -148,14 +154,20 @@ async def get_user(request: Request, email: EmailStr, db: DatabaseDependency) ->
     except ValueError as e:
         raise ClientRequestError(
             f"Email is invalid. Reason: {e}.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         ) from e
 
     db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise EntityDoesNotExistError(
             message="User with the given email does not exist.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     return db_user
@@ -185,14 +197,20 @@ async def update_user(
     except ValueError as e:
         raise ClientRequestError(
             f"Email is invalid. Reason: {e}.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         ) from e
 
     db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise EntityDoesNotExistError(
             "User with the given email does not exist",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     data_to_update: dict[str, Any] = {}
@@ -201,7 +219,10 @@ async def update_user(
         if not verify_password(body.old_password, str(db_user.hashed_password)):
             raise ClientRequestError(
                 "Entered old password not matches with the existing user password.",
-                logger_extra_data=build_logger_extra_data(request),
+                logger_extra_data={
+                    **build_logger_extra_data(request),
+                    **get_caller_info(),
+                },
             )
 
         data_to_update["hashed_password"] = get_password_hash(body.new_password)
@@ -218,13 +239,19 @@ async def update_user(
         if body.proxy_password_hash_type is None:
             raise ClientRequestError(
                 "Proxy password hash type must not be None if password to update is provided.",
-                logger_extra_data=build_logger_extra_data(request),
+                logger_extra_data={
+                    **build_logger_extra_data(request),
+                    **get_caller_info(),
+                },
             )
 
         if body.proxy_password_hash_type == schemas.HashType.MD5:
             proxy_password_hashed = generate_md5_crypt_hash_password(body.proxy_password_plain)
         else:
-            proxy_password_hashed = encrypt_modem_password(body.proxy_password_hash_type, body.proxy_password_plain)
+            proxy_password_hashed = encrypt_modem_password(
+                body.proxy_password_hash_type,
+                body.proxy_password_plain,
+            )
 
         data_to_update["proxy_password_plain"] = body.proxy_password_plain
         data_to_update["proxy_password_hashed"] = proxy_password_hashed
@@ -270,14 +297,20 @@ async def delete_user(request: Request, email: EmailStr, db: DatabaseDependency)
     except ValueError as e:
         raise ClientRequestError(
             f"Email is invalid. Reason: {e}.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         ) from e
 
     db_user = crud.get_user_by_email(db, valid_email)
     if db_user is None:
         raise EntityDoesNotExistError(
             "User with the given email does not exist",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     crud.delete_user(db, valid_email)

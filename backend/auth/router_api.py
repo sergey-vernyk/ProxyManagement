@@ -2,12 +2,12 @@ import urllib.parse
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import timedelta
 from secrets import compare_digest, token_urlsafe
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import httpx
 from auth.schemas import EnteredCheckOTP
 from auth.utils import delete_cookie, set_cookie
-from common.utils import build_full_endpoint_url
+from common.utils import build_full_endpoint_url, get_caller_info
 from config import get_settings
 from dependencies import CsrfVerifyDependency, DatabaseDependency
 from exceptions import (ClientRequestError, EntityDoesNotExistError,
@@ -74,7 +74,10 @@ async def logout(request: Request) -> JSONResponse:
     if jwt is None:
         raise UserUnauthorizedError(
             "You are not authorized.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     response = JSONResponse(
@@ -136,7 +139,10 @@ async def revoke_google_auth(request: Request) -> JSONResponse:
     if google_access_token is None and google_id_token is None:
         raise UserUnauthorizedError(
             "You are not authorized via Google.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     try:
@@ -148,16 +154,25 @@ async def revoke_google_auth(request: Request) -> JSONResponse:
     except ValueError as e:
         raise ClientRequestError(
             f"Token verification fails: {e}.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         ) from e
     except GoogleAuthError as e:
         raise UserUnauthorizedError(
             f"The token issuer is invalid: {e}.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         ) from e
 
     if id_token_info.get("iss", "") and id_token_info["iss"] != "https://accounts.google.com":
-        raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, "Token issuer is not Google.")
+        raise HTTPException(
+            status.HTTP_412_PRECONDITION_FAILED,
+            "Token issuer is not Google.",
+        )
 
     async with httpx.AsyncClient() as client:
         google_response = await client.post(
@@ -214,7 +229,10 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
     if not code:
         raise ClientRequestError(
             "Missing code parameter.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     async with httpx.AsyncClient() as client:
@@ -236,13 +254,19 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         if not access_token:
             raise ClientRequestError(
                 "No access token received.",
-                logger_extra_data=build_logger_extra_data(request),
+                logger_extra_data={
+                    **build_logger_extra_data(request),
+                    **get_caller_info(),
+                },
             )
 
         if not id_token:
             raise ClientRequestError(
                 "No ID token received.",
-                logger_extra_data=build_logger_extra_data(request),
+                logger_extra_data={
+                    **build_logger_extra_data(request),
+                    **get_caller_info(),
+                },
             )
 
         user_info = await client.get(
@@ -250,7 +274,8 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        user_email: str = user_info.json().get("email", "")
+        user_info = cast(dict[str, Any], user_info.json())
+        user_email: str = user_info.get("email", "")
         if user_email and get_user_by_email(db, user_email) is None:
             create_user_from_google(user_email, db)
 
@@ -302,20 +327,29 @@ async def basic_login(
     except ValueError as e:
         raise ClientRequestError(
             {"email_invalid": str(e)},
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         ) from e
 
     user = db.query(User).filter(User.email == valid_email).first()
     if user is None:
         raise EntityDoesNotExistError(
             message={"user_not_exists": "User with the given email does not exist."},
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     if not verify_password(password, str(user.hashed_password)):
         raise ClientRequestError(
             {"incorrect_email_or_password": "Incorrect email or password."},
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     access_token_expires = timedelta(seconds=settings.access_token_expire_seconds)
@@ -398,14 +432,20 @@ async def register_user(
     except ValueError as e:
         raise ClientRequestError(
             {"email_invalid": str(e)},
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         ) from e
 
     db_user = get_user_by_email(db, valid_email)
     if db_user is not None:
         raise ClientRequestError(
             {"user_exists": "User with the given email is already registered."},
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     token = token_urlsafe(32)[: settings.unique_user_token_length]
@@ -456,7 +496,10 @@ async def reset_password(
     if db_user is None:
         raise EntityDoesNotExistError(
             message="User with the given email does not exist.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     uid = urlsafe_b64encode(str(db_user.id).encode(ENCODING)).decode(ENCODING)
@@ -529,7 +572,10 @@ async def reset_password_confirm(
     if not compare_digest(new_password, password_confirm):
         raise ClientRequestError(
             "Entered passwords are mismatch.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     user_id = int(urlsafe_b64decode(body.uid).decode(ENCODING))
@@ -537,7 +583,10 @@ async def reset_password_confirm(
     if db_user is None:
         raise ClientRequestError(
             "Password reset link is invalid.",
-            logger_extra_data=build_logger_extra_data(request),
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
 
     db.execute(
@@ -641,7 +690,10 @@ async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDep
     if db_otp_hashed is None:
         logger.info(
             "Provided OTP does not exist in the database.",
-            extra=build_logger_extra_data(request),
+            extra={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
         )
         return JSONResponse(
             {"error": "The code you entered is incorrect."},
