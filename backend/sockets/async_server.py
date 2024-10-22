@@ -244,16 +244,18 @@ class AsyncSocketServer:
         async with self._socket:
             await self._socket.serve_forever()
 
-    def _save_pid(self) -> None:
+    @staticmethod
+    def _save_pid() -> None:
         """
         Save PID of a current process to the file.
         This PID will be used for graceful terminated a server by CLI.
         """
-        pid = os.getpid()
+        pid: int = os.getpid()
         pid_file = pathlib.Path(PID_FILE)
         pid_file.write_text(str(pid), encoding=ENCODING)
 
-    def _get_message_indexes(self, input_data: bytes) -> tuple[int, int]:
+    @staticmethod
+    def _get_message_indexes(input_data: bytes) -> tuple[int, int]:
         """
         Finds the start and stop indexes for message boundaries within the input data.
 
@@ -263,6 +265,7 @@ class AsyncSocketServer:
         Returns:
             tuple[int, int]: A tuple containing the start and stop indexes of the message.
         """
+        start_idx, stop_idx = -1, -1
         if START_CONNECTION in input_data:
             start_idx: int = input_data.index(START_CONNECTION) + len(START_CONNECTION)
 
@@ -313,11 +316,11 @@ class AsyncSocketServer:
 
 
 if __name__ == "__main__":
-    host = settings.socket_host
-    port = settings.socket_port
-    server = AsyncSocketServer(host, port)
+    SOCKET_HOST = "localhost"
+    SOCKET_PORT = 65432
+    server = AsyncSocketServer(SOCKET_HOST, SOCKET_PORT)
 
     try:
         asyncio.run(server.start_server())
     except KeyboardInterrupt:
-        logger.info("Stop listening on %s:%d", host, port)
+        logger.info("Stop listening on %s:%d", SOCKET_HOST, SOCKET_PORT)
