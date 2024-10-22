@@ -32,13 +32,6 @@ Base = cast(DeclarativeBase, Base)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    servers=[
-        {
-            "url": f"https://{settings.domain}",
-            "description": "Production environment",
-        },
-    ],
-    root_path_in_servers=True,
     debug=settings.debug,
     title="Proxy Management",
     version="0.2",
@@ -125,7 +118,7 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
     modems_list_url = build_full_endpoint_url(request, "modems_list")
     delete_user_url = build_full_endpoint_url(request, "delete_user", {"email": str(user.email)})
 
-    is_google_authentication = settings.cookies_google_access_token in request.cookies
+    is_google_authentication: bool = settings.cookies_google_access_token in request.cookies
     google_disconnection_url = None
 
     if is_google_authentication:

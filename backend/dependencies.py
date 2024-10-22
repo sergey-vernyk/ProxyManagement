@@ -226,7 +226,8 @@ def verify_csrf_token(
         header_token (str): CSRF token extracted from the `X-CSRFToken` header.
 
     Raises:
-        HTTPException: Raised with HTTP 403 status if the tokens are missing or do not match.
+        HTTPException: Raised with HTTP 403 status if the token not present
+            in Cookies or Header, or the tokens in Cookies and Headers are not the same.
     """
 
     def raise_csrf_error(detail: str) -> NoReturn:
