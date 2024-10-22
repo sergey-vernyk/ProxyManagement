@@ -1,5 +1,5 @@
 from secrets import compare_digest
-from typing import Annotated, Any, Generator, NoReturn
+from typing import Annotated, Any, Generator, NoReturn, Protocol
 
 from common.utils import get_caller_info
 from config import get_settings
@@ -21,6 +21,15 @@ security = HTTPBearer(
     scheme_name="JWT Authorization",
     description="JSON Web Token authorization with Google OAuth or token generating with PyJWT.",
 )
+
+
+class JWTDecoderProtocol(Protocol):
+    """
+    A callable that takes a token and returns a dictionary
+    containing the decoded JWT payload.
+    """
+
+    def __call__(self, token: str, *args: Any, **kwargs: Any) -> dict[str, Any]: ...
 
 
 def get_db() -> Generator[Session, Any, None]:
@@ -48,7 +57,8 @@ class JWTBearer(HTTPBearer):
                            authentication fails. Defaults to True.
     """
 
-    def __init__(self, auto_error: bool = True) -> None:
+    def __init__(self, decoder: JWTDecoderProtocol, auto_error: bool = True) -> None:
+        self.decoder = decoder
         super().__init__(auto_error=auto_error)
 
     async def __call__(self, request: Request, db: DatabaseDependency) -> str:
@@ -95,7 +105,7 @@ class JWTBearer(HTTPBearer):
                            associated with the token does not exist.
         """
         try:
-            payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+            payload = self.decoder(token, key=settings.secret_key, algorithms=[settings.algorithm])
             email = payload.get("sub")
             if email is None:
                 raise HTTPException(
@@ -127,19 +137,23 @@ async def verify_google_id_token(
     db: Annotated[Session, Depends(get_db)],
 ) -> models.User:
     """
-    Verifies the provided Google ID token and checks if the associated email exists in the database.
+    Verifies the provided Google ID token, checks its validity, and attempts to retrieve the user
+    associated with the token's email from the database.
 
     Args:
-        db (DatabaseDependency): Dependency for interacting with the database.
-        token (HTTPAuthorizationCredentials): The HTTP Bearer token retrieved from the request.
+        db (Session): Database session dependency for querying the database.
+        credentials (HTTPAuthorizationCredentials): Authorization credentials containing the token
+            scheme and value (i.e., the Bearer token).
 
     Raises:
-        HTTPException: Raised if the token is invalid, the issuer is invalid,
-            or no user is found in the database.
+        HTTPException:
+            - 403 FORBIDDEN: If the provided credentials scheme is not "Bearer".
+            - 400 BAD REQUEST: If the token verification fails due to an invalid token,
+              missing email, or failure to find the associated user.
+            - 401 UNAUTHORIZED: If the token's issuer is invalid.
 
     Returns:
-        models.User: current authenticated user.
-
+        models.User: The authenticated user associated with the token's email if found in the database.
     """
     if credentials.scheme != "Bearer":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid authentication credentials.")
@@ -158,10 +172,12 @@ async def verify_google_id_token(
     email: str = token_info.get("email", "")
     if email:
         db_user = crud.get_user_by_email(db, email)
-        if db_user is None:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is not bind to any user.")
+        if db_user is not None:
+            return db_user
 
-    return db_user
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is not bind to any user.")
+
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token claims do not contain an email.")
 
 
 async def jwt_verification(
@@ -192,7 +208,7 @@ async def jwt_verification(
         exceptions.append(e)
 
     try:
-        jwt_bearer = JWTBearer()
+        jwt_bearer = JWTBearer(decoder=jwt.decode)
         return await jwt_bearer.verify_jwt(credentials.credentials, db)
     except HTTPException as e:
         exceptions.append(e)
@@ -222,6 +238,7 @@ def verify_csrf_token(
     Verifies the CSRF tokens provided by the client in the request's cookie and header.
 
     Args:
+        request (Request): incoming HTTP request.
         cookie_token (str): CSRF token extracted from the client's `csrftoken` cookie.
         header_token (str): CSRF token extracted from the `X-CSRFToken` header.
 
