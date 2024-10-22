@@ -1,4 +1,5 @@
 import checkOpenedModalWindows from "./check_opened_modal_windows.js"
+import getCookie from "./get_cookies.js"
 
 
 $(document).ready(() => {
@@ -7,8 +8,8 @@ $(document).ready(() => {
     const closeGoogleModalBtn = $("#google-disconnect-close");
     const confirmDisconnectInput = $("#confirm-disconnect-input");
     const confirmDisconnectBtn = $("#confirm-disconnect-btn");
-
     const modalWindows = $("[id$='modal']").toArray()
+    const csrfToken = getCookie("csrftoken");
 
     // Show the modal when clicking "Disconnect from Google"
     $("#google-disconnect").on("click", (event) => {
@@ -34,6 +35,7 @@ $(document).ready(() => {
         $.ajax({
             url: googleDisconnectUrl,
             method: "POST",
+            headers: { "X-CSRFToken": csrfToken },
             success: (response) => {
                 console.log("Disconnected");
                 window.location.reload();

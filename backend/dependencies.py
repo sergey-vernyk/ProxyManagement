@@ -9,7 +9,7 @@ from google.auth.exceptions import GoogleAuthError
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from jose import JWTError, jwt
-from logs.logging_conf import get_endpoint_logger
+from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from users import crud, models
@@ -204,6 +204,7 @@ async def jwt_verification(
 
 
 def verify_csrf_token(
+    request: Request,
     cookie_token: str = Cookie(
         default=None,
         include_in_schema=False,
@@ -228,7 +229,7 @@ def verify_csrf_token(
     """
 
     def raise_csrf_error(detail: str) -> NoReturn:
-        logger.error(detail)
+        logger.error(detail, extra=build_logger_extra_data(request))
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             detail,

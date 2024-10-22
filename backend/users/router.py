@@ -15,7 +15,8 @@ from auth.otp.utils import send_otp_email_handler
 from auth.utils import delete_cookie
 from common.utils import build_full_endpoint_url
 from config import get_settings
-from dependencies import DatabaseDependency, jwt_verification
+from dependencies import (CsrfVerifyDependency, DatabaseDependency,
+                          jwt_verification)
 from exceptions import ClientRequestError, EntityDoesNotExistError
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from fastapi.requests import Request
@@ -164,7 +165,7 @@ async def get_user(request: Request, email: EmailStr, db: DatabaseDependency) ->
     "/users/{email}",
     response_model=schemas.ShowUser,
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(jwt_verification)],
+    dependencies=[Depends(jwt_verification), CsrfVerifyDependency],
     description="Update a user by the given email.",
     operation_id="update-user",
     responses={
@@ -238,6 +239,7 @@ async def update_user(
     "/users/{email}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=JSONResponse,
+    dependencies=[CsrfVerifyDependency],
     name="delete_user",
     description="Delete a user by the given email.",
     operation_id="delete-user-by-email",

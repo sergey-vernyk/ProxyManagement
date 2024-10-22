@@ -1,4 +1,5 @@
 import checkOpenedModalWindows from "./check_opened_modal_windows.js"
+import getCookie from "./get_cookies.js"
 
 
 $(document).ready(() => {
@@ -7,8 +8,8 @@ $(document).ready(() => {
     const closeBtn = $(".close");
     const confirmInput = $("#confirm-delete-input");
     const confirmDeleteBtn = $("#confirm-delete-btn");
-
     const modalWindows = $("[id$='modal']").toArray()
+    const csrfToken = getCookie("csrftoken");
 
     // Show the modal when clicking "Delete account"
     $("#delete-account").on("click", (event) => {
@@ -38,6 +39,7 @@ $(document).ready(() => {
             $.ajax({
                 url: deleteAccountUrl,
                 method: "DELETE",
+                headers: { "X-CSRFToken": csrfToken },
                 success: (response, textStatus, xhr) => {
                     window.location.href = response.redirect_url;
                 },

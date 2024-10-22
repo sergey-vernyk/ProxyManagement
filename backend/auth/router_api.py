@@ -9,7 +9,7 @@ from auth.schemas import EnteredCheckOTP
 from auth.utils import delete_cookie, set_cookie
 from common.utils import build_full_endpoint_url
 from config import get_settings
-from dependencies import DatabaseDependency
+from dependencies import CsrfVerifyDependency, DatabaseDependency
 from exceptions import (ClientRequestError, EntityDoesNotExistError,
                         UserUnauthorizedError)
 from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
@@ -96,6 +96,7 @@ async def logout(request: Request) -> JSONResponse:
 @router.post(
     "/auth/revoke/google",
     status_code=status.HTTP_200_OK,
+    dependencies=[CsrfVerifyDependency],
     name="revoke_google_auth",
     response_class=JSONResponse,
     description="Revokes Google authentication and disconnects the user's Google account from the application.",
@@ -169,7 +170,7 @@ async def revoke_google_auth(request: Request) -> JSONResponse:
             {"message": "Your Google account has been successfully disconnected from the application."},
             status.HTTP_200_OK,
         )
-        for key in (settings.cookies_key_jwt, settings.cookies_google_access_token):
+        for key in (settings.cookies_key_jwt, settings.cookies_google_access_token, settings.cookies_key_csrf):
             delete_cookie(response, key)
 
     return response
@@ -257,7 +258,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         csrf_token = generate_csrf_token(n_bytes=settings.csrf_number_of_bytes)
         set_cookie(response, settings.cookies_key_jwt, id_token, max_age=token_data["expires_in"])
         set_cookie(response, settings.cookies_google_access_token, access_token, max_age=token_data["expires_in"])
-        set_cookie(response, settings.cookies_key_csrf, value=csrf_token)
+        set_cookie(response, settings.cookies_key_csrf, value=csrf_token, http_only=False)
         return response
 
 
@@ -322,7 +323,7 @@ async def basic_login(
     csrf_token = generate_csrf_token(n_bytes=settings.csrf_number_of_bytes)
     response = JSONResponse({"redirect_url": str(request.url_for("index"))})
     set_cookie(response, settings.cookies_key_jwt, access_token, max_age=settings.access_token_expire_seconds)
-    set_cookie(response, settings.cookies_key_csrf, value=csrf_token)
+    set_cookie(response, settings.cookies_key_csrf, value=csrf_token, http_only=False)
     return response
 
 

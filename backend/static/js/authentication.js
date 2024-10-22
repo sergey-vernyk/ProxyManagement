@@ -36,12 +36,14 @@ $(document).ready(() => {
                         $("#email-error").text(jqXHR.responseJSON.detail["email_invalid"])
                     }
 
-                    if (jqXHR.responseJSON.detail["user_not_exists"] !== undefined) {
-                        $("#email-error").text(jqXHR.responseJSON.detail["user_not_exists"])
-                    }
-
                     if (jqXHR.responseJSON.detail["incorrect_email_or_password"] !== undefined) {
                         $("#password-error").text(jqXHR.responseJSON.detail["incorrect_email_or_password"])
+                    }
+                }
+
+                if (jqXHR.status === 404) {
+                    if (jqXHR.responseJSON.detail["user_not_exists"] !== undefined) {
+                        $("#email-error").text(jqXHR.responseJSON.detail["user_not_exists"])
                     }
                 }
             }
