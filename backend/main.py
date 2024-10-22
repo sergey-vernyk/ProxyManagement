@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, cast
 
 from auth import router_api as auth_api_router
 from auth import router_templates as auth_templates_router
@@ -17,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 from logs.logging_conf import get_endpoint_logger
 from modems import router as modems_router
 from modems import router_templates as modems_templates_router
+from modems import router_ws as ws_router
 from sqlalchemy.orm import DeclarativeBase
 from starlette.templating import _TemplateResponse
 from users import router as users_router
@@ -40,6 +41,7 @@ app = FastAPI(
 
 app.include_router(users_router.router, tags=["users"])
 app.include_router(modems_router.router, tags=["modems"])
+app.include_router(ws_router.router, tags=["modems"])
 app.include_router(auth_api_router.router, tags=["auth"])
 app.include_router(auth_templates_router.router, tags=["templates"])
 app.include_router(modems_templates_router.router, tags=["templates"])
@@ -111,28 +113,19 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
             url for logout, login, modems which binds to the user instance and
             url for fully disconnecting google account from the application.
     """
+    context: dict[str, Any] = {}
+
     user = cast(User, request.state.user) if request.state.user is not None else None
 
-    logout_url = build_full_endpoint_url(request, "logout")
-    login_url = build_full_endpoint_url(request, "login_page")
-    modems_list_url = build_full_endpoint_url(request, "modems_list")
-    delete_user_url = build_full_endpoint_url(request, "delete_user", {"email": str(user.email)})
+    if user is not None:
+        context["user"] = user
+        context["delete_user_url"] = build_full_endpoint_url(request, "delete_user", {"email": str(user.email)})
+        context["modems_list_url"] = build_full_endpoint_url(request, "modems_list")
+        context["logout_url"] = build_full_endpoint_url(request, "logout")
+    else:
+        context["login_url"] = build_full_endpoint_url(request, "login_page")
 
-    is_google_authentication: bool = settings.cookies_google_access_token in request.cookies
-    google_disconnection_url = None
+    if settings.cookies_google_access_token in request.cookies:
+        context["google_disconnection_url"] = build_full_endpoint_url(request, "revoke_google_auth")
 
-    if is_google_authentication:
-        google_disconnection_url = build_full_endpoint_url(request, "revoke_google_auth")
-
-    return templates.TemplateResponse(
-        request,
-        name="index.html",
-        context={
-            "user": user,
-            "logout_url": logout_url,
-            "login_url": login_url,
-            "modems_list_url": modems_list_url,
-            "google_disconnection_url": google_disconnection_url,
-            "delete_user_url": delete_user_url,
-        },
-    )
+    return templates.TemplateResponse(request, name="index.html", context=context)
