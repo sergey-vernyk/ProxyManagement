@@ -29,7 +29,7 @@ class JWTDecoderProtocol(Protocol):
     containing the decoded JWT payload.
     """
 
-    def __call__(self, token: str, *args: Any, **kwargs: Any) -> dict[str, Any]: ...
+    def __call__(self, token: str | bytes, *args: Any, **kwargs: Any) -> dict[str, Any]: ...
 
 
 def get_db() -> Generator[Session, Any, None]:
