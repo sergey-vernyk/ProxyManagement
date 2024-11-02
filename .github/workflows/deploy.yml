@@ -5,10 +5,8 @@ on:
     workflows: Qodana
     types: ["completed"]
     branches: "main"
-  # push:
-  #   branches:
-  #     - main
-  # workflow_dispatch:
+
+  workflow_dispatch:
 
 env:
   SUPERVISOR_PROGRAM_NAME: ${{ vars.SUPERVISOR_PROGRAM_NAME }}
