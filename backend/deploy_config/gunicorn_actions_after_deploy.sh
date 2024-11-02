@@ -12,7 +12,7 @@ program_status=$(sudo supervisorctl status "$supervisor_program_name")
 
 if [[ "$program_status" == *"ERROR"* ]]; then
 	error_message=$(echo "$program_status" | grep -oP '\(.*?\)')
-    	echo "Error: $error_message"
+    echo "Error: $error_message"
 	exit 1
 fi
 
