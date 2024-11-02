@@ -1,10 +1,14 @@
 name: Deploy Project To Own Server
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  workflow_run:
+    workflows: Qodana
+    types: ["completed"]
+    branches: "main"
+  # push:
+  #   branches:
+  #     - main
+  # workflow_dispatch:
 
 env:
   SUPERVISOR_PROGRAM_NAME: ${{ vars.SUPERVISOR_PROGRAM_NAME }}
