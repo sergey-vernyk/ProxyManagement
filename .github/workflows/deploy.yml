@@ -26,7 +26,7 @@ jobs:
         eval "$(ssh-agent -s)"
         ssh-add ~/.ssh/id_rsa
     
-    - name: Connect and pull
+    - name: Connect to server and pull last changes from git
       run: |
         ssh ${{secrets.SSH_USER}}@${{secrets.SSH_HOST}} "
           cd '${{ secrets.WORK_DIR }}' || exit 1 &&
@@ -38,3 +38,10 @@ jobs:
 
     - name: Cleanup
       run: rm -rf ~/.ssh
+
+    - name: Restart Gunicorn
+      workdir: ./backend/deploy_config
+      run: |
+        chmod 755 gunicorn_actions_after_deploy.sh
+        ./gunicorn_actions_after_deploy.sh
+       
