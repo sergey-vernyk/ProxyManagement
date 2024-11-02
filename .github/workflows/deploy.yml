@@ -1,13 +1,20 @@
+name: Deploy Project To Own Server
+
 on:
   push:
     branches:
       - main
   workflow_dispatch:
 
+env:
+  SUPERVISOR_PROGRAM_NAME: ${{ vars.SUPERVISOR_PROGRAM_NAME }}
+
 jobs:
-  run_pull:
-    name: run pull
+  deploy:
+    name: Deploy
     runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: production
     
     steps:
     - name: Checkout repository
@@ -28,7 +35,7 @@ jobs:
     
     - name: Connect to server and pull last changes from git
       run: |
-        ssh ${{secrets.SSH_USER}}@${{secrets.SSH_HOST}} "
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
           cd '${{ secrets.WORK_DIR }}' || exit 1 &&
           git remote set-url origin git@github.com:${{ github.repository }}.git &&
           git checkout '${{ secrets.MAIN_BRANCH }}' &&
@@ -36,12 +43,14 @@ jobs:
           exit
         "
 
+    - name: Restart Gunicorn
+      run: |
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+          cd '${{ secrets.WORK_DIR }}/backend/deploy_config' || exit 1 &&
+          chmod 755 gunicorn_actions_after_deploy.sh && 
+          ./gunicorn_actions_after_deploy.sh '${{ env.SUPERVISOR_PROGRAM_NAME }}' || exit 1 &&
+          exit
+        "
+
     - name: Cleanup
       run: rm -rf ~/.ssh
-
-    - name: Restart Gunicorn
-      workdir: ./backend/deploy_config
-      run: |
-        chmod 755 gunicorn_actions_after_deploy.sh
-        ./gunicorn_actions_after_deploy.sh
-       
