@@ -17,6 +17,7 @@ packages = [
 include = [
     "exceptions.py",
     "config.py",
+    "conftest.py",
     "conn_utils.py",
     "db_connection.py",
     "dependencies.py",
