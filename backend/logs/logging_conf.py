@@ -15,19 +15,30 @@ from . import (client_logging_dir, endpoint_logging_dir, server_logging_dir,
 ENCODING = settings.default_encoding
 
 
-def build_ip_address_for_log(ip_addr: str) -> str:
+def build_ip_address_for_log(ip_addr: str | None) -> str:
     """
-    Return IP address in format 192.168.x.x
-    that can be applied for saving it in the log.
+    Formats the given IP address for logging.
 
     Args:
-        ip_addr (str): initial IP address.
+        ip_addr (str | None): The initial IP address as a string, or None if
+            no IP address is available.
 
     Returns:
-        str: IP address in format 192.168.x.x
+        str: The formatted IP address in the format '192.168.x.x' if a valid
+            IP is provided, or '---.---.---.---' if no IP address is supplied.
+
+    Raises:
+        ValueError: If the provided IP address does not consist of 4 octets
+            (e.g., '127.0.0.1' is valid, while '127.0.1' is not).
     """
-    ip_addr_octets = ip_addr.split(".")
-    return f"{ip_addr_octets[0]}.{ip_addr_octets[1]}.x.x"
+    if ip_addr is not None:
+        ip_addr_octets = ip_addr.split(".")
+        if len(ip_addr_octets) == 4:
+            return f"{ip_addr_octets[0]}.{ip_addr_octets[1]}.x.x"
+
+        raise ValueError("IP address must have 4 octets. E.g. 127.0.0.1")
+
+    return "---.---.---.---"
 
 
 def build_logger_extra_data(request: Request, **kwargs: str | Any) -> dict[str, Any]:
