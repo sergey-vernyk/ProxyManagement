@@ -8,6 +8,6 @@ def validate_email_format(email: str) -> str:
     """
     try:
         email_instance: ValidatedEmail = validate_email(email)
-        return email_instance.email
+        return email_instance.normalized
     except EmailNotValidError as e:
         raise ValueError(e) from e

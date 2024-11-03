@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     algorithm: str
 
     database_url: str
+    database_url_test: str
     db_echo_enable: bool = True
 
     # variables for socket server and client
