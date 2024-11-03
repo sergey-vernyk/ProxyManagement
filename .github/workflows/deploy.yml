@@ -51,7 +51,9 @@ jobs:
     - name: Restart Gunicorn
       run: |
         ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-          cd '${{ secrets.WORK_DIR }}/backend/deploy_config' || exit 1 &&
+          cd '${{ secrets.WORK_DIR }}/backend' &&
+          poetry install --no-interactions || exit 1 &&
+          cd ./deploy_config || exit 1 &&
           chmod 755 gunicorn_actions_after_deploy.sh && 
           ./gunicorn_actions_after_deploy.sh '${{ env.SUPERVISOR_PROGRAM_NAME }}' || exit 1 &&
           exit
