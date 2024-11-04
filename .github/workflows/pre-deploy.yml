@@ -35,8 +35,8 @@ jobs:
             git pull origin 'pre-deploy' &&
             cd ./backend &&
             /home/${{ secrets.SSH_USER }}/.local/bin/poetry install --no-interaction || exit 1 &&
-            /home/${{ secrets.SSH_USER }}/.local/bin/poetry shell || exit 1 &&
-            nohup uvicorn main:app --host 127.0.0.1 --port 8001 --reload &> uvicorn_staging.log &
+            VENV_PATH=\$(/home/${{ secrets.SSH_USER }}/.local/bin/poetry env info -p) || exit 1 &&
+            nohup \$VENV_PATH/bin/uvicorn main:app --host 127.0.0.1 --port 8001 --reload &> uvicorn_staging.log &
           "
 
       - name: Wait for Server Startup
