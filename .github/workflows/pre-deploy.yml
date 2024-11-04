@@ -33,6 +33,7 @@ jobs:
             git remote set-url origin git@github.com:${{ github.repository }}.git &&
             git checkout 'pre-deploy' &&
             git pull origin 'pre-deploy' &&
+            cd ./backend &&
             /home/${{ secrets.SSH_USER }}/.local/bin/poetry install --no-interaction || exit 1 &&
             nohup uvicorn main:app --host 127.0.0.1 --port 8001 --reload &> uvicorn_staging.log &
           "
