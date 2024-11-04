@@ -54,10 +54,6 @@ jobs:
                 echo "Server did not start in time."
                 exit 1
               fi
-
-      - name: Install jq
-        run: sudo apt-get install -y jq
-            
         
       - name: Health Check
         run: |
