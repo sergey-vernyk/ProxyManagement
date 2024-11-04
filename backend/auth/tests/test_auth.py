@@ -210,3 +210,33 @@ class TestGoogleAuth:
         response = client.get("/auth/callback", follow_redirects=False)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json() == {"detail": "No ID token received."}
+
+
+def test_logout_success(client: TestClient, mock_build_ip_address_for_log: MonkeyPatch) -> None:
+    client.cookies.set(settings.cookies_google_access_token, "google_token")
+    client.cookies.set(settings.cookies_key_jwt, "access_token")
+    client.cookies.set(settings.cookies_key_csrf, "csrf_token")
+
+    response = client.post("/auth/logout")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "message": "You are successfully logged out.",
+        "redirect_url": f"{client.base_url}users/login/",
+    }
+    assert response.cookies.get(settings.cookies_google_access_token) is None
+    assert response.cookies.get(settings.cookies_key_jwt) is None
+    assert response.cookies.get(settings.cookies_key_csrf) is None
+
+
+def test_logout_user_already_unauthorized(client: TestClient, mock_build_ip_address_for_log: MonkeyPatch) -> None:
+    client.cookies.set(settings.cookies_google_access_token, "google_token")
+    client.cookies.set(settings.cookies_key_csrf, "csrf_token")
+
+    response = client.post("/auth/logout")
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json() == {"detail": "You are not authorized."}
+    assert response.cookies.get(settings.cookies_google_access_token) is None
+    assert response.cookies.get(settings.cookies_key_jwt) is None
+    assert response.cookies.get(settings.cookies_key_csrf) is None
