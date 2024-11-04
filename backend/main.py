@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, cast
 
 from auth import router_api as auth_api_router
@@ -11,13 +12,14 @@ from exceptions import (ClientRequestError, EntityDoesNotExistError,
                         UserUnauthorizedError, custom_error_handler)
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logs.logging_conf import get_endpoint_logger
 from modems import router as modems_router
 from modems import router_templates as modems_templates_router
 from modems import router_ws as ws_router
+from sqlalchemy import select
 from sqlalchemy.orm import DeclarativeBase
 from starlette.templating import _TemplateResponse
 from users import router as users_router
@@ -37,6 +39,7 @@ app = FastAPI(
     title="Proxy Management",
     version="0.2",
 )
+start_time = datetime.datetime.now()
 
 
 app.include_router(users_router.router, tags=["users"])
@@ -129,3 +132,57 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
         context["google_disconnection_url"] = build_full_endpoint_url(request, "revoke_google_auth")
 
     return templates.TemplateResponse(request, name="index.html", context=context)
+
+
+@app.get(
+    "/health_check",
+    status_code=status.HTTP_200_OK,
+    response_class=JSONResponse,
+    operation_id="health-check",
+    description="Check server connection availability.",
+)
+async def health_check(db: DatabaseDependency) -> JSONResponse:
+    """
+    Health check endpoint to monitor the server and database status.
+
+    This endpoint performs a health check to verify the server's availability and
+    status of its dependencies. It checks the following:
+
+    - **Database connection**: Executes a simple query to confirm the database is reachable.
+    - **Server uptime**: Calculates the server's uptime since its start.
+    - **Application version**: Displays the current version of the application.
+    - **Environment**: Indicates the environment (e.g., staging or production).
+
+    Returns:
+        JSONResponse: A JSON object with the following information:
+
+        - `status` (str): Overall status of the server (always "ok" if reachable).
+        - `database` (str): Status of the database connection, showing "connected" or
+          an error message if there's an issue.
+        - `uptime` (str): Uptime of the server in hours, minutes, and seconds.
+        - `version` (str): Version of the application.
+        - `environment` (str): Current environment in which the server is running (e.g., staging).
+
+    Raises:
+        Exception: If the database connection check fails, the error message is captured
+        in the `database` status field.
+    """
+    db_status = "connected"
+    try:
+        db.execute(select(1))
+    except Exception as e:
+        db_status = f"Error: {str(e)}"
+
+    current_time = datetime.datetime.now()
+    uptime = current_time - start_time
+
+    return JSONResponse(
+        {
+            "status": "ok",
+            "database": db_status,
+            "uptime": str(uptime),
+            "version": app.version,
+            "environment": "staging",
+        },
+        status.HTTP_200_OK,
+    )
