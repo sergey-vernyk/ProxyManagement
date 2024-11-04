@@ -1,0 +1,62 @@
+name: Pre-Deploy to Staging
+
+on:
+    push:
+        branches:
+        - pre-deploy
+    pull_request:
+        branches:
+        - pre-deploy
+  
+jobs:
+  pre-deploy:
+    name: Pre-Deploy to Staging
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Set up SSH keys
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+
+      - name: Pull Changes and Start Staging Server
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd '${{ secrets.WORK_DIR }}' || exit 1 &&
+            git remote set-url origin git@github.com:${{ github.repository }}.git &&
+            git checkout 'pre-deploy' &&
+            git pull origin 'pre-deploy' &&
+            /home/${{ secrets.SSH_USER }}/.local/bin/poetry install --no-interaction || exit 1 &&
+            nohup uvicorn main:app --host 127.0.0.1 --port 8001 --reload &> uvicorn_staging.log &
+          "
+
+      - name: Wait for Server Startup
+        run: |
+            for i in {1..10}; do
+              if curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGE_BASE_URL }} | grep -q "200"; then
+                echo "Server is up!"
+                break
+              fi
+                echo "Waiting for server..."
+                sleep 5
+            done
+  
+      - name: Health Check
+        run: |
+            response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGE_BASE_URL }})
+            if [ "$response" -ne 200 ]; then
+                echo "Health check failed with status $response"
+                exit 1
+            else
+                echo "Health check passed!"
+            fi
+
+      - name: Cleanup
+        run: rm -rf ~/.ssh
