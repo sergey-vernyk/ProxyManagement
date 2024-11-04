@@ -48,8 +48,8 @@ jobs:
 
       - name: Create postgres user with 'CREATEDB' privilege
         run: |
-          # sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE USER ${{ secrets.DATABASE_USER }} WITH PASSWORD '\''${{ secrets.DATABASE_PASSWORD }}'\'' CREATEDB;'"
-          # sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE DATABASE ${{ secrets.DATABASE_NAME }} OWNER ${{ secrets.DATABASE_USER }};'"
+          sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE USER ${{ secrets.DATABASE_USER }} WITH PASSWORD '\''${{ secrets.DATABASE_PASSWORD }}'\'' CREATEDB;'"
+          sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE DATABASE ${{ secrets.DATABASE_NAME }} OWNER ${{ secrets.DATABASE_USER }};'"
           sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE USER ${{ secrets.DATABASE_USER_TEST }} WITH PASSWORD '\''${{ secrets.DATABASE_PASSWORD_TEST}}'\'' CREATEDB;'"
           sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE DATABASE ${{ secrets.DATABASE_NAME_TEST }} OWNER ${{ secrets.DATABASE_USER_TEST }};'"
 
