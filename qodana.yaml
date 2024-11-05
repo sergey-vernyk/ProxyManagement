@@ -13,3 +13,4 @@ exclude:
   - name: Migrations
     paths:
       - ./backend/migrations
+      - ./backend/auth/tests

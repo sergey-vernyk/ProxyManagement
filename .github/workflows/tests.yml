@@ -24,9 +24,9 @@ jobs:
       postgres:
         image: postgres:16.3-alpine
         env:
-          POSTGRES_DB: ${{ secrets.DATABASE_NAME }}
-          POSTGRES_USER: ${{ secrets.DATABASE_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
         options: >-
@@ -40,18 +40,18 @@ jobs:
         shell: bash
         working-directory: ./backend
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python 3.12
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      # - name: Create postgres user with `CREATEDB` privilege
-      #   run: |
-      #     sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE USER ${{ secrets.DATABASE_USER }} WITH PASSWORD '\''${{ secrets.DATABASE_PASSWORD }}'\'' CREATEDB;'"
-      #     sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE DATABASE ${{ secrets.DATABASE_NAME }} OWNER ${{ secrets.DATABASE_USER }};'"
-      #     sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE USER ${{ secrets.DATABASE_USER_TEST }} WITH PASSWORD '\''${{ secrets.DATABASE_PASSWORD_TEST}}'\'' CREATEDB;'"
-      #     sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE DATABASE ${{ secrets.DATABASE_NAME_TEST }} OWNER ${{ secrets.DATABASE_USER_TEST }};'"
+      - name: Create postgres user with 'CREATEDB' privilege
+        run: |
+          sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE USER ${{ secrets.DATABASE_USER }} WITH PASSWORD '\''${{ secrets.DATABASE_PASSWORD }}'\'' CREATEDB;'"
+          sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE DATABASE ${{ secrets.DATABASE_NAME }} OWNER ${{ secrets.DATABASE_USER }};'"
+          sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE USER ${{ secrets.DATABASE_USER_TEST }} WITH PASSWORD '\''${{ secrets.DATABASE_PASSWORD_TEST}}'\'' CREATEDB;'"
+          sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE DATABASE ${{ secrets.DATABASE_NAME_TEST }} OWNER ${{ secrets.DATABASE_USER_TEST }};'"
 
       - name: Cache poetry installation
         id: cache-poetry
@@ -75,12 +75,11 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root --no-interaction
 
-      # create file with environment variables
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$(pwd):$PYTHONPATH" >> $GITHUB_ENV
+
       - name: Create env file
         run: echo "${{ secrets.ENV_FILE }}" > .env
 
       - name: Test with pytest and coverage
         run: poetry run pytest --cov
-
-      - name: Coverage report
-        run: poetry run coverage report

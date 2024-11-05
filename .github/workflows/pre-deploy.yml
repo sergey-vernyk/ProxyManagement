@@ -28,35 +28,38 @@ jobs:
 
       - name: Pull Changes and Start Staging Server
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd '${{ secrets.WORK_DIR }}' || exit 1 &&
-            git remote set-url origin git@github.com:${{ github.repository }}.git &&
-            git checkout 'pre-deploy' &&
-            git pull origin 'pre-deploy' &&
-            /home/${{ secrets.SSH_USER }}/.local/bin/poetry install --no-interaction || exit 1 &&
-            nohup uvicorn main:app --host 127.0.0.1 --port 8001 --reload &> uvicorn_staging.log &
-          "
-
+          cd ./backend/deploy_config
+          chmod +x start_staging_server.sh
+          ./start_staging_server.sh ${{ secrets.SSH_USER }} ${{ secrets.SSH_HOST }} ${{ secrets.WORK_DIR }} ${{ github.repository }}
+        
       - name: Wait for Server Startup
         run: |
-            for i in {1..10}; do
-              if curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGE_BASE_URL }} | grep -q "200"; then
-                echo "Server is up!"
-                break
-              fi
+              for i in {1..5}; do
+                response_code=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGE_BASE_URL }}/health_check)
+                if [ "$response_code" -eq 200 ]; then
+                  echo "Server is up!"
+                  break
+                fi
                 echo "Waiting for server..."
                 sleep 5
-            done
-  
+              done
+              if [ "$response_code" -ne 200 ]; then
+                echo "Server did not start in time."
+                exit 1
+              fi
+        
       - name: Health Check
         run: |
-            response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGE_BASE_URL }})
-            if [ "$response" -ne 200 ]; then
-                echo "Health check failed with status $response"
-                exit 1
-            else
-                echo "Health check passed!"
-            fi
-
+              response_code=$(curl -s -w "%{http_code}" -o /tmp/health_response.json ${{ secrets.STAGE_BASE_URL }}/health_check)
+              if [ "$response_code" -ne 200 ]; then
+                  echo "Health check failed with status $response_code"
+                  exit 1
+              else
+                  echo "Health check passed!"
+                  echo "Server Health Status:"
+                  cat /tmp/health_response.json | jq .
+              fi
+        
       - name: Cleanup
         run: rm -rf ~/.ssh
+        
