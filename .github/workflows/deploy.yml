@@ -15,8 +15,18 @@ env:
   SUPERVISOR_PROGRAM_NAME: ${{ vars.SUPERVISOR_PROGRAM_NAME }}
 
 jobs:
-  deploy:
+  setup-ssh:
+    uses: ./.github/workflows/setup_ssh.yml
     name: Deploy
+    with:
+      branch: "pre-deploy"
+    secrets:
+      ssh_user: ${{ secrets.SSH_USER }}
+      ssh_host: ${{ secrets.SSH_HOST }}
+      work_dir: ${{ secrets.WORK_DIR }}
+      ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+      
+  deploy:
     runs-on: ubuntu-latest
     env:
       ENVIRONMENT: production
@@ -24,15 +34,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
-    - name: Set up SSH keys
-      uses: ./.github/workflows/setup_ssh.yml
-      with:
-        branch: "pre-deploy"
-        ssh_user: ${{ secrets.SSH_USER }}
-        ssh_host: ${{ secrets.SSH_HOST }}
-        work_dir: ${{ secrets.WORK_DIR }}
-        ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
         
     - name: Connect to server and pull last changes from git
       run: |
