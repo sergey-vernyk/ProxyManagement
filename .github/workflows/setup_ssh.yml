@@ -43,6 +43,3 @@ jobs:
             git checkout '${{ inputs.branch }}' &&
             git pull origin '${{ inputs.branch }}'
           "
-
-      - name: Cleanup
-        run: rm -rf ~/.ssh
