@@ -26,6 +26,7 @@ else
     echo "Restarting NGINX"
     sudo nginx -s reload
     echo -e "Start gunicorn server from supervisor program '$supervisor_program_name'"
+    sudo supervisorctl update "$supervisor_program_name"
     sudo supervisorctl start "$supervisor_program_name"
 fi;
 
