@@ -10,7 +10,7 @@ profile:
 include:
   - name: CheckDependencyLicenses
 exclude:
-  - name: Migrations
+  - name: All
     paths:
       - ./backend/migrations
       - ./backend/auth/tests

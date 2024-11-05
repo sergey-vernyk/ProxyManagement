@@ -26,14 +26,14 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Set up SSH keys
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-        eval "$(ssh-agent -s)"
-        ssh-add ~/.ssh/id_rsa
-    
+      uses: ./.github/workflows/setup_ssh.yml
+      with:
+        branch: "pre-deploy"
+        ssh_user: ${{ secrets.SSH_USER }}
+        ssh_host: ${{ secrets.SSH_HOST }}
+        work_dir: ${{ secrets.WORK_DIR }}
+        ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+        
     - name: Connect to server and pull last changes from git
       run: |
         ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "

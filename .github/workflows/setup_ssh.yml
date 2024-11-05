@@ -1,0 +1,48 @@
+name: SSH Setup and Pull Changes
+
+on:
+  workflow_call:
+    secrets:
+      ssh_user:
+        description: "SSH username for the server"
+        required: true
+      ssh_host:
+        description: "Server hostname or IP"
+        required: true
+      work_dir:
+        description: "Directory on the server where the code should be pulled"
+        required: true
+      ssh_private_key:
+        description: "Private SSH key for authentication"
+        required: true
+    inputs:
+      branch:
+        description: "Branch to pull"
+        required: true
+        type: string
+    
+jobs:
+  ssh-setup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up SSH keys
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ssh_private_key }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.ssh_host }} >> ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+
+      - name: Connect to Server and Pull Changes
+        run: |
+          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} "
+            cd '${{ secrets.work_dir }}' || exit 1 &&
+            git remote set-url origin git@github.com:${{ github.repository }}.git &&
+            git checkout '${{ inputs.branch }}' &&
+            git pull origin '${{ inputs.branch }}'
+          "
+
+      - name: Cleanup
+        run: rm -rf ~/.ssh
