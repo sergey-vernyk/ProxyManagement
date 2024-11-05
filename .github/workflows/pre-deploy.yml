@@ -28,14 +28,10 @@ jobs:
 
       - name: Pull Changes and Start Staging Server
         run: |
-            echo "WORK_DIR is set to: '${{ secrets.WORK_DIR }}'"
-            echo "Listing contents of ${{ secrets.WORK_DIR }} for debugging:"
-            ls "${{ secrets.WORK_DIR }}" || exit 1
-        
-            # Try changing into the deploy_config directory
-            cd "${{ secrets.WORK_DIR }}/backend/deploy_config" || exit 1
-            chmod +x start_staging_server.sh
-            ./start_staging_server.sh "${{ secrets.SSH_USER }}" "${{ secrets.SSH_HOST }}" "${{ secrets.WORK_DIR }}" "${{ github.repository }}"
+          chmod +x start_staging_server.sh
+          ./start_staging_server.sh ${{ secrets.SSH_USER }} ${{ secrets.SSH_HOST }} ${{ secrets.WORK_DIR }} ${{ github.repository }}
+        working-directory:
+          ${{ secrets.WORK_DIR }}/backend/deploy_config
         
       - name: Wait for Server Startup
         run: |
