@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "asyncsocketexchange"
-version = "0.1.0"
-description = "Async interaction beetwen socket server and client"
+name = "proxy-management"
+version = "0.2.0"
+description = "Proxy management system for interactions with proxy which based on LTE modem."
 authors = ["Sergey Vernigora <volt.awp.dev@gmail.com>"]
 readme = "README.md"
 packages = [
