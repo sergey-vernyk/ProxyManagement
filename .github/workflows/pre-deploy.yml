@@ -27,18 +27,16 @@ jobs:
           ssh-add ~/.ssh/id_rsa
 
       - name: Pull Changes and Start Staging Server
+        env:
+            SSH_USER: ${{ secrets.SSH_USER }}
+            SSH_HOST: ${{ secrets.SSH_HOST }}
+            WORK_DIR: ${{ secrets.WORK_DIR }}
+            REPO_NAME: ${{ github.repository }}
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd '${{ secrets.WORK_DIR }}' || exit 1 &&
-            git remote set-url origin git@github.com:${{ github.repository }}.git &&
-            git checkout 'pre-deploy' &&
-            git pull origin 'pre-deploy' &&
-            cd ./backend &&
-            /home/${{ secrets.SSH_USER }}/.local/bin/poetry install --no-interaction || exit 1 &&
-            VENV_PATH=\$(/home/${{ secrets.SSH_USER }}/.local/bin/poetry env info -p) || exit 1 &&
-            nohup \$VENV_PATH/bin/uvicorn main:app --host 127.0.0.1 --port 8001 --reload &> uvicorn_staging.log &
-          "
-
+          cd "${{ secrets.WORK_DIR }}/backend/deploy_config"
+          chmod +x start_staging_server.sh          
+          ./start_staging_server.sh ${{ env.SSH_USER }} ${{ env.SSH_HOST }} ${{ env.WORK_DIR }} ${{ env.REPO_NAME }}
+        
       - name: Wait for Server Startup
         run: |
               for i in {1..5}; do
