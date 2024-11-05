@@ -43,3 +43,13 @@ jobs:
             git checkout '${{ inputs.branch }}' &&
             git pull origin '${{ inputs.branch }}'
           "
+      - name: Save SSH Configuration as Artifacts
+        run: |
+          tar -czf ssh_config.tar.gz -C ~/.ssh .
+
+      - name: Upload SSH Config Artifact
+        uses: actions/upload-artifact@v4
+        with:
+            name: ssh-config
+            path: ssh_config.tar.gz
+            if-no-files-found: error
