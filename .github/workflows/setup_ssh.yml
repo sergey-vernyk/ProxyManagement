@@ -15,11 +15,6 @@ on:
       ssh_private_key:
         description: "Private SSH key for authentication"
         required: true
-    inputs:
-      branch:
-        description: "Branch to pull"
-        required: true
-        type: string
     
 jobs:
   ssh-setup:
@@ -34,15 +29,7 @@ jobs:
           ssh-keyscan -H ${{ secrets.ssh_host }} >> ~/.ssh/known_hosts
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
-
-      - name: Connect to Server and Pull Changes
-        run: |
-          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} "
-            cd '${{ secrets.work_dir }}' || exit 1 &&
-            git remote set-url origin git@github.com:${{ github.repository }}.git &&
-            git checkout '${{ inputs.branch }}' &&
-            git pull origin '${{ inputs.branch }}'
-          "
+ 
       - name: Save SSH Configuration as Artifacts
         run: |
           tar -czf ssh_config.tar.gz -C ~/.ssh .

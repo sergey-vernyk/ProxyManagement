@@ -9,13 +9,44 @@ on:
         - pre-deploy
   
 jobs:
+  setup-ssh:
+    uses: ./.github/workflows/setup_ssh.yml
+    name: Pre-Deploy
+    secrets:
+      ssh_user: ${{ secrets.SSH_USER }}
+      ssh_host: ${{ secrets.SSH_HOST }}
+      work_dir: ${{ secrets.WORK_DIR }}
+      ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+
   pre-deploy:
+    needs: setup-ssh
     name: Pre-Deploy to Staging
     runs-on: ubuntu-latest
 
     steps:
+      - name: Download SSH Config Artifact
+        uses: actions/download-artifact@v4
+        with:
+            name: ssh-config
+            
+      - name: Restore SSH Config
+        run: |
+          mkdir -p ~/.ssh
+          tar -xzf ssh_config.tar.gz -C ~/.ssh
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Connect to Server and Pull Changes
+        run: |
+          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} "
+            cd '${{ secrets.work_dir }}' || exit 1 &&
+            git remote set-url origin git@github.com:${{ github.repository }}.git &&
+            git checkout pre-deploy &&
+            git pull origin pre-deploy
+          "
       
       - name: Set up SSH keys
         run: |

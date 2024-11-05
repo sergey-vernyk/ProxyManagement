@@ -18,8 +18,6 @@ jobs:
   setup-ssh:
     uses: ./.github/workflows/setup_ssh.yml
     name: Deploy
-    with:
-      branch: "pre-deploy"
     secrets:
       ssh_user: ${{ secrets.SSH_USER }}
       ssh_host: ${{ secrets.SSH_HOST }}
@@ -48,9 +46,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
         
-    - name: Connect to server and pull last changes from git
+    - name: Connect to Server and Pull Changes
       run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+        ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} "
           cd '${{ secrets.WORK_DIR }}' || exit 1 &&
           git remote set-url origin git@github.com:${{ github.repository }}.git &&
           git checkout '${{ secrets.MAIN_BRANCH }}' &&
