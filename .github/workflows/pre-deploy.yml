@@ -27,16 +27,10 @@ jobs:
           ssh-add ~/.ssh/id_rsa
 
       - name: Pull Changes and Start Staging Server
-        env:
-            SSH_USER: ${{ secrets.SSH_USER }}
-            SSH_HOST: ${{ secrets.SSH_HOST }}
-            WORK_DIR: ${{ secrets.WORK_DIR }}
-            REPO_NAME: ${{ github.repository }}
         run: |
-          ls ${{ env.WORK_DIR }}
-          cd ${{ env.WORK_DIR }}/backend/deploy_config
+          cd ${{ secrets.WORK_DIR }}/backend/deploy_config
           chmod +x start_staging_server.sh          
-          ./start_staging_server.sh ${{ env.SSH_USER }} ${{ env.SSH_HOST }} ${{ env.WORK_DIR }} ${{ env.REPO_NAME }}
+          ./start_staging_server.sh ${{ secrets.SSH_USER }} ${{ secrets.SSH_HOST }} ${{ secrets.WORK_DIR }} ${{ secrets.REPO_NAME }}
         
       - name: Wait for Server Startup
         run: |
