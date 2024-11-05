@@ -1,12 +1,12 @@
 #!/bin/bash
 
 NAME=proxy-management
-DIR=/home/ubuntu/code/Proxy_Management/AsyncSocketExchange/backend
+DIR=/home/ubuntu/code/ProxyManagement/backend
 USER=ubuntu
 GROUP=ubuntu
 WORKERS=2
 WORKER_CLASS=uvicorn.workers.UvicornWorker
-VENV=/home/ubuntu/.cache/pypoetry/virtualenvs/asyncsocketexchange-rDKi4hjE-py3.12/bin/activate
+VENV=/home/ubuntu/.cache/pypoetry/virtualenvs/proxy-management-7D7spbPg-py3.12/bin/activate
 BIND=unix:$DIR/run/gunicorn.sock
 LOG_LEVEL=error
 
