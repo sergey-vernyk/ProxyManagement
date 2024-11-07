@@ -3,20 +3,35 @@
 domain=$1
 server_port=$2
 
-# Check if the correct number of arguments are provided
 if [ "$#" -ne 2 ]; then
 	echo "Usage: $0 <domain> <server_port>"
 	exit 1
 fi
 
-# Export variables
 export DOMAIN="$domain"
 export SERVER_PORT="$server_port"
 
-# Process the template and write the output to the Nginx configuration directory
-envsubst '${DOMAIN} ${SERVER_PORT}' < modem_proxy.conf.template > /etc/nginx/conf.d/modem_proxy.conf
+if [[ ! -d "/etc/nginx/includes" ]]; then
+	sudo mkdir -p /etc/nginx/includes
+fi
 
-# Test Nginx configuration and reload if successful
+if envsubst '${DOMAIN} ${SERVER_PORT}' <modem_proxy.conf.template >/etc/nginx/conf.d/modem_proxy.conf; then
+	echo "Processed modem_proxy.conf.template successfully."
+else
+	echo "Failed to process modem_proxy.conf.template. Please check the template file."
+	exit 1
+fi
+
+if envsubst '${DOMAIN}' <./includes/ssl_settings.conf.template >/etc/nginx/includes/ssl_settings.conf; then
+	echo "Processed ssl_settings.conf.template successfully."
+else
+	echo "Failed to process ssl_settings.conf.template. Please check the template file."
+	exit 1
+fi
+
+# copy other necessary include files, excluding ssl_settings.conf.template
+sudo find ./includes -type f ! -name 'ssl_settings.conf.template' -exec cp -v {} /etc/nginx/includes/ \;
+
 if sudo nginx -t; then
 	echo "Nginx configuration is valid. Reloading..."
 	sudo nginx -s reload
