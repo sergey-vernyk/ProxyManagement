@@ -1,69 +1,29 @@
+from base64 import urlsafe_b64encode
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import httpx
+import pytest
+from auth import schemas
 from config import get_settings
 from conftest import REGULAR_USER_DATA
-from fastapi import Request, status
+from fastapi import BackgroundTasks, Request, status
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from pytest import MonkeyPatch
 from sqlalchemy.orm import Session
 from users.models import User
 
+from ..schemas import RegisterUser
+from .mocks import (MockBackgroundTasks, MockHttpXAsyncClient, MockRequest,
+                    mock_send_otp_email_handler)
+
 settings = get_settings()
+dir_path = Path(__file__).parent.absolute()
 
 
-class MockRequest:
-    @property
-    def query_params(self) -> dict[str, str]:
-        return {"code": "jnofnoosdpcenfpqcpqefq"}
-
-
-class MockHttpXAsyncClient:
-    @staticmethod
-    async def mock_post(*args, **kwargs) -> httpx.Response:
-        request = httpx.Request("POST", "http://testserver/some_endpoint")
-        return httpx.Response(
-            status_code=status.HTTP_200_OK,
-            json={
-                "access_token": "mock_access_token",
-                "id_token": "mock_id_token",
-                "expires_in": 3600,
-            },
-            request=request,
-        )
-
-    @staticmethod
-    async def mock_post_no_access_token(*args, **kwargs) -> httpx.Response:
-        request = httpx.Request("POST", "http://testserver/some_endpoint")
-        return httpx.Response(
-            status_code=status.HTTP_200_OK,
-            json={
-                "id_token": "mock_id_token",
-                "expires_in": 3600,
-            },
-            request=request,
-        )
-
-    @staticmethod
-    async def mock_post_no_id_token(*args, **kwargs) -> httpx.Response:
-        request = httpx.Request("POST", "http://testserver/some_endpoint")
-        return httpx.Response(
-            status_code=status.HTTP_200_OK,
-            json={
-                "access_token": "mock_access_token",
-                "expires_in": 3600,
-            },
-            request=request,
-        )
-
-    @staticmethod
-    async def mock_get(*args, **kwargs) -> httpx.Response:
-        request = httpx.Request("GET", "http://testserver/some_endpoint")
-        return httpx.Response(
-            status_code=status.HTTP_200_OK,
-            json={"email": "john.smith@gmail.com"},
-            request=request,
-        )
+# pylint: disable=missing-docstring
+# pylint: disable=unused-argument
 
 
 class TestBasicAuth:
@@ -151,7 +111,7 @@ class TestGoogleAuth:
 
         response = client.get("/auth/callback", follow_redirects=False)
         assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
-        # check wheter a user was created if they authorized via Google for the first time
+        # check whether a user was created if they authorized via Google for the first time
         assert db.query(User).filter(User.email == "john.smith@gmail.com").first() is not None
         assert response.headers["Location"] == str(client.base_url)
         assert settings.cookies_key_jwt in response.cookies
@@ -240,3 +200,184 @@ def test_logout_user_already_unauthorized(client: TestClient, mock_build_ip_addr
     assert response.cookies.get(settings.cookies_google_access_token) is None
     assert response.cookies.get(settings.cookies_key_jwt) is None
     assert response.cookies.get(settings.cookies_key_csrf) is None
+
+
+class TestUserAccountActions:
+    """
+    Testing actions with user account:
+        - registration
+        - activation
+        - reset password
+    """
+
+    def test_register_user_success(
+        self, client: TestClient, monkeypatch: MonkeyPatch, db: Session, mock_build_ip_address_for_log: MonkeyPatch
+    ) -> None:
+        user_data = RegisterUser(email="john.doe@gmail.com", password="strong_password")
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+        response = client.post("/auth/registration", json=user_data.model_dump())
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"message": "Check your email for verifying your account."}
+        registered_user = db.query(User).filter(User.email == user_data.email).first()
+        assert registered_user is not None
+        assert registered_user.is_verified is False
+        assert str(registered_user.email) == user_data.email
+        assert len(str(registered_user.token)) == settings.unique_user_token_length
+
+    def test_register_user_invalid_email(self, client: TestClient, mock_build_ip_address_for_log: MonkeyPatch) -> None:
+        with pytest.raises(ValidationError) as exc:
+            RegisterUser(email="john.doe@gmail", password="strong_password")
+
+        assert exc.value.errors() == [
+            {
+                "type": "value_error",
+                "loc": ("email",),
+                "msg": "value is not a valid email address: The part after the @-sign is not valid. It should have a period.",
+                "input": "john.doe@gmail",
+                "ctx": {"reason": "The part after the @-sign is not valid. It should have a period."},
+            }
+        ]
+
+        user_data = RegisterUser(email="john.doe@example.com", password="strong_password")
+        response = client.post("/auth/registration", json=user_data.model_dump())
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"detail": {"email_invalid": "The domain name example.com does not accept email."}}
+
+    def test_register_user_if_user_exists(
+        self, client: TestClient, regular_user: User, mock_build_ip_address_for_log: MonkeyPatch
+    ) -> None:
+        user_data = RegisterUser(email=REGULAR_USER_DATA["email"], password="strong_password")
+        response = client.post("/auth/registration", json=user_data.model_dump())
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"detail": {"user_exists": "User with the given email is already registered."}}
+
+    def test_reset_password_requesting_success(
+        self,
+        client: TestClient,
+        monkeypatch: MonkeyPatch,
+        regular_user: User,
+        mock_build_ip_address_for_log: MonkeyPatch,
+    ) -> None:
+        mock_bg_tasks_inst = MockBackgroundTasks()
+        monkeypatch.setattr(BackgroundTasks, "add_task", mock_bg_tasks_inst.mock_add_bg_task_reset_password)
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+
+        data = schemas.ResetPassword(email=REGULAR_USER_DATA["email"])
+        response = client.post("/auth/reset_password", json=data.model_dump())
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == "Email message with the link for password reset has been sent to your email."
+
+    def test_reset_password_requesting_user_not_exists(
+        self,
+        client: TestClient,
+        regular_user: User,
+        mock_build_ip_address_for_log: MonkeyPatch,
+    ) -> None:
+        data = schemas.ResetPassword(email="jackie.chan@gmail.com")  # !user not exists with this email
+        response = client.post("/auth/reset_password", json=data.model_dump())
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json() == {"detail": "User with the given email does not exist."}
+
+    def test_reset_password_confirm_success(
+        self,
+        client: TestClient,
+        monkeypatch: MonkeyPatch,
+        regular_user: User,
+        db: Session,
+        mock_build_ip_address_for_log: MonkeyPatch,
+    ) -> None:
+        mock_bg_tasks_inst = MockBackgroundTasks()
+        monkeypatch.setattr(BackgroundTasks, "add_task", mock_bg_tasks_inst.mock_add_bg_task_reset_password)
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+
+        current_password = regular_user.hashed_password
+
+        # make request for password reset
+        data = schemas.ResetPassword(email=REGULAR_USER_DATA["email"])
+        response = client.post("/auth/reset_password", json=data.model_dump())
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == "Email message with the link for password reset has been sent to your email."
+
+        reset_link_parts = mock_bg_tasks_inst.context["reset_link"].split("/")
+        uid, token = reset_link_parts[-2], reset_link_parts[-1]
+        data = schemas.ResetPasswordConfirm(
+            new_password="changed_password",
+            confirm_password="changed_password",
+            token=token,
+            uid=uid,
+        )
+        # confirm password reset
+        response = client.post("/auth/reset_password_confirm", json=data.model_dump())
+        assert response.status_code == status.HTTP_200_OK
+        db.refresh(regular_user)
+        assert str(current_password) != str(regular_user.hashed_password)
+        assert response.json() == "Password has been reset successfully."
+
+    def test_reset_password_confirm_password_mismatch(
+        self,
+        client: TestClient,
+        monkeypatch: MonkeyPatch,
+        regular_user: User,
+        mock_build_ip_address_for_log: MonkeyPatch,
+    ) -> None:
+        mock_bg_tasks_inst = MockBackgroundTasks()
+        monkeypatch.setattr(BackgroundTasks, "add_task", mock_bg_tasks_inst.mock_add_bg_task_reset_password)
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+
+        data = schemas.ResetPassword(email=REGULAR_USER_DATA["email"])
+        response = client.post("/auth/reset_password", json=data.model_dump())
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == "Email message with the link for password reset has been sent to your email."
+
+        reset_link_parts = mock_bg_tasks_inst.context["reset_link"].split("/")
+        uid, token = reset_link_parts[-2], reset_link_parts[-1]
+        data = schemas.ResetPasswordConfirm(
+            new_password="changed_password",
+            confirm_password="changed_password_123",
+            token=token,
+            uid=uid,
+        )
+        # confirm password reset
+        response = client.post("/auth/reset_password_confirm", json=data.model_dump())
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"detail": "Entered passwords are mismatch."}
+
+    def test_reset_password_confirm_uid_or_token_invalid(
+        self,
+        client: TestClient,
+        monkeypatch: MonkeyPatch,
+        regular_user: User,
+        mock_build_ip_address_for_log: MonkeyPatch,
+    ) -> None:
+        mock_bg_tasks_inst = MockBackgroundTasks()
+        monkeypatch.setattr(BackgroundTasks, "add_task", mock_bg_tasks_inst.mock_add_bg_task_reset_password)
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+
+        data = schemas.ResetPassword(email=REGULAR_USER_DATA["email"])
+        response = client.post("/auth/reset_password", json=data.model_dump())
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == "Email message with the link for password reset has been sent to your email."
+
+        reset_link_parts = mock_bg_tasks_inst.context["reset_link"].split("/")
+        uid, token = reset_link_parts[-2], reset_link_parts[-1]
+        # with pytest.raises(ValidationError) as exc:
+        data = schemas.ResetPasswordConfirm(
+            new_password="changed_password",
+            confirm_password="changed_password",
+            token="87jbiADAKZ1P6dfgJIAFF39zeYHUG123",  # !wrong token
+            uid=uid,
+        )
+        response = client.post("/auth/reset_password_confirm", json=data.model_dump())
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"detail": "Password reset link is invalid."}
+
+        data = schemas.ResetPasswordConfirm(
+            new_password="changed_password",
+            confirm_password="changed_password",
+            token=token,
+            # !wrong uid (user with id 100 does not exist)
+            uid=urlsafe_b64encode("100".encode(settings.default_encoding)).decode(settings.default_encoding),
+        )
+        response = client.post("/auth/reset_password_confirm", json=data.model_dump())
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"detail": "Password reset link is invalid."}
