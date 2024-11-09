@@ -69,3 +69,17 @@ class RecheckOTPOnDemand(BaseModel):
 
     uid: str
     token: str = Field(max_length=32, min_length=32)
+
+
+class CloudflareCaptcha(BaseModel):
+    """
+    Class represents fields for verification Cloudflare
+    captcha token from frontend.
+    """
+
+    token: str = Field(
+        max_length=2048,
+        description="Token that received from response after the Cloudflare challenge has been solved. "
+        "This token must be validated against our siteverify endpoint.",
+    )
+    idempotency_key: str = Field(description="The UUID to be associated with the response.")

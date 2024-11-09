@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     cookies_key_csrf: str
     csrf_number_of_bytes: int
 
+    # Cloudflare Captcha widget
+    cloudflare_turnstile_secret_key: str
+    cloudflare_turnstile_sitekey: str
+
     if DEFAULT_ENV_PATH.exists() or CURRENT_ENV_PATH and Path(CURRENT_ENV_PATH).exists():
         model_config = SettingsConfigDict(env_file=CURRENT_ENV_PATH or DEFAULT_ENV_PATH, env_file_encoding="utf-8")
 

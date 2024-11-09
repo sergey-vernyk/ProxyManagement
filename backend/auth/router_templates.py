@@ -103,6 +103,7 @@ async def login_page(request: Request) -> _TemplateResponse:
     basic_login_url = build_full_endpoint_url(request, "basic_login")
     google_login_url = build_full_endpoint_url(request, "login_google")
     reset_password_page_url = build_full_endpoint_url(request, "reset_password_page")
+    captcha_verify_url = build_full_endpoint_url(request, "captcha_verify")
 
     return templates.TemplateResponse(
         request,
@@ -112,6 +113,8 @@ async def login_page(request: Request) -> _TemplateResponse:
             "google_login_url": google_login_url,
             "reg_url": reg_url,
             "reset_password_page_url": reset_password_page_url,
+            "captcha_verify_url": captcha_verify_url,
+            "cloudflare_sitekey": settings.cloudflare_turnstile_sitekey,
         },
     )
 

@@ -715,3 +715,55 @@ async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDep
         {"success": "The code you entered is correct. Email has been verified."},
         status.HTTP_200_OK,
     )
+
+
+@router.post(
+    "/auth/verify_captcha",
+    status_code=status.HTTP_200_OK,
+    response_class=JSONResponse,
+    name="captcha_verify",
+    description="Cloudflare captcha verification.",
+    operation_id="verify-captcha",
+)
+async def verify_cloudflare_captcha(request: Request, data: schemas.CloudflareCaptcha) -> JSONResponse:
+    """
+    Verifies the CAPTCHA response sent by the client to ensure it was successfully solved.
+
+    This endpoint sends the CAPTCHA response to Cloudflare's Turnstile service for validation.
+    If the response is valid, the user is considered authenticated, and a success message is returned.
+    If not, an error message with the relevant error codes is returned.
+
+    Args:
+        request (Request): The incoming request containing headers and client IP information.
+        data (schemas.CloudflareCaptcha): The data object containing the CAPTCHA response
+             token and idempotency key.
+
+    Returns:
+        JSONResponse: A JSON response indicating whether the CAPTCHA verification
+            was successful or failed. If successful, it returns a success message.
+            If verification fails, it returns an error message with error codes.
+    """
+    cloudflare_siteverify_endpoint = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            cloudflare_siteverify_endpoint,
+            data={
+                "secret": settings.cloudflare_turnstile_secret_key,
+                "response": data.token,
+                "idempotency_key": data.idempotency_key,
+                "remoteip": request.headers.get("CF-Connecting-IP", ""),
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        response.raise_for_status()
+        response_data: dict[Any, Any] = response.json()
+
+        if response_data.get("success"):
+            return JSONResponse({"message": "success"})
+
+        return JSONResponse(
+            {"message": "error", "error-codes": response_data.get("error-codes")},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
