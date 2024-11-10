@@ -57,7 +57,7 @@ jobs:
       - name: Wait for Server Startup
         run: |
               for i in {1..5}; do
-                response_code=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGE_BASE_URL }}/health_check)
+                response_code=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.STAGE_BASE_URL }}/health_check" --header 'x-stage-access: true'})
                 if [ "$response_code" -eq 200 ]; then
                   echo "Server is up!"
                   break
@@ -72,7 +72,7 @@ jobs:
         
       - name: Health Check
         run: |
-              response_code=$(curl -s -w "%{http_code}" -o /tmp/health_response.json ${{ secrets.STAGE_BASE_URL }}/health_check)
+              response_code=$(curl -s -w "%{http_code}" -o /tmp/health_response.json "${{ secrets.STAGE_BASE_URL }}/health_check" --header 'x-stage-access: true')
               if [ "$response_code" -ne 200 ]; then
                   echo "Health check failed with status $response_code"
                   exit 1
