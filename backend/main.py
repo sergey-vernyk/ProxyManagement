@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from auth import router_api as auth_api_router
 from auth import router_templates as auth_templates_router
@@ -142,7 +142,7 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
     description="Check server connection availability.",
     tags=["health-check"],
 )
-async def health_check(db: DatabaseDependency) -> JSONResponse:
+async def health_check(request: Request, db: DatabaseDependency) -> JSONResponse:
     """
     Health check endpoint to monitor the server and database status.
 
@@ -154,19 +154,23 @@ async def health_check(db: DatabaseDependency) -> JSONResponse:
     - **Application version**: Displays the current version of the application.
     - **Environment**: Indicates the environment (e.g., staging or production).
 
+    Args:
+        request(Request): Income HTTP request.
+        db(DatabaseDependency): SQLAlchemy database session.
+
     Returns:
         JSONResponse: A JSON object with the following information:
 
         - `status` (str): Overall status of the server (always "ok" if reachable).
         - `database` (str): Status of the database connection, showing "connected" or
-          an error message if there's an issue.
+            an error message if there's an issue.
         - `uptime` (str): Uptime of the server in hours, minutes, and seconds.
         - `version` (str): Version of the application.
         - `environment` (str): Current environment in which the server is running (e.g., staging).
 
     Raises:
         Exception: If the database connection check fails, the error message is captured
-        in the `database` status field.
+            in the `database` status field.
     """
     db_status = "connected"
     try:
@@ -176,6 +180,12 @@ async def health_check(db: DatabaseDependency) -> JSONResponse:
 
     current_time = datetime.datetime.now()
     uptime = current_time - start_time
+    
+    environment: Literal["development", "stage", "production"] = "development"
+    if "stage" in str(request.base_url):
+        environment = "stage"
+    elif not settings.debug:
+        environment = "production"
 
     return JSONResponse(
         {
@@ -183,7 +193,7 @@ async def health_check(db: DatabaseDependency) -> JSONResponse:
             "database": db_status,
             "uptime": str(uptime),
             "version": app.version,
-            "environment": settings.environment,
+            "environment": environment,
         },
         status.HTTP_200_OK,
     )
