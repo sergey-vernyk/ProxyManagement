@@ -61,7 +61,7 @@ jobs:
           --url https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/settings/security_level \
           --header 'Authorization: Bearer ${{ secrets.API_KEY_CLOUDFLARE }}' \
           --header 'Content-Type: application/json' \
-          --data '{"value": "under_attack"}'
+          --data '{"value": "'"${{ vars.CLOUDFLARE_SECURITY_MODE_LEVEL }}"'"}'
 
       - name: Wait for Server Startup
         run: |
@@ -102,7 +102,7 @@ jobs:
           --url https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/settings/security_level \
           --header 'Authorization: Bearer ${{ secrets.API_KEY_CLOUDFLARE }}' \
           --header 'Content-Type: application/json' \
-          --data '{"value": "'"${{ vars.CLOUDFLARE_SECURITY_MODE_LEVEL }}"'"}'
+          --data '{"value": "under_attack"}'
         
       - name: Cleanup
         run: rm -rf ~/.ssh
