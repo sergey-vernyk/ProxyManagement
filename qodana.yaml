@@ -12,5 +12,5 @@ include:
 exclude:
   - name: All
     paths:
-      - ./backend/migrations
-      - ./backend/auth/tests
+      - backend/migrations
+      - backend/auth/tests
