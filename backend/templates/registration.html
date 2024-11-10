@@ -8,7 +8,7 @@
 
 {% block content %}
     <h2>Register</h2>
-    <form id="registration-form" data-reg-url="{{reg_url}}">
+    <form id="registration-form" data-reg-url="{{reg_url}}" data-captcha-verify-url="{{captcha_verify_url}}">
         <div class="input-container">
             <input type="email" id="email" name="email" placeholder="Email" required>
             <div id="email-error" class="error-message"></div>
@@ -17,11 +17,19 @@
             <input type="password" id="password" name="password" placeholder="Password" required>
             <div id="password-error" class="error-message"></div>
         </div>
-        <button type="submit" id="register">Register</button>
+        <div id="cloudflare-captcha"
+            data-sitekey="{{cloudflare_sitekey}}"
+            data-size="normal"
+            data-theme="light"
+            data-callback="callback"
+            data-error-callback="error">
+        </div>
+        <input type="hidden" id="sitekey" name="cf-sitekey" value="{{cloudflare_sitekey}}">
+        <button type="submit" id="register" disabled>Register</button>
     </form>
     <div id="reg-success"></div>
     </div>
 {% endblock %}
 {% block scripts %}
-    <script src="/static/js/registration.js"></script>
+    <script src="/static/js/registration.js" type="module"></script>
 {% endblock %}

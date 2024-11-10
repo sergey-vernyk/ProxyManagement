@@ -28,10 +28,11 @@ async def registration_page(request: Request) -> _TemplateResponse:
         request (Request): Incoming HTTP request.
 
     Returns:
-        _TemplateResponse: Renders `registration.html` with registration and login URLs.
+        _TemplateResponse: Renders `registration.html`.
     """
     reg_url = build_full_endpoint_url(request, "registration")
     login_url = build_full_endpoint_url(request, "login_page")
+    captcha_verify_url = build_full_endpoint_url(request, "captcha_verify")
 
     return templates.TemplateResponse(
         request,
@@ -39,6 +40,8 @@ async def registration_page(request: Request) -> _TemplateResponse:
         context={
             "reg_url": reg_url,
             "login_url": login_url,
+            "captcha_verify_url": captcha_verify_url,
+            "cloudflare_sitekey": settings.cloudflare_turnstile_sitekey,
         },
     )
 
@@ -96,8 +99,7 @@ async def login_page(request: Request) -> _TemplateResponse:
         request (Request): Incoming HTTP request.
 
     Returns:
-        _TemplateResponse: Renders `authentication.html` with authentication URLs
-            with login and password or with OAuth2 flow and link for resetting password.
+        _TemplateResponse: Renders `authentication.html`.
     """
     reg_url = build_full_endpoint_url(request, "signup")
     basic_login_url = build_full_endpoint_url(request, "basic_login")
@@ -140,6 +142,7 @@ async def reset_password_page(request: Request) -> _TemplateResponse:
     """
     reset_password_url = build_full_endpoint_url(request, "reset_password")
     login_url = build_full_endpoint_url(request, "login_page")
+    captcha_verify_url = build_full_endpoint_url(request, "captcha_verify")
 
     return templates.TemplateResponse(
         request,
@@ -147,6 +150,8 @@ async def reset_password_page(request: Request) -> _TemplateResponse:
         context={
             "reset_password_url": reset_password_url,
             "login_url": login_url,
+            "captcha_verify_url": captcha_verify_url,
+            "cloudflare_sitekey": settings.cloudflare_turnstile_sitekey,
         },
     )
 

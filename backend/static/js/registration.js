@@ -1,4 +1,14 @@
+import VerifyCFCaptcha from "./verify_cf_captcha.js"
+
 $(document).ready(() => {
+    const captchaVerifyUrl = $("#registration-form").data("captcha-verify-url");
+    const cloudflareSiteKey = $("#sitekey").val();
+    const idempotencyKey = crypto.randomUUID();
+
+    $("#register").prop("disabled", true);
+
+    VerifyCFCaptcha(captchaVerifyUrl, cloudflareSiteKey, "#register", idempotencyKey)
+
     $("#registration-form").on("submit", (event) => {
         event.preventDefault();
         const enteredEmail = $("#email").val();
