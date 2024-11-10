@@ -53,34 +53,56 @@ jobs:
           cd ./backend/deploy_config
           chmod +x start_staging_server.sh
           ./start_staging_server.sh ${{ secrets.SSH_USER }} ${{ secrets.SSH_HOST }} ${{ secrets.WORK_DIR }} ${{ github.repository }}
-        
+
+      - name: Turn off Under Attack mode Cloudflare
+        if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+        run: |
+          curl --request PATCH \
+          --url https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/settings/security_level \
+          --header 'Authorization: Bearer ${{ secrets.API_KEY_CLOUDFLARE }}' \
+          --header 'Content-Type: application/json' \
+          --data '{"value": "under_attack"}'
+
       - name: Wait for Server Startup
         run: |
-              for i in {1..5}; do
-                response_code=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.STAGE_BASE_URL }}/health_check" --header 'x-stage-access: true')
-                if [ "$response_code" -eq 200 ]; then
-                  echo "Server is up!"
-                  break
-                fi
-                echo "Waiting for server..."
-                sleep 5
-              done
-              if [ "$response_code" -ne 200 ]; then
-                echo "Server did not start in time."
-                exit 1
-              fi
-        
+          for i in {1..5}; do
+            response_code=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGE_BASE_URL }}/health_check)
+            if [ "$response_code" -eq 200 ]; then
+              echo "Server is up!"
+              break
+            fi
+            echo "Waiting for server..."
+            sleep 5
+          done
+          if [ "$response_code" -ne 200 ]; then
+            echo "Server did not start in time."
+            exit 1
+          fi
+
+      - name: Delay for Security Mode Change
+        if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+        run: sleep 10 
+          
       - name: Health Check
         run: |
-              response_code=$(curl -s -w "%{http_code}" -o /tmp/health_response.json "${{ secrets.STAGE_BASE_URL }}/health_check" --header 'x-stage-access: true')
-              if [ "$response_code" -ne 200 ]; then
-                  echo "Health check failed with status $response_code"
-                  exit 1
-              else
-                  echo "Health check passed!"
-                  echo "Server Health Status:"
-                  cat /tmp/health_response.json | jq .
-              fi
+          response_code=$(curl -s -w "%{http_code}" -o /tmp/health_response.json ${{ secrets.STAGE_BASE_URL }}/health_check)
+          if [ "$response_code" -ne 200 ]; then
+              echo "Health check failed with status $response_code"
+              exit 1
+          else
+              echo "Health check passed!"
+              echo "Server Health Status:"
+              cat /tmp/health_response.json | jq .
+          fi
+
+      - name: Turn on Under Attack mode Cloudflare
+        if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+        run: |
+          curl --request PATCH \
+          --url https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/settings/security_level \
+          --header 'Authorization: Bearer ${{ secrets.API_KEY_CLOUDFLARE }}' \
+          --header 'Content-Type: application/json' \
+          --data '{"value": "'"${{ vars.CLOUDFLARE_SECURITY_MODE_LEVEL }}"'"}'
         
       - name: Cleanup
         run: rm -rf ~/.ssh
