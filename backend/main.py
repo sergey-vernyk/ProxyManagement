@@ -140,7 +140,7 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
     response_class=JSONResponse,
     operation_id="health-check",
     description="Check server connection availability.",
-    tags=["health-check"]
+    tags=["health-check"],
 )
 async def health_check(db: DatabaseDependency) -> JSONResponse:
     """
@@ -183,7 +183,7 @@ async def health_check(db: DatabaseDependency) -> JSONResponse:
             "database": db_status,
             "uptime": str(uptime),
             "version": app.version,
-            "environment": "staging",
+            "environment": settings.environment,
         },
         status.HTTP_200_OK,
     )

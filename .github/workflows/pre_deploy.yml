@@ -39,15 +39,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Connect to Server and Pull Changes
-        run: |
-          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} "
-            cd '${{ secrets.work_dir }}' || exit 1 &&
-            git remote set-url origin git@github.com:${{ github.repository }}.git &&
-            git checkout pre-deploy &&
-            git pull origin pre-deploy
-          "
-      
       - name: Pull Changes and Start Staging Server
         run: |
           cd ./backend/deploy_config
@@ -57,11 +48,11 @@ jobs:
       - name: Turn off Under Attack mode Cloudflare
         if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
         run: |
-          curl --request PATCH \
+          curl -s --request PATCH \
           --url https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/settings/security_level \
           --header 'Authorization: Bearer ${{ secrets.API_KEY_CLOUDFLARE }}' \
           --header 'Content-Type: application/json' \
-          --data '{"value": "'"${{ vars.CLOUDFLARE_SECURITY_MODE_LEVEL }}"'"}'
+          --data '{"value": "'"${{ vars.CLOUDFLARE_SECURITY_MODE_LEVEL }}"'"}' | jq
 
       - name: Wait for Server Startup
         run: |
@@ -92,17 +83,17 @@ jobs:
           else
               echo "Health check passed!"
               echo "Server Health Status:"
-              cat /tmp/health_response.json | jq .
+              cat /tmp/health_response.json | jq
           fi
 
       - name: Turn on Under Attack mode Cloudflare
         if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
         run: |
-          curl --request PATCH \
+          curl -s --request PATCH \
           --url https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/settings/security_level \
           --header 'Authorization: Bearer ${{ secrets.API_KEY_CLOUDFLARE }}' \
           --header 'Content-Type: application/json' \
-          --data '{"value": "under_attack"}'
+          --data '{"value": "under_attack"}' | jq
         
       - name: Cleanup
         run: rm -rf ~/.ssh

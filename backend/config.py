@@ -2,6 +2,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_ENV_PATH = Path(__file__).resolve().parent / ".env"
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
     """
 
     debug: bool
+    environment: str = Field(examples=["development", "staging", "production"], default="development")
     use_root_path: bool
     default_encoding: str
 
