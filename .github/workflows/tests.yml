@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - development
+      - deploy
   pull_request:
     branches:
       - development
+      - deploy
 
 permissions:
   contents: read
