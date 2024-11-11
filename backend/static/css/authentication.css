@@ -25,7 +25,7 @@ form {
 
 input[type="email"],
 input[type="password"] {
-    width: calc(100% - 20px);
+    width: 300px;
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -43,7 +43,7 @@ input[type="password"] {
 
 button {
     background-color: #2980b9;
-    width: 380px;
+    width: 300px;
     font-family: Georgia, 'Times New Roman', Times, serif, sans-serif;
     color: white;
     padding: 10px 20px;
@@ -67,4 +67,5 @@ button {
 
 #cloudflare-captcha {
     margin: 20px auto;
+    max-width: 300px;
 }

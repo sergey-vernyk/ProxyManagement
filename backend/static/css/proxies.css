@@ -1,13 +1,3 @@
-.container {
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-    max-width: 1000px;
-    width: 100%;
-    text-align: left;
-}
-
 .change-ip-container {
     text-align: center;
     margin-bottom: 10px;
@@ -38,7 +28,6 @@ h2 {
 .keyword {
     padding: 5px 0;
     overflow: hidden;
-    /* Clear floats */
 }
 
 .keyword .key {
