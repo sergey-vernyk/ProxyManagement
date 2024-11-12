@@ -38,11 +38,11 @@ input[type="password"] {
     font-size: 14px;
     margin-top: 5px;
     margin-left: 10px;
-    text-align: left;
+    text-align: center;
 }
 
 button {
-    background-color: #2980b9;;
+    background-color: #2980b9;
     width: 300px;
     font-family: Georgia, 'Times New Roman', Times, serif, sans-serif;
     color: white;
