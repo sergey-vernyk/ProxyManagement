@@ -73,9 +73,11 @@ $(document).ready(() => {
                     });
                 } else {
                     console.error("Captcha verification failed.");
+                    $("#cloudflare-captcha").css("border", "2px solid red");
                 }
             } catch (error) {
                 console.error(error);
+                $("#cloudflare-captcha").css("border", "2px solid red");
             }
         })();
     })

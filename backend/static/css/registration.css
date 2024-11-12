@@ -67,4 +67,5 @@ button:hover {
 
 #cloudflare-captcha {
     margin: 20px auto;
+    max-width: 300px;
 }
