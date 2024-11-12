@@ -1,13 +1,33 @@
-import VerifyCFCaptcha from "./verify_cf_captcha.js"
+import verifyCaptcha from "./verify_cf_captcha.js"
 
 $(document).ready(() => {
     const captchaVerifyUrl = $("#registration-form").data("captcha-verify-url");
     const cloudflareSiteKey = $("#sitekey").val();
     const idempotencyKey = crypto.randomUUID();
 
-    $("#register").prop("disabled", true);
+    let captchaToken = null;
 
-    VerifyCFCaptcha(captchaVerifyUrl, cloudflareSiteKey, "#register", idempotencyKey)
+    const captchaInit = () => {
+        window.onloadTurnstileCallback = () => {
+            turnstile.execute("#cloudflare-captcha", {
+                sitekey: cloudflareSiteKey,
+                callback: (token) => {
+                    captchaToken = token;
+                },
+                error: () => {
+                    captchaToken = null;
+                },
+                "expired-callback": () => {
+                    captchaToken = null;
+                },
+                "timeout-callback": () => {
+                    captchaToken = null;
+                }
+            });
+        };
+    }
+
+    captchaInit();
 
     $("#registration-form").on("submit", (event) => {
         event.preventDefault();
@@ -17,33 +37,48 @@ $(document).ready(() => {
         $("#password-error").text("");
         $("#email-error").text("");
 
-        $.ajax({
-            url: regUrl,
-            method: "POST",
-            dataType: "json",
-            contentType: "application/json",
-            data: JSON.stringify({
-                email: enteredEmail,
-                password: enteredPassword,
-            }),
-            success: (response, textStatus, xhr) => {
-                $("#reg-success").text(response["message"]);
-            },
-            error: (jqXHR, textStatus, errorThrown) => {
-                if (jqXHR.status === 422) {
-                    $("#password-error").text(`${jqXHR.responseJSON.detail[0].msg}.`);
-                }
+        captchaInit();
 
-                if (jqXHR.status === 400) {
-                    if (jqXHR.responseJSON.detail["email_invalid"] !== undefined) {
-                        $("#email-error").text(jqXHR.responseJSON.detail["email_invalid"])
-                    }
+        (async () => {
+            try {
+                const isVerified = await verifyCaptcha(captchaVerifyUrl, captchaToken, idempotencyKey);
+                if (isVerified) {
+                    $.ajax({
+                        url: regUrl,
+                        method: "POST",
+                        dataType: "json",
+                        contentType: "application/json",
+                        data: JSON.stringify({
+                            email: enteredEmail,
+                            password: enteredPassword,
+                        }),
+                        success: (response, textStatus, xhr) => {
+                            $("#reg-success").text(response["message"]);
+                        },
+                        error: (jqXHR, textStatus, errorThrown) => {
+                            if (jqXHR.status === 422) {
+                                $("#password-error").text(`${jqXHR.responseJSON.detail[0].msg}.`);
+                            }
 
-                    if (jqXHR.responseJSON.detail["user_exists"] !== undefined) {
-                        $("#email-error").text(jqXHR.responseJSON.detail["user_exists"])
-                    }
+                            if (jqXHR.status === 400) {
+                                if (jqXHR.responseJSON.detail["email_invalid"] !== undefined) {
+                                    $("#email-error").text(jqXHR.responseJSON.detail["email_invalid"])
+                                }
+
+                                if (jqXHR.responseJSON.detail["user_exists"] !== undefined) {
+                                    $("#email-error").text(jqXHR.responseJSON.detail["user_exists"])
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    console.error("Captcha verification failed.");
+                    $("#cloudflare-captcha").css("border", "2px solid red");
                 }
+            } catch (error) {
+                console.error(error);
+                $("#cloudflare-captcha").css("border", "2px solid red");
             }
-        });
+        })();
     })
 })

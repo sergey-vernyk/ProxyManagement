@@ -77,9 +77,9 @@ class CloudflareCaptcha(BaseModel):
     captcha token from frontend.
     """
 
-    token: str = Field(
+    token: str | None = Field(
         max_length=2048,
         description="Token that received from response after the Cloudflare challenge has been solved. "
-        "This token must be validated against our siteverify endpoint.",
+        "This token must be validated against siteverify endpoint.",
     )
     idempotency_key: str = Field(description="The UUID to be associated with the response.")
