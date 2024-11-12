@@ -1,25 +1,20 @@
 /**
- * Verifies Cloudflare CAPTCHA token and enables a button upon successful verification.
+ * Verifies the CAPTCHA response by sending the token and idempotency key to the backend.
+ * 
+ * This function sends an AJAX POST request to the provided `verifyUrl` to validate
+ * the CAPTCHA token. If the response from the server indicates success, the promise
+ * resolves to `true`. If the verification fails or there is an error, it resolves to
+ * `false` or rejects with the error message.
  *
- * @param {string} verifyUrl - The URL endpoint to send the CAPTCHA token for backend verification.
- * @param {string} sitekey - The Cloudflare site key required for CAPTCHA rendering and execution.
- * @param {string} buttonToDisable - The selector for the button element to enable/disable based on CAPTCHA status.
- * @param {string} idempotencyKey - A unique identifier to prevent duplicate CAPTCHA verifications for the same request.
- *
- * This function uses Cloudflare's CAPTCHA widget to generate a token on client-side, then sends the token to the
- * specified backend verification endpoint. Upon successful token verification, the specified button is enabled.
- *
- * - `callback`: Triggered when CAPTCHA is completed, sending the token to the backend for verification.
- * - `error`: Logs an error if an issue occurs with CAPTCHA execution.
- * - `expired-callback` & `timeout-callback`: Triggered when the CAPTCHA token expires or times out, disabling the specified button.
- *
- * @returns {void}
+ * @param {string} verifyUrl - The URL of the backend endpoint for CAPTCHA verification.
+ * @param {string} token - The CAPTCHA response token to be verified.
+ * @param {string} idempotencyKey - The idempotency key for the request.
+ * 
+ * @returns {Promise<boolean>} - A promise that resolves with `true` if verification
+ *   is successful, `false` if unsuccessful, or rejects with the error if the request fails.
  */
-
-const VerifyCFCaptcha = (verifyUrl, sitekey, buttonToDisable, idempotencyKey) => {
-    // sends token from CF response to backend endpoint
-    // in order to verify the token and proceed auth process
-    const callback = (token) => {
+const verifyCaptcha = (verifyUrl, token, idempotencyKey) => {
+    return new Promise((resolve, reject) => {
         $.ajax({
             url: verifyUrl,
             method: "POST",
@@ -28,33 +23,20 @@ const VerifyCFCaptcha = (verifyUrl, sitekey, buttonToDisable, idempotencyKey) =>
                 token: token,
                 idempotency_key: idempotencyKey
             }),
-            success: (response) => {
-                const verificationResult = response.message;
-                if (verificationResult === "success") {
-                    $(`${buttonToDisable}`).prop("disabled", false);
+            success: (response, textStatus, xhr) => {
+                if (xhr.status === 200) {
+                    resolve(true);
+                } else {
+                    resolve(false);
                 }
             },
-            error: (xhr, status, error) => {
-                console.log("Verification error:", error);
+            error: (jqXHR, textStatus, errorThrown) => {
+                if (jqXHR.status == 400) {
+                    reject(errorThrown);
+                }
             },
         });
-    };
+    });
+};
 
-    window.onloadTurnstileCallback = () => {
-        turnstile.execute("#cloudflare-captcha", {
-            sitekey: sitekey,
-            callback: callback,
-            error: () => {
-                console.log("Some error occurred.");
-            },
-            "expired-callback": () => {
-                $(`${buttonToDisable}`).prop("disabled", true);
-            },
-            "timeout-callback": () => {
-                $(`${buttonToDisable}`).prop("disabled", true);
-            }
-        });
-    };
-}
-
-export default VerifyCFCaptcha
+export default verifyCaptcha

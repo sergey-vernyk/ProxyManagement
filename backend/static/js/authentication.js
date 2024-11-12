@@ -1,13 +1,33 @@
-import VerifyCFCaptcha from "./verify_cf_captcha.js"
+import verifyCaptcha from "./verify_cf_captcha.js"
 
 $(document).ready(() => {
     const captchaVerifyUrl = $("#authentication-form").data("captcha-verify-url");
     const cloudflareSiteKey = $("#sitekey").val();
     const idempotencyKey = crypto.randomUUID();
 
-    $("#signin").prop("disabled", true);
+    let captchaToken = null;
 
-    VerifyCFCaptcha(captchaVerifyUrl, cloudflareSiteKey, "#signin", idempotencyKey)
+    const captchaInit = () => {
+        window.onloadTurnstileCallback = () => {
+            turnstile.execute("#cloudflare-captcha", {
+                sitekey: cloudflareSiteKey,
+                callback: (token) => {
+                    captchaToken = token;
+                },
+                error: () => {
+                    captchaToken = null;
+                },
+                "expired-callback": () => {
+                    captchaToken = null;
+                },
+                "timeout-callback": () => {
+                    captchaToken = null;
+                }
+            });
+        };
+    }
+
+    captchaInit();
 
     $("#google-oauth").on("click", () => {
         const googleLoginUrl = $("#authentication-form").data("google-login-url");
@@ -22,41 +42,54 @@ $(document).ready(() => {
         $("#password-error").text("");
         $("#email-error").text("");
 
-        $.ajax({
-            url: basicLoginUrl,
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded"
-            },
-            data: new URLSearchParams({
-                "email": enteredEmail,
-                "password": enteredPassword,
-            }).toString(),
-            success: (response, textStatus, xhr) => {
-                // Redirect the user after the cookie is set
-                window.location.href = response.redirect_url;
-            },
-            error: (jqXHR, textStatus, errorThrown) => {
-                if (jqXHR.status === 422) {
-                    $("#password-error").text(`${jqXHR.responseJSON.detail[0].msg}.`);
-                }
+        captchaInit();
 
-                if (jqXHR.status === 400) {
-                    if (jqXHR.responseJSON.detail["email_invalid"] !== undefined) {
-                        $("#email-error").text(jqXHR.responseJSON.detail["email_invalid"])
-                    }
+        (async () => {
+            try {
+                const isVerified = await verifyCaptcha(captchaVerifyUrl, captchaToken, idempotencyKey);
+                if (isVerified) {
+                    $.ajax({
+                        url: basicLoginUrl,
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded"
+                        },
+                        data: new URLSearchParams({
+                            "email": enteredEmail,
+                            "password": enteredPassword,
+                        }).toString(),
+                        success: (response, textStatus, xhr) => {
+                            // Redirect the user after the cookie is set
+                            window.location.href = response.redirect_url;
+                        },
+                        error: (jqXHR, textStatus, errorThrown) => {
+                            if (jqXHR.status === 422) {
+                                $("#password-error").text(`${jqXHR.responseJSON.detail[0].msg}.`);
+                            }
 
-                    if (jqXHR.responseJSON.detail["incorrect_email_or_password"] !== undefined) {
-                        $("#password-error").text(jqXHR.responseJSON.detail["incorrect_email_or_password"])
-                    }
-                }
+                            if (jqXHR.status === 400) {
+                                if (jqXHR.responseJSON.detail["email_invalid"] !== undefined) {
+                                    $("#email-error").text(jqXHR.responseJSON.detail["email_invalid"])
+                                }
 
-                if (jqXHR.status === 404) {
-                    if (jqXHR.responseJSON.detail["user_not_exists"] !== undefined) {
-                        $("#email-error").text(jqXHR.responseJSON.detail["user_not_exists"])
-                    }
+                                if (jqXHR.responseJSON.detail["incorrect_email_or_password"] !== undefined) {
+                                    $("#password-error").text(jqXHR.responseJSON.detail["incorrect_email_or_password"])
+                                }
+                            }
+
+                            if (jqXHR.status === 404) {
+                                if (jqXHR.responseJSON.detail["user_not_exists"] !== undefined) {
+                                    $("#email-error").text(jqXHR.responseJSON.detail["user_not_exists"])
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    console.error("Captcha verification failed.");
                 }
+            } catch (error) {
+                console.error(error);
             }
-        });
+        })();
     })
 });
