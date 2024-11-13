@@ -48,6 +48,7 @@ $(document).ready(() => {
             try {
                 const isVerified = await verifyCaptcha(captchaVerifyUrl, captchaToken, idempotencyKey);
                 if (isVerified) {
+                    $("#cloudflare-captcha").css("border", "");
                     $.ajax({
                         url: basicLoginUrl,
                         method: "POST",
