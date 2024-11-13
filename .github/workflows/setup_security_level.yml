@@ -1,0 +1,41 @@
+name: Setup Cloudflare Security Level
+
+on:
+  workflow_call:
+    inputs:
+      security_action:
+        type: string
+        description: "Action to perform on Cloudflare security level (enable or disable)."
+        required: true
+      security_level:
+        type: string
+        description: "Security level to set when disabling Under Attack mode."
+        required: true
+    secrets:
+      cloudflare_zone_id:
+        description: "Cloudflare domain zone ID."
+        required: true
+      api_key_cloudflare:
+        description: "API key used for authorization to Cloudflare API."
+        required: true
+
+jobs:
+  set-security-level:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure Cloudflare Security Level
+        run: |
+          if [[ "${{ inputs.security_action }}" == "enable" ]]; then
+            curl -s --request PATCH \
+              --url https://api.cloudflare.com/client/v4/zones/${{ secrets.cloudflare_zone_id }}/settings/security_level \
+              --header "Authorization: Bearer ${{ secrets.api_key_cloudflare }}" \
+              --header "Content-Type: application/json" \
+              --data '{"value": "under_attack"}' | jq
+          else
+            curl -s --request PATCH \
+              --url https://api.cloudflare.com/client/v4/zones/${{ secrets.cloudflare_zone_id }}/settings/security_level \
+              --header "Authorization: Bearer ${{ secrets.api_key_cloudflare }}" \
+              --header "Content-Type: application/json" \
+              --data '{"value": "'"${{ inputs.security_level }}"'"}' | jq
+          fi

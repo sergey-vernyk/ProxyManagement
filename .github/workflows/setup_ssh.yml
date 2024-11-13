@@ -1,4 +1,4 @@
-name: SSH Setup and Pull Changes
+name: SSH Setup 
 
 on:
   workflow_call:
