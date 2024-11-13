@@ -2,10 +2,15 @@ name: Setup Cloudflare Security Level
 description: An action for Cloudflare security management.
 
 inputs:
-    security_level:
-      description: "Security level to set (essentially_off, low, medium, high, under_attack)"
-      required: true
-      default: medium
+  security_level:
+    description: "Security level to set (essentially_off, low, medium, high, under_attack)"
+    required: true
+    default: medium
+  cloudflare_zone_id:
+    description: "Cloudflare domain zone ID."
+    required: true
+  api_key_cloudflare:
+    description: "Cloudflare API key for accessing to the API."
 
 runs:
   using: composite
@@ -14,7 +19,7 @@ runs:
       shell: bash
       run: |
         curl -s --request PATCH \
-          --url https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/settings/security_level \
-          --header "Authorization: Bearer ${{ secrets.API_KEY_CLOUDFLARE }}" \
+          --url https://api.cloudflare.com/client/v4/zones/${{ inputs.cloudflare_zone_id }}/settings/security_level \
+          --header "Authorization: Bearer ${{ inputs.api_key_cloudflare }}" \
           --header "Content-Type: application/json" \
           --data '{"value": "'"${{ inputs.security_level }}"'"}' | jq

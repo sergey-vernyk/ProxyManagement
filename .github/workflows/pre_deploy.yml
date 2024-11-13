@@ -59,6 +59,8 @@ jobs:
         uses: ./.github/actions/setup_cloudflare_security
         with:
           security_level: medium
+          cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          api_key_cloudflare: ${{ secrets.API_KEY_CLOUDFLARE }}
 
       - name: Wait for Server Startup
         run: |
@@ -97,6 +99,8 @@ jobs:
         uses: ./.github/actions/setup_cloudflare_security
         with:
             security_level: under_attack
+            cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+            api_key_cloudflare: ${{ secrets.API_KEY_CLOUDFLARE }}
 
       # - name: Turn on Under Attack mode Cloudflare
       #   if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
