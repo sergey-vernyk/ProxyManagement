@@ -64,10 +64,6 @@ jobs:
         cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
         api_key_cloudflare: ${{ secrets.API_KEY_CLOUDFLARE }}
 
-    - name: Delay for Security Mode Change
-      if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
-      run: sleep 10
-
     - name: Restart Gunicorn
       run: |
         ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
@@ -77,6 +73,10 @@ jobs:
           chmod 755 gunicorn_actions_after_deploy.sh && 
           ./gunicorn_actions_after_deploy.sh '${{ env.SUPERVISOR_PROGRAM_NAME }}' || exit 1
         "
+
+    - name: Delay for Security Mode Change
+      if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+      run: sleep 10
 
     - name: Health Check
       run: |
