@@ -56,7 +56,6 @@ class EmailSender(ABC):
             to_addrs (Sequence[str] | str): A list of recipient email addresses or a single recipient email address.
             message (MIMEMultipart): The email message to be sent.
         """
-        raise NotImplementedError
 
 
 class SMTPEmailSender(EmailSender):

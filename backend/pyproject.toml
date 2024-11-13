@@ -28,6 +28,15 @@ include = [
     "README.md",
 ]
 
+[tool.coverage.report]
+skip_empty = true
+sort = "-cover"
+exclude_lines = ["@abstractmethod"]
+
+[tool.coverage.run]
+branch = true
+omit = ["*/migrations/*", "*/tests/*"]
+
 [tool.poetry.dependencies]
 python = "^3.10"
 python-dotenv = "^1.0.1"

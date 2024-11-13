@@ -72,7 +72,7 @@ def client(db: Session) -> Generator[Any, Any, None]:  # pylint: disable=W0621
     """
     app.dependency_overrides[get_db] = lambda: db
 
-    with TestClient(app=app, base_url="http://test/") as c:
+    with TestClient(app=app, base_url="http://test:8000/") as c:
         yield c
 
     c.close()
@@ -107,7 +107,9 @@ def regular_user(db: Session) -> Generator[models.User, Any, None]:  # pylint: d
     user = models.User(
         **user_schema.model_dump(exclude={"password"}),
         hashed_password=get_password_hash(user_schema.password),
+        token="87jbiADAKZ1P6dfgJIAFF39zeYHUGY0p",
     )
+
     db.add(user)
     db.commit()
     db.refresh(user)
