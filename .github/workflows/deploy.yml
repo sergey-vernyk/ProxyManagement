@@ -56,6 +56,18 @@ jobs:
           exit
         "
 
+    - name: Disable Cloudflare Under Attack Mode
+      if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+      uses: ./.github/actions/setup_cloudflare_security
+      with:
+        security_level: medium
+        cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        api_key_cloudflare: ${{ secrets.API_KEY_CLOUDFLARE }}
+
+    - name: Delay for Security Mode Change
+      if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+      run: sleep 10
+
     - name: Restart Gunicorn
       run: |
         ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
@@ -65,6 +77,26 @@ jobs:
           chmod 755 gunicorn_actions_after_deploy.sh && 
           ./gunicorn_actions_after_deploy.sh '${{ env.SUPERVISOR_PROGRAM_NAME }}' || exit 1
         "
+
+    - name: Health Check
+      run: |
+        response_code=$(curl -s -w "%{http_code}" -o /tmp/production_health_response.json ${{ secrets.PRODUCTION_BASE_URL }}/health_check)
+        if [ "$response_code" -ne 200 ]; then
+            echo "Health check failed with status $response_code"
+            exit 1
+        else
+            echo "Health check passed!"
+            echo "Server Health Status:"
+            cat /tmp/production_health_response.json | jq
+        fi
+
+    - name: Enable Cloudflare Under Attack Mode
+      if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+      uses: ./.github/actions/setup_cloudflare_security
+      with:
+          security_level: under_attack
+          cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          api_key_cloudflare: ${{ secrets.API_KEY_CLOUDFLARE }}
 
     - name: Cleanup
       run: rm -rf ~/.ssh
