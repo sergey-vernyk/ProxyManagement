@@ -1,10 +1,14 @@
 from base64 import urlsafe_b64encode
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import httpx
 import pytest
+import security
 from auth import schemas
+from auth.otp import utils
+from auth.otp.models import OTP
 from config import get_settings
 from conftest import REGULAR_USER_DATA
 from fastapi import BackgroundTasks, Request, status
@@ -14,9 +18,9 @@ from pytest import MonkeyPatch
 from sqlalchemy.orm import Session
 from users.models import User
 
-from ..schemas import RegisterUser
+from ..schemas import EnteredCheckOTP, RegisterUser
 from .mocks import (MockBackgroundTasks, MockHttpXAsyncClient, MockRequest,
-                    mock_send_otp_email_handler)
+                    mock_generate_random_otp, mock_send_otp_email_handler)
 
 settings = get_settings()
 dir_path = Path(__file__).parent.absolute()
@@ -381,3 +385,97 @@ class TestUserAccountActions:
         response = client.post("/auth/reset_password_confirm", json=data.model_dump())
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json() == {"detail": "Password reset link is invalid."}
+
+    def test_compare_otp_codes_success(
+        self,
+        client: TestClient,
+        db: Session,
+        monkeypatch: MonkeyPatch,
+        regular_user: User,
+        mock_build_ip_address_for_log: MonkeyPatch,
+    ) -> None:
+        assert regular_user.is_verified is False
+        monkeypatch.setattr(utils, "generate_random_otp", mock_generate_random_otp)
+        utils.create_otp(db, int(regular_user.id))  # type: ignore
+        hashed_entered_otp = security.generate_hashed_otp(mock_generate_random_otp())
+
+        assert db.query(OTP).filter(OTP.code == hashed_entered_otp).first() is not None
+
+        opt_schema = EnteredCheckOTP(
+            entered_otp=mock_generate_random_otp(),
+            uid=urlsafe_b64encode(str(regular_user.id).encode(settings.default_encoding)).decode(
+                settings.default_encoding
+            ),
+            token=str(regular_user.token),
+        )
+
+        response = client.post("/auth/compare_codes/", json=opt_schema.model_dump())
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"success": "The code you entered is correct. Email has been verified."}
+        assert regular_user.is_verified is True
+        assert db.query(OTP).filter(OTP.code == hashed_entered_otp).first() is None
+
+    def test_compare_otp_entered_code_incorrect(
+        self,
+        client: TestClient,
+        db: Session,
+        monkeypatch: MonkeyPatch,
+        regular_user: User,
+        mock_build_ip_address_for_log: MonkeyPatch,
+    ) -> None:
+        assert regular_user.is_verified is False
+        monkeypatch.setattr(utils, "generate_random_otp", mock_generate_random_otp)
+        utils.create_otp(db, int(regular_user.id))  # type: ignore
+        hashed_entered_otp = security.generate_hashed_otp(mock_generate_random_otp())
+
+        assert db.query(OTP).filter(OTP.code == hashed_entered_otp).first() is not None
+
+        invalid_random_otp = "".join(list(reversed(mock_generate_random_otp())))  # !just reverse OTP
+        opt_schema = EnteredCheckOTP(
+            entered_otp=invalid_random_otp,
+            uid=urlsafe_b64encode(str(regular_user.id).encode(settings.default_encoding)).decode(
+                settings.default_encoding
+            ),
+            token=str(regular_user.token),
+        )
+
+        response = client.post("/auth/compare_codes/", json=opt_schema.model_dump())
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"error": "The code you entered is incorrect."}
+        assert regular_user.is_verified is False  # user is still unverified
+        assert db.query(OTP).filter(OTP.code == hashed_entered_otp).first() is not None  # OTP is still exists in DB.
+
+    def test_compare_otp_entered_code_expired(
+        self,
+        client: TestClient,
+        db: Session,
+        monkeypatch: MonkeyPatch,
+        regular_user: User,
+        mock_build_ip_address_for_log: MonkeyPatch,
+    ) -> None:
+        assert regular_user.is_verified is False
+        monkeypatch.setattr(utils, "generate_random_otp", mock_generate_random_otp)
+        utils.create_otp(db, int(regular_user.id))  # type: ignore
+        hashed_entered_otp = security.generate_hashed_otp(mock_generate_random_otp())
+
+        db_code = db.query(OTP).filter(OTP.code == hashed_entered_otp).first()
+        assert db_code is not None
+
+        # make otp expired
+        setattr(db_code, "expires_at", datetime.now() - timedelta(hours=1))
+        db.commit()
+        db.refresh(db_code)
+
+        opt_schema = EnteredCheckOTP(
+            entered_otp=mock_generate_random_otp(),
+            uid=urlsafe_b64encode(str(regular_user.id).encode(settings.default_encoding)).decode(
+                settings.default_encoding
+            ),
+            token=str(regular_user.token),
+        )
+
+        response = client.post("/auth/compare_codes/", json=opt_schema.model_dump())
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"error": "Code is expired."}
+        assert regular_user.is_verified is False  # user is still unverified
+        assert db.query(OTP).filter(OTP.code == hashed_entered_otp).first() is None

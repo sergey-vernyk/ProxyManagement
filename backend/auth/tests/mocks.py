@@ -76,3 +76,7 @@ class MockBackgroundTasks:
     ) -> None:
         self.context = context
         return None
+
+
+def mock_generate_random_otp(length: int = 8) -> str:
+    return "12345678"
