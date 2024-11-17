@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Callable
 
 import httpx
@@ -16,7 +17,7 @@ class MockRequest:
 
 class MockHttpXAsyncClient:
     @staticmethod
-    async def mock_post(*args, **kwargs) -> httpx.Response:
+    async def mock_post_google_login_success(*args, **kwargs) -> httpx.Response:
         request = httpx.Request("POST", "http://testserver/some_endpoint")
         return httpx.Response(
             status_code=status.HTTP_200_OK,
@@ -41,6 +42,31 @@ class MockHttpXAsyncClient:
         )
 
     @staticmethod
+    async def mock_post_verify_cloudflare_captcha_success(*args, **kwargs) -> httpx.Response:
+        request = httpx.Request("POST", "http://testserver/some_endpoint")
+        return httpx.Response(
+            status_code=status.HTTP_200_OK,
+            json={
+                "success": True,
+                "error_codes": [],
+                "challenge_ts": datetime(year=2024, month=11, day=15, hour=8, minute=45, second=0).strftime(
+                    "%Y-%m-%d %H:%M:%S.%"
+                ),
+                "hostname": "example.com",
+            },
+            request=request,
+        )
+
+    @staticmethod
+    async def mock_post_verify_cloudflare_captcha_error(*args, **kwargs) -> httpx.Response:
+        request = httpx.Request("POST", "http://testserver/some_endpoint")
+        return httpx.Response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            json={"success": False, "error-codes": ["invalid-input-response"]},
+            request=request,
+        )
+
+    @staticmethod
     async def mock_post_no_id_token(*args, **kwargs) -> httpx.Response:
         request = httpx.Request("POST", "http://testserver/some_endpoint")
         return httpx.Response(
@@ -53,7 +79,7 @@ class MockHttpXAsyncClient:
         )
 
     @staticmethod
-    async def mock_get(*args, **kwargs) -> httpx.Response:
+    async def mock_get_google_login_success(*args, **kwargs) -> httpx.Response:
         request = httpx.Request("GET", "http://testserver/some_endpoint")
         return httpx.Response(
             status_code=status.HTTP_200_OK,

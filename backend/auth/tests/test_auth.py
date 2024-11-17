@@ -109,8 +109,8 @@ class TestGoogleAuth:
     def test_google_login_success(
         self, client: TestClient, db: Session, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post)
-        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get)
+        monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_google_login_success)
+        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get_google_login_success)
         monkeypatch.setattr(Request, "query_params", MockRequest.query_params)
 
         response = client.get("/auth/callback", follow_redirects=False)
@@ -145,8 +145,8 @@ class TestGoogleAuth:
     def test_google_login_authorization_code_not_provided(
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post)
-        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get)
+        monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_google_login_success)
+        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get_google_login_success)
         monkeypatch.setattr(Request, "query_params", {})
 
         response = client.get("/auth/callback", follow_redirects=False)
@@ -157,7 +157,7 @@ class TestGoogleAuth:
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
         monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_no_access_token)
-        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get)
+        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get_google_login_success)
         monkeypatch.setattr(Request, "query_params", MockRequest.query_params)
 
         response = client.get("/auth/callback", follow_redirects=False)
@@ -168,7 +168,7 @@ class TestGoogleAuth:
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
         monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_no_id_token)
-        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get)
+        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get_google_login_success)
         monkeypatch.setattr(Request, "query_params", MockRequest.query_params)
 
         response = client.get("/auth/callback", follow_redirects=False)
@@ -479,3 +479,24 @@ class TestUserAccountActions:
         assert response.json() == {"error": "Code is expired."}
         assert regular_user.is_verified is False  # user is still unverified
         assert db.query(OTP).filter(OTP.code == hashed_entered_otp).first() is None
+
+
+def test_verify_cloudflare_captcha_success(
+    client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
+) -> None:
+    monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_verify_cloudflare_captcha_success)
+
+    captcha_schema = schemas.CloudflareCaptcha(token="some_token", idempotency_key="some_key")
+    response = client.post("/auth/verify_captcha", json=captcha_schema.model_dump())
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"message": "Success"}
+
+
+def test_verify_cloudflare_captcha_token_not_provided(
+    client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
+) -> None:
+    monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_verify_cloudflare_captcha_error)
+    captcha_schema = schemas.CloudflareCaptcha(token=None, idempotency_key="some_key")
+    response = client.post("/auth/verify_captcha", json=captcha_schema.model_dump())
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json() == {"message": "Error", "error-codes": ["invalid-input-response"]}

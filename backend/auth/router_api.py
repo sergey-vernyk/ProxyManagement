@@ -743,12 +743,6 @@ async def verify_cloudflare_captcha(request: Request, data: schemas.CloudflareCa
             was successful or failed. If successful, it returns a success message.
             If verification fails, it returns an error message with error codes.
     """
-    if data.token is None:
-        return JSONResponse(
-            {"message": "Cloudflare reCaptcha token is not provided."},
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
-
     cloudflare_siteverify_endpoint = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
     async with httpx.AsyncClient() as client:
@@ -758,12 +752,15 @@ async def verify_cloudflare_captcha(request: Request, data: schemas.CloudflareCa
                 "secret": settings.cloudflare_turnstile_secret_key,
                 "response": data.token,
                 "idempotency_key": data.idempotency_key,
-                "remoteip": request.headers.get("CF-Connecting-IP", ""),
+                "remoteip": (
+                    request.headers.get("CF-Connecting-IP", "") or request.client.host
+                    if request.client is not None
+                    else ""
+                ),
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
 
-        response.raise_for_status()
         response_data: dict[Any, Any] = response.json()
 
         if response_data.get("success"):
@@ -771,5 +768,5 @@ async def verify_cloudflare_captcha(request: Request, data: schemas.CloudflareCa
 
         return JSONResponse(
             {"message": "Error", "error-codes": response_data.get("error-codes")},
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status.HTTP_400_BAD_REQUEST,
         )
