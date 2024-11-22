@@ -51,10 +51,8 @@ jobs:
             | tr -d '[:space:]' \
             | cut -d '=' -f 2):6" | gpg --import-ownertrust
 
-        tar -xzf ssh_config.tar.gz.asc -C ~/.ssh
-
         gpg --decrypt ssh_config.tar.gz.asc > ssh_config.tar.gz
-        tar -xzf ssh_config.tar.gz.asc -C ~/.ssh
+        tar -xzf ssh_config.tar.gz -C ~/.ssh
 
         eval "$(ssh-agent -s)"
         ssh-add ~/.ssh/id_rsa
