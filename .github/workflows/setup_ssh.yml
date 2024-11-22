@@ -42,14 +42,18 @@ jobs:
       - name: Save SSH Configuration as Artifacts
         run: |
           tar -czf ssh_config.tar.gz -C ~/.ssh .
-          echo "${{ secrets.gh_artifacts_ghg_private }}" | gpg --import
-          echo "${{ secrets.gh_artifacts_ghg_pub }}" | gpg --import
+          cd ./backend/deploy_config
+          chmod 755 setup_gpg.sh
+          ./setup_gpg.sh ${{ secrets.gh_artifacts_ghg_private }} ${{ secrets.gh_artifacts_ghg_pub}} ${{ secrets.gpg_id }}
+          
+          # echo "${{ secrets.gh_artifacts_ghg_private }}" | gpg --import
+          # echo "${{ secrets.gh_artifacts_ghg_pub }}" | gpg --import
 
-          echo "$(gpg --list-keys --fingerprint \
-            | grep -B 1 '${{ secrets.gpg_id }}' \
-            | head -1 \
-            | tr -d '[:space:]' \
-            | cut -d '=' -f 2):6" | gpg --import-ownertrust
+          # echo "$(gpg --list-keys --fingerprint \
+          #   | grep -B 1 '${{ secrets.gpg_id }}' \
+          #   | head -1 \
+          #   | tr -d '[:space:]' \
+          #   | cut -d '=' -f 2):6" | gpg --import-ownertrust
 
           gpg --encrypt -r ${{ secrets.gpg_id }} -a ssh_config.tar.gz
 
