@@ -15,10 +15,10 @@ on:
       ssh_private_key:
         description: "Private SSH key for authentication"
         required: true
-      gh_artifacts_ghg_private:
+      gh_artifacts_gpg_private:
         description: Private key for GPG encryption/decryption.
         required: true
-      gh_artifacts_ghg_pub:
+      gh_artifacts_gpg_public:
         description: Public key fo GPG encryption/decryption.
         required: true
       gpg_id:
@@ -41,8 +41,8 @@ jobs:
       
       - name: Setup GPG
         run: |
-          echo "${{ secrets.gh_artifacts_ghg_private }}" | gpg --import
-          echo "${{ secrets.gh_artifacts_ghg_pub }}" | gpg --import
+          echo "${{ secrets.gh_artifacts_gpg_private }}" | gpg --import
+          echo "${{ secrets.gh_artifacts_gpg_public }}" | gpg --import
 
           echo "$(gpg --list-keys --fingerprint \
             | grep -B 1 '${{ secrets.gpg_id }}' \
