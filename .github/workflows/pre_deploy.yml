@@ -42,7 +42,7 @@ jobs:
             | grep -B 1 '${{ secrets.GPG_ID }}' \
             | head -1 \
             | tr -d '[:space:]' \
-            | cut -d '=' -f 2)":6 \
+            | cut -d '=' -f 2):6" \
             | gpg --import-ownertrust
 
           tar -xzf ssh_config.tar.gz.asc -C ~/.ssh

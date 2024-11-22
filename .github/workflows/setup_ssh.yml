@@ -49,7 +49,7 @@ jobs:
             | grep -B 1 '${{ secrets.gpg_id }}' \
             | head -1 \
             | tr -d '[:space:]' \
-            | cut -d '=' -f 2)":6 \ 
+            | cut -d '=' -f 2):6" \ 
             | gpg --import-ownertrust
 
           gpg --encrypt -r ${{ secrets.gpg_id }} -a ssh_config.tar.gz
