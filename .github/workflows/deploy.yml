@@ -39,7 +39,21 @@ jobs:
     - name: Restore SSH Config
       run: |
         mkdir -p ~/.ssh
-        tar -xzf ssh_config.tar.gz -C ~/.ssh
+        echo "${{ secrets.GH_ARTIFACTS_GHG_PRIVATE }}" | gpg --import
+        echo "${{ secrets.GH_ARTIFACTS_GHG_PUB }}" | gpg --import
+
+        gpg --list-keys --fingerprint \
+          | grep -B 1 '${{ secrets.GPG_ID }}' \
+          | head -1 \
+          | tr -d '[:space:]' \
+          | cut -d '=' -f 2 \
+          | gpg --import-ownertrust
+
+        tar -xzf ssh_config.tar.gz.asc -C ~/.ssh
+
+        gpg --decrypt ssh_config.tar.gz.asc > ssh_config.tar.gz
+        tar -xzf ssh_config.tar.gz.asc -C ~/.ssh
+
         eval "$(ssh-agent -s)"
         ssh-add ~/.ssh/id_rsa
 

@@ -33,10 +33,21 @@ jobs:
       - name: Save SSH Configuration as Artifacts
         run: |
           tar -czf ssh_config.tar.gz -C ~/.ssh .
+          echo "${{ secrets.GH_ARTIFACTS_GHG_PRIVATE }}" | gpg --import
+          echo "${{ secrets.GH_ARTIFACTS_GHG_PUB }}" | gpg --import
+
+          gpg --list-keys --fingerprint \
+            | grep -B 1 '${{ secrets.GPG_ID }}' \
+            | head -1 \
+            | tr -d '[:space:]' \
+            | cut -d '=' -f 2 \
+            | gpg --import-ownertrust
+
+          gpg --encrypt -r ${{ secrets.GPG_ID }} -a ssh_config.tar.gz
 
       - name: Upload SSH Config Artifact
         uses: actions/upload-artifact@v4
         with:
             name: ssh-config
-            path: ssh_config.tar.gz
+            path: ssh_config.tar.gz.asc
             if-no-files-found: error
