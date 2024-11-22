@@ -38,23 +38,21 @@ jobs:
           ssh-keyscan -H ${{ secrets.ssh_host }} >> ~/.ssh/known_hosts
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
+      
+      - name: Setup GPG
+        run: |
+          echo "${{ secrets.gh_artifacts_ghg_private }}" | gpg --import
+          echo "${{ secrets.gh_artifacts_ghg_pub }}" | gpg --import
+
+          echo "$(gpg --list-keys --fingerprint \
+            | grep -B 1 '${{ secrets.gpg_id }}' \
+            | head -1 \
+            | tr -d '[:space:]' \
+            | cut -d '=' -f 2):6" | gpg --import-ownertrust
  
       - name: Save SSH Configuration as Artifacts
         run: |
-          tar -czf ssh_config.tar.gz -C ~/.ssh .
-          cd ./backend/deploy_config
-          chmod 755 setup_gpg.sh
-          ./setup_gpg.sh ${{ secrets.gh_artifacts_ghg_private }} ${{ secrets.gh_artifacts_ghg_pub}} ${{ secrets.gpg_id }}
-          
-          # echo "${{ secrets.gh_artifacts_ghg_private }}" | gpg --import
-          # echo "${{ secrets.gh_artifacts_ghg_pub }}" | gpg --import
-
-          # echo "$(gpg --list-keys --fingerprint \
-          #   | grep -B 1 '${{ secrets.gpg_id }}' \
-          #   | head -1 \
-          #   | tr -d '[:space:]' \
-          #   | cut -d '=' -f 2):6" | gpg --import-ownertrust
-
+          tar -czf ssh_config.tar.gz -C ~/.ssh .          
           gpg --encrypt -r ${{ secrets.gpg_id }} -a ssh_config.tar.gz
 
       - name: Upload SSH Config Artifact
