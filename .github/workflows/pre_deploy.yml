@@ -17,6 +17,9 @@ jobs:
       ssh_host: ${{ secrets.SSH_HOST }}
       work_dir: ${{ secrets.WORK_DIR }}
       ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+      gh_artifacts_ghg_private: ${{ secrets.GH_ARTIFACTS_GHG_PRIVATE }}
+      gh_artifacts_ghg_pub: ${{ secrets.GH_ARTIFACTS_GHG_PUB }}
+      gpg_id: ${{ secrets.GPG_ID }}
 
   pre-deploy:
     needs: setup-ssh

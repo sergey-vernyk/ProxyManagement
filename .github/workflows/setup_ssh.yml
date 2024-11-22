@@ -15,7 +15,16 @@ on:
       ssh_private_key:
         description: "Private SSH key for authentication"
         required: true
-    
+      gh_artifacts_ghg_private:
+        description: Private key for GPG encryption/decryption.
+        required: true
+      gh_artifacts_ghg_pub:
+        description: Public key fo GPG encryption/decryption.
+        required: true
+      gpg_id:
+        description: GPG identifier for the key (email or ID).
+        required: true
+      
 jobs:
   ssh-setup:
     runs-on: ubuntu-latest
@@ -33,17 +42,17 @@ jobs:
       - name: Save SSH Configuration as Artifacts
         run: |
           tar -czf ssh_config.tar.gz -C ~/.ssh .
-          echo "${{ secrets.GH_ARTIFACTS_GHG_PRIVATE }}" | gpg --import
-          echo "${{ secrets.GH_ARTIFACTS_GHG_PUB }}" | gpg --import
+          echo "${{ secrets.gh_artifacts_ghg_private }}" | gpg --import
+          echo "${{ secrets.gh_artifacts_ghg_pub }}" | gpg --import
 
           gpg --list-keys --fingerprint \
-            | grep -B 1 '${{ secrets.GPG_ID }}' \
+            | grep -B 1 '${{ secrets.gpg_id }}' \
             | head -1 \
             | tr -d '[:space:]' \
             | cut -d '=' -f 2 \
             | gpg --import-ownertrust
 
-          gpg --encrypt -r ${{ secrets.GPG_ID }} -a ssh_config.tar.gz
+          gpg --encrypt -r ${{ secrets.gpg_id }} -a ssh_config.tar.gz
 
       - name: Upload SSH Config Artifact
         uses: actions/upload-artifact@v4
