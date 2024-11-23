@@ -15,7 +15,16 @@ on:
       ssh_private_key:
         description: "Private SSH key for authentication"
         required: true
-    
+      gh_artifacts_gpg_private:
+        description: Private key for GPG encryption/decryption.
+        required: true
+      gh_artifacts_gpg_public:
+        description: Public key fo GPG encryption/decryption.
+        required: true
+      gpg_id:
+        description: GPG identifier for the key (email or ID).
+        required: true
+      
 jobs:
   ssh-setup:
     runs-on: ubuntu-latest
@@ -29,14 +38,26 @@ jobs:
           ssh-keyscan -H ${{ secrets.ssh_host }} >> ~/.ssh/known_hosts
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
+      
+      - name: Setup GPG
+        run: |
+          echo "${{ secrets.gh_artifacts_gpg_private }}" | gpg --import
+          echo "${{ secrets.gh_artifacts_gpg_public }}" | gpg --import
+
+          echo "$(gpg --list-keys --fingerprint \
+            | grep -B 1 '${{ secrets.gpg_id }}' \
+            | head -1 \
+            | tr -d '[:space:]' \
+            | cut -d '=' -f 2):6" | gpg --import-ownertrust
  
       - name: Save SSH Configuration as Artifacts
         run: |
-          tar -czf ssh_config.tar.gz -C ~/.ssh .
+          tar -czf ssh_config.tar.gz -C ~/.ssh .          
+          gpg --encrypt -r ${{ secrets.gpg_id }} -a ssh_config.tar.gz
 
       - name: Upload SSH Config Artifact
         uses: actions/upload-artifact@v4
         with:
             name: ssh-config
-            path: ssh_config.tar.gz
+            path: ssh_config.tar.gz.asc
             if-no-files-found: error

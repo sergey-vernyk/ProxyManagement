@@ -23,6 +23,9 @@ jobs:
       ssh_host: ${{ secrets.SSH_HOST }}
       work_dir: ${{ secrets.WORK_DIR }}
       ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+      gh_artifacts_gpg_private: ${{ secrets.GH_ARTIFACTS_GPG_PRIVATE }}
+      gh_artifacts_gpg_public: ${{ secrets.GH_ARTIFACTS_GPG_PUBLIC }}
+      gpg_id: ${{ secrets.GPG_ID }}
       
   deploy:
     needs: setup-ssh
@@ -35,10 +38,22 @@ jobs:
       uses: actions/download-artifact@v4
       with:
           name: ssh-config
+
+    - name: Setup GPG
+      run: |
+        echo "${{ secrets.GH_ARTIFACTS_GPG_PRIVATE }}" | gpg --import
+        echo "${{ secrets.GH_ARTIFACTS_GPG_PUBLIC }}" | gpg --import
+
+        echo "$(gpg --list-keys --fingerprint \
+          | grep -B 1 '${{ secrets.GPG_ID }}' \
+          | head -1 \
+          | tr -d '[:space:]' \
+          | cut -d '=' -f 2):6" | gpg --import-ownertrust
           
     - name: Restore SSH Config
       run: |
         mkdir -p ~/.ssh
+        gpg --decrypt ssh_config.tar.gz.asc > ssh_config.tar.gz
         tar -xzf ssh_config.tar.gz -C ~/.ssh
         eval "$(ssh-agent -s)"
         ssh-add ~/.ssh/id_rsa
