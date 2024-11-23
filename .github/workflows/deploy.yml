@@ -11,9 +11,6 @@ on:
 
   workflow_dispatch:
 
-permissions:
-  contents: none 
-
 env:
   SUPERVISOR_PROGRAM_NAME: ${{ vars.SUPERVISOR_PROGRAM_NAME }}
 
