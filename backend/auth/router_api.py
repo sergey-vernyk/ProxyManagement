@@ -10,10 +10,8 @@ from auth.utils import delete_cookie, set_cookie
 from common.utils import build_full_endpoint_url, get_caller_info
 from config import get_settings
 from dependencies import CsrfVerifyDependency, DatabaseDependency
-from exceptions import (ClientRequestError, EntityDoesNotExistError,
-                        UserUnauthorizedError)
-from fastapi import (APIRouter, BackgroundTasks, Form, HTTPException, Request,
-                     status)
+from exceptions import ClientRequestError, EntityDoesNotExistError, UserUnauthorizedError
+from fastapi import APIRouter, BackgroundTasks, Form, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from google.auth.exceptions import GoogleAuthError
@@ -21,8 +19,7 @@ from google.auth.transport import requests
 from google.oauth2 import id_token
 from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import EmailStr
-from security import (generate_csrf_token, generate_hashed_otp,
-                      get_password_hash, verify_password)
+from security import generate_csrf_token, generate_hashed_otp, get_password_hash, verify_password
 from sqlalchemy import delete, update
 from users.crud import get_user_by_email
 from users.models import User
@@ -107,7 +104,6 @@ async def logout(request: Request) -> JSONResponse:
         200: {"description": "Successful"},
         401: {"description": "User not authorized via Google or token issuer is invalid"},
         400: {"description": "The token issuer is invalid."},
-        412: {"description": "Token issuer is not Google"},
     },
 )
 async def revoke_google_auth(request: Request) -> JSONResponse:
@@ -130,7 +126,6 @@ async def revoke_google_auth(request: Request) -> JSONResponse:
         UserUnauthorizedError: if the user is not authenticated via Google or
             the token issuer is invalid.
         ClientRequestError: if the token verification is fails.
-        HTTPException: if the token issuer is not Google.
     """
     google_access_token = request.cookies.get(settings.cookies_google_access_token)
     google_id_token = request.cookies.get(settings.cookies_key_jwt)
@@ -145,7 +140,7 @@ async def revoke_google_auth(request: Request) -> JSONResponse:
         )
 
     try:
-        id_token_info: dict[str, Any] = id_token.verify_oauth2_token(
+        id_token.verify_oauth2_token(
             google_id_token,
             requests.Request(),
             settings.google_client_id,
@@ -166,12 +161,6 @@ async def revoke_google_auth(request: Request) -> JSONResponse:
                 **get_caller_info(),
             },
         ) from e
-
-    if id_token_info.get("iss", "") and id_token_info["iss"] != "https://accounts.google.com":
-        raise HTTPException(
-            status.HTTP_412_PRECONDITION_FAILED,
-            "Token issuer is not Google.",
-        )
 
     async with httpx.AsyncClient() as client:
         google_response = await client.post(
@@ -249,7 +238,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         response.raise_for_status()
         token_data: dict[str, Any] = response.json()
         access_token: str = token_data.get("access_token", "")
-        id_token: str = token_data.get("id_token", "")
+        idtoken: str = token_data.get("id_token", "")
         if not access_token:
             raise ClientRequestError(
                 "No access token received.",
@@ -259,7 +248,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
                 },
             )
 
-        if not id_token:
+        if not idtoken:
             raise ClientRequestError(
                 "No ID token received.",
                 logger_extra_data={
@@ -280,7 +269,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
 
         response = RedirectResponse(str(request.url_for("index")))
         csrf_token = generate_csrf_token(n_bytes=settings.csrf_number_of_bytes)
-        set_cookie(response, settings.cookies_key_jwt, id_token, max_age=token_data["expires_in"])
+        set_cookie(response, settings.cookies_key_jwt, idtoken, max_age=token_data["expires_in"])
         set_cookie(response, settings.cookies_google_access_token, access_token, max_age=token_data["expires_in"])
         set_cookie(response, settings.cookies_key_csrf, value=csrf_token, http_only=False)
         return response
@@ -336,6 +325,15 @@ async def basic_login(
     if user is None:
         raise EntityDoesNotExistError(
             message={"user_not_exists": "User with the given email does not exist."},
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
+        )
+
+    if not bool(user.is_verified):
+        raise ClientRequestError(
+            {"user_not_verified": "User is not verified."},
             logger_extra_data={
                 **build_logger_extra_data(request),
                 **get_caller_info(),
@@ -743,12 +741,6 @@ async def verify_cloudflare_captcha(request: Request, data: schemas.CloudflareCa
             was successful or failed. If successful, it returns a success message.
             If verification fails, it returns an error message with error codes.
     """
-    if data.token is None:
-        return JSONResponse(
-            {"message": "Cloudflare reCaptcha token is not provided."},
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
-
     cloudflare_siteverify_endpoint = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
     async with httpx.AsyncClient() as client:
@@ -758,12 +750,15 @@ async def verify_cloudflare_captcha(request: Request, data: schemas.CloudflareCa
                 "secret": settings.cloudflare_turnstile_secret_key,
                 "response": data.token,
                 "idempotency_key": data.idempotency_key,
-                "remoteip": request.headers.get("CF-Connecting-IP", ""),
+                "remoteip": (
+                    request.headers.get("CF-Connecting-IP", "") or request.client.host
+                    if request.client is not None
+                    else ""
+                ),
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
 
-        response.raise_for_status()
         response_data: dict[Any, Any] = response.json()
 
         if response_data.get("success"):
@@ -771,5 +766,5 @@ async def verify_cloudflare_captcha(request: Request, data: schemas.CloudflareCa
 
         return JSONResponse(
             {"message": "Error", "error-codes": response_data.get("error-codes")},
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status.HTTP_400_BAD_REQUEST,
         )
