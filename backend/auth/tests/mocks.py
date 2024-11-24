@@ -25,20 +25,6 @@ class MockRequest:
         return {"code": "jnofnoosdpcenfpqcpqefq"}
 
 
-class MockRequestGoogleRevoke:
-    @property
-    def cookies_jwt(self) -> dict[str, str]:
-        return {
-            settings.cookies_google_access_token: "google_access_token",
-            settings.cookies_key_jwt: "access_token",
-            settings.cookies_key_csrf: "csrf_value",
-        }
-
-    @property
-    def cookies_only_csrf(self) -> dict[str, str]:
-        return {settings.cookies_key_csrf: "csrf_value"}
-
-
 class MockHttpXAsyncClient:
     @staticmethod
     async def mock_post_google_login_success(*args, **kwargs) -> httpx.Response:
@@ -103,11 +89,20 @@ class MockHttpXAsyncClient:
         )
 
     @staticmethod
-    async def mock_get_google_login_success(*args, **kwargs) -> httpx.Response:
+    async def mock_get_google_login_success_user_not_exists(*args, **kwargs) -> httpx.Response:
         request = httpx.Request("GET", "http://testserver/some_endpoint")
         return httpx.Response(
             status_code=status.HTTP_200_OK,
             json={"email": "john.smith@gmail.com"},
+            request=request,
+        )
+
+    @staticmethod
+    async def mock_get_google_login_success_user_exists(*args, **kwargs) -> httpx.Response:
+        request = httpx.Request("GET", "http://testserver/some_endpoint")
+        return httpx.Response(
+            status_code=status.HTTP_200_OK,
+            json={"email": "john.doe@gmail.com"},
             request=request,
         )
 
@@ -121,7 +116,7 @@ class MockHttpXAsyncClient:
 
 
 async def mock_send_otp_email_handler(
-    bg_tasks: BackgroundTasks, request: Request, token: str, db: DatabaseDependency
+    bg_tasks: BackgroundTasks, request: Request, token: str, db: DatabaseDependency, uid: str | None = None
 ) -> None:
     return None
 

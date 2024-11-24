@@ -1,6 +1,7 @@
 from base64 import urlsafe_b64encode
 from datetime import datetime, timedelta
 from pathlib import Path
+from secrets import token_urlsafe
 from urllib.parse import parse_qs, urlparse
 
 import google.oauth2
@@ -20,7 +21,7 @@ from pytest import MonkeyPatch
 from sqlalchemy.orm import Session
 from users.models import User
 
-from ..schemas import EnteredCheckOTP, RegisterUser
+from ..schemas import EnteredCheckOTP, RecheckOTPOnDemand, RegisterUser
 from . import mocks
 
 settings = get_settings()
@@ -107,17 +108,43 @@ class TestBasicAuth:
 
 
 class TestGoogleAuth:
-    def test_google_login_success(
+    def test_google_login_success_user_not_exists(
         self, client: TestClient, db: Session, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
         monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_google_login_success)
-        monkeypatch.setattr(httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success)
+        monkeypatch.setattr(
+            httpx.AsyncClient,
+            "get",
+            mocks.MockHttpXAsyncClient.mock_get_google_login_success_user_not_exists,
+        )
         monkeypatch.setattr(Request, "query_params", mocks.MockRequest.query_params)
 
         response = client.get("/auth/callback", follow_redirects=False)
         assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
         # check whether a user was created if they authorized via Google for the first time
         assert db.query(User).filter(User.email == "john.smith@gmail.com").first() is not None
+        assert response.headers["Location"] == str(client.base_url)
+        assert settings.cookies_key_jwt in response.cookies
+        assert settings.cookies_key_csrf in response.cookies
+        assert settings.cookies_google_access_token in response.cookies
+
+    def test_google_login_success_user_exists(
+        self,
+        client: TestClient,
+        regular_user: User,
+        monkeypatch: MonkeyPatch,
+        mock_build_ip_address_for_log: MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_google_login_success)
+        monkeypatch.setattr(
+            httpx.AsyncClient,
+            "get",
+            mocks.MockHttpXAsyncClient.mock_get_google_login_success_user_exists,
+        )
+        monkeypatch.setattr(Request, "query_params", mocks.MockRequest.query_params)
+
+        response = client.get("/auth/callback", follow_redirects=False)
+        assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
         assert response.headers["Location"] == str(client.base_url)
         assert settings.cookies_key_jwt in response.cookies
         assert settings.cookies_key_csrf in response.cookies
@@ -147,7 +174,9 @@ class TestGoogleAuth:
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
         monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_google_login_success)
-        monkeypatch.setattr(httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success)
+        monkeypatch.setattr(
+            httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success_user_not_exists
+        )
         monkeypatch.setattr(Request, "query_params", {})
 
         response = client.get("/auth/callback", follow_redirects=False)
@@ -158,7 +187,9 @@ class TestGoogleAuth:
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
         monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_no_access_token)
-        monkeypatch.setattr(httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success)
+        monkeypatch.setattr(
+            httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success_user_not_exists
+        )
         monkeypatch.setattr(Request, "query_params", mocks.MockRequest.query_params)
 
         response = client.get("/auth/callback", follow_redirects=False)
@@ -169,7 +200,9 @@ class TestGoogleAuth:
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
         monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_no_id_token)
-        monkeypatch.setattr(httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success)
+        monkeypatch.setattr(
+            httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success_user_not_exists
+        )
         monkeypatch.setattr(Request, "query_params", mocks.MockRequest.query_params)
 
         response = client.get("/auth/callback", follow_redirects=False)
@@ -179,11 +212,13 @@ class TestGoogleAuth:
     def test_revoke_google_auth_success(
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(Request, "cookies", mocks.MockRequestGoogleRevoke.cookies_jwt)
+        client.cookies.set(settings.cookies_google_access_token, "google_token")
+        client.cookies.set(settings.cookies_key_jwt, "access_token")
+        client.cookies.set(settings.cookies_key_csrf, "csrf_token")
         monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_revoke_google_auth_success)
         monkeypatch.setattr(google.oauth2.id_token, "verify_oauth2_token", mocks.mock_verify_oauth2_token_success)
 
-        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_value"})
+        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_token"})
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == {
             "message": "Your Google account has been successfully disconnected from the application."
@@ -195,18 +230,20 @@ class TestGoogleAuth:
     def test_revoke_google_auth_user_not_authorized_via_google(
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(Request, "cookies", mocks.MockRequestGoogleRevoke.cookies_only_csrf)
-        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_value"})
+        client.cookies.set(settings.cookies_key_csrf, "csrf_token")
+        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_token"})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert response.json() == {"detail": "You are not authorized via Google."}
 
     def test_revoke_google_auth_invalid_token_issuer(
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(Request, "cookies", mocks.MockRequestGoogleRevoke.cookies_jwt)
+        client.cookies.set(settings.cookies_google_access_token, "google_token")
+        client.cookies.set(settings.cookies_key_jwt, "access_token")
+        client.cookies.set(settings.cookies_key_csrf, "csrf_token")
         monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_revoke_google_auth_success)
         monkeypatch.setattr(google.oauth2.id_token, "verify_oauth2_token", mocks.mock_verify_oauth2_token_invalid_issuer)
-        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_value"})
+        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_token"})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert response.json() == {
             "detail": "The token issuer is invalid: Wrong issuer. 'iss' should be one of "
@@ -216,12 +253,14 @@ class TestGoogleAuth:
     def test_revoke_google_auth_token_verification_failed(
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(Request, "cookies", mocks.MockRequestGoogleRevoke.cookies_jwt)
+        client.cookies.set(settings.cookies_google_access_token, "google_token")
+        client.cookies.set(settings.cookies_key_jwt, "access_token")
+        client.cookies.set(settings.cookies_key_csrf, "csrf_token")
         monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_revoke_google_auth_success)
         monkeypatch.setattr(
             google.oauth2.id_token, "verify_oauth2_token", mocks.mock_verify_oauth2_token_verification_failed
         )
-        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_value"})
+        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_token"})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json() == {"detail": "Token verification fails: Value error occurred."}
 
@@ -241,6 +280,36 @@ def test_logout_success(client: TestClient, mock_build_ip_address_for_log: Monke
     assert response.cookies.get(settings.cookies_google_access_token) is None
     assert response.cookies.get(settings.cookies_key_jwt) is None
     assert response.cookies.get(settings.cookies_key_csrf) is None
+
+
+def test_logout_success_user_not_authorized_via_google(
+    client: TestClient, mock_build_ip_address_for_log: MonkeyPatch
+) -> None:
+    client.cookies.set(settings.cookies_key_jwt, "access_token")
+    client.cookies.set(settings.cookies_key_csrf, "csrf_token")
+
+    response = client.post("/auth/logout")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "message": "You are successfully logged out.",
+        "redirect_url": f"{client.base_url}users/login/",
+    }
+    # assert response.cookies.get(settings.cookies_google_access_token) is None
+    assert response.cookies.get(settings.cookies_key_jwt) is None
+    assert response.cookies.get(settings.cookies_key_csrf) is None
+
+
+def test_send_otp_email_success(
+    client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
+) -> None:
+    monkeypatch.setattr("auth.router_api.send_otp_email_handler", mocks.mock_send_otp_email_handler)
+
+    otp_schema = RecheckOTPOnDemand(uid="uid", token=token_urlsafe(32)[:32])
+    response = client.post("/auth/send_verification_email/", json=otp_schema.model_dump())
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == "Email has been sent successfully."
 
 
 def test_logout_user_already_unauthorized(client: TestClient, mock_build_ip_address_for_log: MonkeyPatch) -> None:
