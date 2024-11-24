@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import google.oauth2
+import google.oauth2.id_token
 import httpx
 import pytest
 import security
@@ -19,8 +21,7 @@ from sqlalchemy.orm import Session
 from users.models import User
 
 from ..schemas import EnteredCheckOTP, RegisterUser
-from .mocks import (MockBackgroundTasks, MockHttpXAsyncClient, MockRequest,
-                    mock_generate_random_otp, mock_send_otp_email_handler)
+from . import mocks
 
 settings = get_settings()
 dir_path = Path(__file__).parent.absolute()
@@ -109,9 +110,9 @@ class TestGoogleAuth:
     def test_google_login_success(
         self, client: TestClient, db: Session, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_google_login_success)
-        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get_google_login_success)
-        monkeypatch.setattr(Request, "query_params", MockRequest.query_params)
+        monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_google_login_success)
+        monkeypatch.setattr(httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success)
+        monkeypatch.setattr(Request, "query_params", mocks.MockRequest.query_params)
 
         response = client.get("/auth/callback", follow_redirects=False)
         assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
@@ -145,8 +146,8 @@ class TestGoogleAuth:
     def test_google_login_authorization_code_not_provided(
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_google_login_success)
-        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get_google_login_success)
+        monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_google_login_success)
+        monkeypatch.setattr(httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success)
         monkeypatch.setattr(Request, "query_params", {})
 
         response = client.get("/auth/callback", follow_redirects=False)
@@ -156,9 +157,9 @@ class TestGoogleAuth:
     def test_google_login_access_token_absent_in_response(
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_no_access_token)
-        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get_google_login_success)
-        monkeypatch.setattr(Request, "query_params", MockRequest.query_params)
+        monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_no_access_token)
+        monkeypatch.setattr(httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success)
+        monkeypatch.setattr(Request, "query_params", mocks.MockRequest.query_params)
 
         response = client.get("/auth/callback", follow_redirects=False)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -167,13 +168,62 @@ class TestGoogleAuth:
     def test_google_login_id_token_absent_in_response(
         self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_no_id_token)
-        monkeypatch.setattr(httpx.AsyncClient, "get", MockHttpXAsyncClient.mock_get_google_login_success)
-        monkeypatch.setattr(Request, "query_params", MockRequest.query_params)
+        monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_no_id_token)
+        monkeypatch.setattr(httpx.AsyncClient, "get", mocks.MockHttpXAsyncClient.mock_get_google_login_success)
+        monkeypatch.setattr(Request, "query_params", mocks.MockRequest.query_params)
 
         response = client.get("/auth/callback", follow_redirects=False)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json() == {"detail": "No ID token received."}
+
+    def test_revoke_google_auth_success(
+        self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Request, "cookies", mocks.MockRequestGoogleRevoke.cookies_jwt)
+        monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_revoke_google_auth_success)
+        monkeypatch.setattr(google.oauth2.id_token, "verify_oauth2_token", mocks.mock_verify_oauth2_token_success)
+
+        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_value"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {
+            "message": "Your Google account has been successfully disconnected from the application."
+        }
+        assert settings.cookies_key_csrf not in response.cookies
+        assert settings.cookies_google_access_token not in response.cookies
+        assert settings.cookies_key_jwt not in response.cookies
+
+    def test_revoke_google_auth_user_not_authorized_via_google(
+        self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Request, "cookies", mocks.MockRequestGoogleRevoke.cookies_only_csrf)
+        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_value"})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json() == {"detail": "You are not authorized via Google."}
+
+    def test_revoke_google_auth_invalid_token_issuer(
+        self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Request, "cookies", mocks.MockRequestGoogleRevoke.cookies_jwt)
+        monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_revoke_google_auth_success)
+        monkeypatch.setattr(google.oauth2.id_token, "verify_oauth2_token", mocks.mock_verify_oauth2_token_invalid_issuer)
+        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_value"})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json() == {
+            "detail": "The token issuer is invalid: Wrong issuer. 'iss' should be one of "
+            "the following: ['accounts.google.com', 'https://accounts.google.com']."
+        }
+
+    def test_revoke_google_auth_token_verification_failed(
+        self, client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Request, "cookies", mocks.MockRequestGoogleRevoke.cookies_jwt)
+        monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_revoke_google_auth_success)
+        monkeypatch.setattr(
+            google.oauth2.id_token, "verify_oauth2_token", mocks.mock_verify_oauth2_token_verification_failed
+        )
+        response = client.post("/auth/revoke/google", headers={"X-CSRFToken": "csrf_value"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"detail": "Token verification fails: Value error occurred."}
 
 
 def test_logout_success(client: TestClient, mock_build_ip_address_for_log: MonkeyPatch) -> None:
@@ -218,7 +268,7 @@ class TestUserAccountActions:
         self, client: TestClient, monkeypatch: MonkeyPatch, db: Session, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
         user_data = RegisterUser(email="john.doe@gmail.com", password="strong_password")
-        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mocks.mock_send_otp_email_handler)
         response = client.post("/auth/registration", json=user_data.model_dump())
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == {"message": "Check your email for verifying your account."}
@@ -262,9 +312,9 @@ class TestUserAccountActions:
         regular_user: User,
         mock_build_ip_address_for_log: MonkeyPatch,
     ) -> None:
-        mock_bg_tasks_inst = MockBackgroundTasks()
+        mock_bg_tasks_inst = mocks.MockBackgroundTasks()
         monkeypatch.setattr(BackgroundTasks, "add_task", mock_bg_tasks_inst.mock_add_bg_task_reset_password)
-        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mocks.mock_send_otp_email_handler)
 
         data = schemas.ResetPassword(email=REGULAR_USER_DATA["email"])
         response = client.post("/auth/reset_password", json=data.model_dump())
@@ -290,9 +340,9 @@ class TestUserAccountActions:
         db: Session,
         mock_build_ip_address_for_log: MonkeyPatch,
     ) -> None:
-        mock_bg_tasks_inst = MockBackgroundTasks()
+        mock_bg_tasks_inst = mocks.MockBackgroundTasks()
         monkeypatch.setattr(BackgroundTasks, "add_task", mock_bg_tasks_inst.mock_add_bg_task_reset_password)
-        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mocks.mock_send_otp_email_handler)
 
         current_password = regular_user.hashed_password
 
@@ -324,9 +374,9 @@ class TestUserAccountActions:
         regular_user: User,
         mock_build_ip_address_for_log: MonkeyPatch,
     ) -> None:
-        mock_bg_tasks_inst = MockBackgroundTasks()
+        mock_bg_tasks_inst = mocks.MockBackgroundTasks()
         monkeypatch.setattr(BackgroundTasks, "add_task", mock_bg_tasks_inst.mock_add_bg_task_reset_password)
-        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mocks.mock_send_otp_email_handler)
 
         data = schemas.ResetPassword(email=REGULAR_USER_DATA["email"])
         response = client.post("/auth/reset_password", json=data.model_dump())
@@ -353,9 +403,9 @@ class TestUserAccountActions:
         regular_user: User,
         mock_build_ip_address_for_log: MonkeyPatch,
     ) -> None:
-        mock_bg_tasks_inst = MockBackgroundTasks()
+        mock_bg_tasks_inst = mocks.MockBackgroundTasks()
         monkeypatch.setattr(BackgroundTasks, "add_task", mock_bg_tasks_inst.mock_add_bg_task_reset_password)
-        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mock_send_otp_email_handler)
+        monkeypatch.setattr("auth.router_api.send_otp_email_handler", mocks.mock_send_otp_email_handler)
 
         data = schemas.ResetPassword(email=REGULAR_USER_DATA["email"])
         response = client.post("/auth/reset_password", json=data.model_dump())
@@ -395,14 +445,14 @@ class TestUserAccountActions:
         mock_build_ip_address_for_log: MonkeyPatch,
     ) -> None:
         assert regular_user.is_verified is False
-        monkeypatch.setattr(utils, "generate_random_otp", mock_generate_random_otp)
+        monkeypatch.setattr(utils, "generate_random_otp", mocks.mock_generate_random_otp)
         utils.create_otp(db, int(regular_user.id))  # type: ignore
-        hashed_entered_otp = security.generate_hashed_otp(mock_generate_random_otp())
+        hashed_entered_otp = security.generate_hashed_otp(mocks.mock_generate_random_otp())
 
         assert db.query(OTP).filter(OTP.code == hashed_entered_otp).first() is not None
 
         opt_schema = EnteredCheckOTP(
-            entered_otp=mock_generate_random_otp(),
+            entered_otp=mocks.mock_generate_random_otp(),
             uid=urlsafe_b64encode(str(regular_user.id).encode(settings.default_encoding)).decode(
                 settings.default_encoding
             ),
@@ -424,13 +474,13 @@ class TestUserAccountActions:
         mock_build_ip_address_for_log: MonkeyPatch,
     ) -> None:
         assert regular_user.is_verified is False
-        monkeypatch.setattr(utils, "generate_random_otp", mock_generate_random_otp)
+        monkeypatch.setattr(utils, "generate_random_otp", mocks.mock_generate_random_otp)
         utils.create_otp(db, int(regular_user.id))  # type: ignore
-        hashed_entered_otp = security.generate_hashed_otp(mock_generate_random_otp())
+        hashed_entered_otp = security.generate_hashed_otp(mocks.mock_generate_random_otp())
 
         assert db.query(OTP).filter(OTP.code == hashed_entered_otp).first() is not None
 
-        invalid_random_otp = "".join(list(reversed(mock_generate_random_otp())))  # !just reverse OTP
+        invalid_random_otp = "".join(list(reversed(mocks.mock_generate_random_otp())))  # !just reverse OTP
         opt_schema = EnteredCheckOTP(
             entered_otp=invalid_random_otp,
             uid=urlsafe_b64encode(str(regular_user.id).encode(settings.default_encoding)).decode(
@@ -454,9 +504,9 @@ class TestUserAccountActions:
         mock_build_ip_address_for_log: MonkeyPatch,
     ) -> None:
         assert regular_user.is_verified is False
-        monkeypatch.setattr(utils, "generate_random_otp", mock_generate_random_otp)
+        monkeypatch.setattr(utils, "generate_random_otp", mocks.mock_generate_random_otp)
         utils.create_otp(db, int(regular_user.id))  # type: ignore
-        hashed_entered_otp = security.generate_hashed_otp(mock_generate_random_otp())
+        hashed_entered_otp = security.generate_hashed_otp(mocks.mock_generate_random_otp())
 
         db_code = db.query(OTP).filter(OTP.code == hashed_entered_otp).first()
         assert db_code is not None
@@ -467,7 +517,7 @@ class TestUserAccountActions:
         db.refresh(db_code)
 
         opt_schema = EnteredCheckOTP(
-            entered_otp=mock_generate_random_otp(),
+            entered_otp=mocks.mock_generate_random_otp(),
             uid=urlsafe_b64encode(str(regular_user.id).encode(settings.default_encoding)).decode(
                 settings.default_encoding
             ),
@@ -484,7 +534,9 @@ class TestUserAccountActions:
 def test_verify_cloudflare_captcha_success(
     client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_verify_cloudflare_captcha_success)
+    monkeypatch.setattr(
+        httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_verify_cloudflare_captcha_success
+    )
 
     captcha_schema = schemas.CloudflareCaptcha(token="some_token", idempotency_key="some_key")
     response = client.post("/auth/verify_captcha", json=captcha_schema.model_dump())
@@ -495,7 +547,7 @@ def test_verify_cloudflare_captcha_success(
 def test_verify_cloudflare_captcha_token_not_provided(
     client: TestClient, monkeypatch: MonkeyPatch, mock_build_ip_address_for_log: MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(httpx.AsyncClient, "post", MockHttpXAsyncClient.mock_post_verify_cloudflare_captcha_error)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mocks.MockHttpXAsyncClient.mock_post_verify_cloudflare_captcha_error)
     captcha_schema = schemas.CloudflareCaptcha(token=None, idempotency_key="some_key")
     response = client.post("/auth/verify_captcha", json=captcha_schema.model_dump())
     assert response.status_code == status.HTTP_400_BAD_REQUEST
