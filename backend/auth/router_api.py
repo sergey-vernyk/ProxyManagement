@@ -331,6 +331,15 @@ async def basic_login(
             },
         )
 
+    if not bool(user.is_verified):
+        raise ClientRequestError(
+            {"user_not_verified": "User is not verified."},
+            logger_extra_data={
+                **build_logger_extra_data(request),
+                **get_caller_info(),
+            },
+        )
+
     if not verify_password(password, str(user.hashed_password)):
         raise ClientRequestError(
             {"incorrect_email_or_password": "Incorrect email or password."},

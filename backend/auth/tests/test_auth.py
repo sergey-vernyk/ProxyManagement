@@ -39,8 +39,12 @@ class TestBasicAuth:
     """
 
     def test_login_success(
-        self, client: TestClient, regular_user: User, mock_build_ip_address_for_log: MonkeyPatch
+        self, client: TestClient, regular_user: User, db: Session, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
+        db.query(User).filter(User.id == regular_user.id).update({"is_verified": True})
+        db.commit()
+        db.refresh(regular_user)
+
         response = client.post(
             url="/auth/login",
             data={"email": str(regular_user.email), "password": REGULAR_USER_DATA["password"]},
@@ -94,9 +98,24 @@ class TestBasicAuth:
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json() == {"detail": {"user_not_exists": "User with the given email does not exist."}}
 
-    def test_login_invalid_password(
+    def test_login_user_not_verified(
         self, client: TestClient, regular_user: User, mock_build_ip_address_for_log: MonkeyPatch
     ) -> None:
+        response = client.post(
+            url="/auth/login",
+            data={"email": "john.doe@gmail.com", "password": REGULAR_USER_DATA["password"]},
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"detail": {"user_not_verified": "User is not verified."}}
+
+    def test_login_invalid_password(
+        self, client: TestClient, regular_user: User, db: Session, mock_build_ip_address_for_log: MonkeyPatch
+    ) -> None:
+        db.query(User).filter(User.id == regular_user.id).update({"is_verified": True})
+        db.commit()
+        db.refresh(regular_user)
         response = client.post(
             url="/auth/login",
             data={"email": str(regular_user.email), "password": "wrong_password"},
