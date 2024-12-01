@@ -39,6 +39,7 @@ $(document).ready(() => {
         const enteredEmail = $("#email").val();
         const enteredPassword = $("#password").val();
         const basicLoginUrl = $("#authentication-form").data("basic-login-url");
+        const emailVerityUrl = $("#authentication-form").data("email-verify-url");
         $("#password-error").text("");
         $("#email-error").text("");
 
@@ -72,9 +73,11 @@ $(document).ready(() => {
                                 if (jqXHR.responseJSON.detail["email_invalid"] !== undefined) {
                                     $("#email-error").text(jqXHR.responseJSON.detail["email_invalid"])
                                 }
-
                                 if (jqXHR.responseJSON.detail["incorrect_email_or_password"] !== undefined) {
                                     $("#password-error").text(jqXHR.responseJSON.detail["incorrect_email_or_password"])
+                                }
+                                if (jqXHR.responseJSON.detail["user_not_verified"] !== undefined) {
+                                    $("#email-error").text(jqXHR.responseJSON.detail["user_not_verified"])
                                 }
                             }
 

@@ -10,7 +10,8 @@ from auth.utils import delete_cookie, set_cookie
 from common.utils import build_full_endpoint_url, get_caller_info
 from config import get_settings
 from dependencies import CsrfVerifyDependency, DatabaseDependency
-from exceptions import ClientRequestError, EntityDoesNotExistError, UserUnauthorizedError
+from exceptions import (ClientRequestError, EntityDoesNotExistError,
+                        UserUnauthorizedError)
 from fastapi import APIRouter, BackgroundTasks, Form, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -19,7 +20,8 @@ from google.auth.transport import requests
 from google.oauth2 import id_token
 from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import EmailStr
-from security import generate_csrf_token, generate_hashed_otp, get_password_hash, verify_password
+from security import (generate_csrf_token, generate_hashed_otp,
+                      get_password_hash, verify_password)
 from sqlalchemy import delete, update
 from users.crud import get_user_by_email
 from users.models import User
@@ -618,7 +620,7 @@ async def send_otp_email(
 
     Args:
         request (Request): HTTP request.
-        body (schemas.VerificationEmailUserData): Pydantic model with the user data for sending verification email.
+        body (schemas.RecheckOTPOnDemand): Pydantic model with the user data for sending verification email.
         db (DatabaseDependency): database dependency injection.
         bg_tasks (BackgroundTasks): FastAPI background task implementation.
 
