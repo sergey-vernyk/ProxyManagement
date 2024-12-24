@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Email{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="/static/css/send_code.css">
+{% endblock %}
+
+{% block content %}
+    <h2>Verify Email</h2>
+    <form id="send-code-form" data-reset-url="{{reset_password_url}}" data-captcha-verify-url="{{captcha_verify_url}}">
+        <div class="input-container">
+            <input type="email" id="email" name="email" placeholder="Enter your email" required>
+            <div id="email-error" class="error-message"></div>
+        </div>
+        <div id="cloudflare-captcha" data-sitekey="{{cloudflare_sitekey}}" data-size="normal" data-theme="light"
+            data-callback="callback" data-error-callback="error">
+        </div>
+        <input type="hidden" id="sitekey" name="cf-sitekey" value="{{cloudflare_sitekey}}">
+        <button type="submit" id="send-code">Send code to email</button>
+    </form>
+    <div id="reset-success"></div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="/static/js/send_verification_code.js" type="module"></script>
+{% endblock %}

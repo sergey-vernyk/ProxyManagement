@@ -33,18 +33,18 @@ map $server_port $x_forwarded_port {
 }
 
 server {
-        server_name         	${DOMAIN} www.${DOMAIN};
-        listen              	443 ssl;
-	include			/etc/nginx/includes/ssl_settings.conf;
-	include			/etc/nginx/includes/proxy_headers.conf;
+        server_name     ${DOMAIN} www.${DOMAIN};
+        listen          443 ssl;
+		include			/etc/nginx/includes/ssl_settings.conf;
+		include			/etc/nginx/includes/proxy_headers.conf;
         server_tokens      	off;
 
-	proxy_set_header    	X-Forwarded-Port    $x_forwarded_port;
+		proxy_set_header    	X-Forwarded-Port    $x_forwarded_port;
 
         # location for http        
         location / {
                 
-                # proxy_cache name located in nginx.conf file
+        # proxy_cache name located in nginx.conf file
 		# proxy_cache             wireguard_cache;
 		# proxy_cache_valid       200 302 60m;
 		# proxy_cache_valid       404 1m;
@@ -58,37 +58,37 @@ server {
 		proxy_pass		http://socket_backend;
         }
 
-	location /static {
-		alias /home/ubuntu/code/ProxyManagement/backend/static;
-	}
+		location /static {
+			alias /home/ubuntu/code/ProxyManagement/backend/static;
+		}
 
         # location for websockets
         location /ws/ {
-                proxy_pass 		http://socket_backend;
-                proxy_http_version	1.1;
-                proxy_set_header 	Upgrade $http_upgrade;
-                proxy_set_header 	Connection "upgrade";
+			proxy_pass 		http://socket_backend;
+			proxy_http_version	1.1;
+			proxy_set_header 	Upgrade $http_upgrade;
+			proxy_set_header 	Connection "upgrade";
         }
 
-	location /conf/ {
-		alias 			/home/ubuntu/code/vars/;
-		auth_basic 		"Configuration";
-   		auth_basic_user_file 	/home/ubuntu/.htpasswd;
-	}
+		location /conf/ {
+			alias 			/home/ubuntu/code/vars/;
+			auth_basic 		"Configuration";
+			auth_basic_user_file 	/home/ubuntu/.htpasswd;
+		}
 
-	location /docs {
-                auth_basic 		"Documentation";
-                auth_basic_user_file 	/home/ubuntu/.htpasswd;
+		location /docs {
+			auth_basic 		"Documentation";
+			auth_basic_user_file 	/home/ubuntu/.htpasswd;
 
-                if ($request_method = OPTIONS) {
-			include		/etc/nginx/includes/preflight_request_headers.conf;
-                        return 204;
-                }
+			if ($request_method = OPTIONS) {
+				include		/etc/nginx/includes/preflight_request_headers.conf;
+				return 204;
+			}
 
-		include		/etc/nginx/includes/cors_headers.conf;
-		include		/etc/nginx/includes/proxy_headers.conf;
-                proxy_pass	http://socket_backend/docs;
-        }
+			include		/etc/nginx/includes/cors_headers.conf;
+			include		/etc/nginx/includes/proxy_headers.conf;
+			proxy_pass	http://socket_backend/docs;
+			}
 }
 
 
@@ -98,10 +98,10 @@ upstream backend_stage {
 
 server {
 	listen 			443 ssl;
-	server_name 		stage.${DOMAIN};
+	server_name 	stage.${DOMAIN};
 	include			/etc/nginx/includes/ssl_settings.conf;
 	include			/etc/nginx/includes/proxy_headers.conf;
-	server_tokens      	off;
+	server_tokens   off;
 
 	proxy_set_header    	X-Forwarded-Port    $x_forwarded_port;
 
@@ -111,7 +111,7 @@ server {
 
 	# location for wesockets
 	location /ws/ {
-                proxy_pass 		http://backend_stage;
+                proxy_pass 			http://backend_stage;
                 proxy_http_version	1.1;
                 proxy_set_header 	Upgrade $http_upgrade;
                 proxy_set_header 	Connection "upgrade";
