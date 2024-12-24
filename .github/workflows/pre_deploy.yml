@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Get current date 
         id: build_date
-        run: echo "::set-output name=date::$(date +%s)"
+        run: echo "date=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Build the Docker image
         run: docker build . --file Dockerfile --tag ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ steps.build_date.outputs.date }}
       - name: Login to GitHub Container Registry
