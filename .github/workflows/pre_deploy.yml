@@ -1,8 +1,11 @@
 name: Pre-Deploy to Staging
 
 on:
-  push:
-      branches:
+  workflow_run:
+    workflows: 
+      - Run Tests
+    types: ["completed"]
+    branches:
       - pre-deploy
 
 env:
