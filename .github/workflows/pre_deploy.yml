@@ -1,9 +1,15 @@
 name: Pre-Deploy to Staging
 
 on:
-    push:
-        branches:
-        - pre-deploy
+  workflow_run:
+    workflows: 
+      - Run Tests
+    types: ["completed"]
+    branches:
+      - pre-deploy
+
+env:
+  IMAGE_NAME: proxy_management
   
 jobs:
   setup-ssh:
@@ -18,8 +24,42 @@ jobs:
       gh_artifacts_gpg_public: ${{ secrets.GH_ARTIFACTS_GPG_PUBLIC }}
       gpg_id: ${{ secrets.GPG_ID }}
 
+  build-push-image:
+    runs-on:
+      ubuntu-latest
+
+    defaults:
+      run:
+        shell: sh
+        working-directory: ./backend
+
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get current date 
+        id: build_date
+        run: echo "::set-output name=date::$(date +%s)"
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ steps.build_date.outputs.date }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push the Docker image to the GitHub registry
+        run: docker push ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ steps.build_date.outputs.date }}
+
   pre-deploy:
-    needs: setup-ssh
+    needs:
+      - setup-ssh
+      - build-push-image
+
     name: Pre-Deploy to Staging
     runs-on: ubuntu-latest
 
