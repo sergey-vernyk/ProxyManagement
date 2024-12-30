@@ -26,7 +26,7 @@ services:
       - backend
 
   backend:
-    image: "ghcr.io/sergey-vernyk/proxy_management:1735051257"
+    image: "ghcr.io/sergey-vernyk/proxy_management:latest"
     command: >
       sh -c "cat /run/secrets/env_file > .env &&
       poetry run gunicorn main:app --bind=0.0.0.0:8000 --workers 2 --worker-class uvicorn.workers.UvicornWorker --forwarded-allow-ips='*' 

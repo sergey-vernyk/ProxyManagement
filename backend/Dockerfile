@@ -1,6 +1,6 @@
 FROM python:3.12.5-alpine
 
-LABEL org.opencontainers.image.source=https://github.com/sergey=vernyk/ProxyManagement
+LABEL org.opencontainers.image.source=https://github.com/sergey-vernyk/ProxyManagement
 LABEL org.opencontainers.image.description="Image with backend and frontend implementation for proxy management."
 LABEL org.opencontainers.image.licenses=MIT
 
