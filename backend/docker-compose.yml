@@ -1,0 +1,73 @@
+services:
+  db:
+    image: postgres:16.3-alpine
+    ports:
+      - 5432
+    environment:
+      - POSTGRES_USER_FILE=/run/secrets/postgres_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - POSTGRES_DB_FILE=/run/secrets/postgres_db
+      - POSTGRES_INITDB_ARGS="--data-checksums"
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$(cat /run/secrets/postgres_user) -d $$(cat /run/secrets/postgres_db)" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5  
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    secrets:
+      - postgres_user
+      - postgres_password
+      - postgres_db
+    networks:
+      - backend
+
+  backend:
+    image: "ghcr.io/sergey-vernyk/proxy_management:1735051257"
+    command: >
+      sh -c "cat /run/secrets/env_file > .env &&
+      poetry run gunicorn main:app --bind=0.0.0.0:8000 --workers 2 --worker-class uvicorn.workers.UvicornWorker --forwarded-allow-ips='*' 
+      "
+    ports:
+      - 8000
+    volumes:
+      - backend_media:/usr/src/app/backend/media
+      - backend_static:/usr/src/app/backend/static
+    secrets:
+      - env_file
+    networks:
+        - backend
+
+volumes:
+  pgdata:
+    driver: local
+  backend_media:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/ubuntu/code/backend_media
+  backend_static:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/ubuntu/code/backend_static
+
+networks:
+  backend:
+    driver: overlay
+
+# external = true for using docker secrets for services
+secrets:
+  postgres_db:
+    external: true
+  postgres_user:
+    external: true
+  postgres_password:
+    external: true
+  env_file:
+    external: true
