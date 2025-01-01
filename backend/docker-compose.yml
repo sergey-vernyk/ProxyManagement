@@ -41,6 +41,25 @@ services:
     networks:
         - backend
 
+  nginx:
+    image: nginx:1.27-alpine
+    restart: always
+    user: www-data
+    command: >
+      - sh -c /run.sh
+    volumes:
+      - backend_media:/usr/src/app/backend/media
+      - backend_static:/usr/src/app/backend/static
+      - ./deploy_config/nginx/run:/run.sh
+      - ./deploy_config/nginx/modem_proxy.conf.template:/modem_proxy.conf.template
+    ports:
+      - 80:80
+      - 443:443
+    secrets:
+      - env_file
+    networks:
+      - backend
+    
 volumes:
   pgdata:
     driver: local
