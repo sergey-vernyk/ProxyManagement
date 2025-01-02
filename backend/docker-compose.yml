@@ -26,9 +26,10 @@ services:
       - backend
 
   backend:
-    image: "ghcr.io/sergey-vernyk/proxy_management:latest"
+    image: "ghcr.io/sergey-vernyk/proxy_management:1735757589"
     command: >
       sh -c "cat /run/secrets/env_file > .env &&
+      ./wait-for.sh db:5432 -- &&
       poetry run gunicorn main:app --bind=0.0.0.0:8000 --workers 2 --worker-class uvicorn.workers.UvicornWorker --forwarded-allow-ips='*' 
       "
     ports:
@@ -36,51 +37,59 @@ services:
     volumes:
       - backend_media:/usr/src/app/backend/media
       - backend_static:/usr/src/app/backend/static
+      # - ./wait-for.sh:/wait-for.sh
     secrets:
       - env_file
     networks:
         - backend
 
   nginx:
-    image: nginx:1.27-alpine
-    restart: always
-    user: www-data
-    command: >
-      - sh -c /run.sh
+    image: "ghcr.io/sergey-vernyk/reverse_proxy:latest"
     volumes:
-      - backend_media:/usr/src/app/backend/media
-      - backend_static:/usr/src/app/backend/static
-      - ./deploy_config/nginx/run:/run.sh
-      - ./deploy_config/nginx/modem_proxy.conf.template:/modem_proxy.conf.template
+      - backend_media:/vol/web/media
+      - backend_static:/vol/web/static
+      - webroot:/var/www/certbot
+      - certbot_data:/etc/letsencrypt
+      - certbot_logs:/var/log/letsencrypt
+    environment:
+      - DOMAIN=proxman.pp.ua
+      - SERVER_PORT=443
     ports:
       - 80:80
       - 443:443
-    secrets:
-      - env_file
+    # secrets:
+    #   - env_file
     networks:
       - backend
-    
+
 volumes:
   pgdata:
     driver: local
+  webroot:
+    driver: local 
+  certbot_data:
+    driver: local
+  certbot_logs:
+    driver: local
   backend_media:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/ubuntu/code/backend_media
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /home/ubuntu/code/backend_media
   backend_static:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/ubuntu/code/backend_static
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /home/ubuntu/code/backend_static
 
 networks:
   backend:
     driver: overlay
+    attachable: true
 
-# external = true for using docker secrets for services
+# external=true for using docker secrets for services
 secrets:
   postgres_db:
     external: true
