@@ -3,7 +3,7 @@ name: Deploy Project To Own Server
 on:
   workflow_run:
     workflows: 
-      - Qodana
+      # - Qodana
       - Run Tests
     types: ["completed"]
     branches:
