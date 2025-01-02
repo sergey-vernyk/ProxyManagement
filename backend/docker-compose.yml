@@ -37,7 +37,6 @@ services:
     volumes:
       - backend_media:/usr/src/app/backend/media
       - backend_static:/usr/src/app/backend/static
-      # - ./wait-for.sh:/wait-for.sh
     secrets:
       - env_file
     networks:
@@ -57,8 +56,13 @@ services:
     ports:
       - 80:80
       - 443:443
-    # secrets:
-    #   - env_file
+    deploy:
+      update_config:
+        order: start-first
+    depends_on:
+      - db
+    #secrets:
+    #   - domain
     networks:
       - backend
 
@@ -66,23 +70,15 @@ volumes:
   pgdata:
     driver: local
   webroot:
-    driver: local 
+    external: true
   certbot_data:
-    driver: local
+    external: true
   certbot_logs:
     driver: local
   backend_media:
     driver: local
-    # driver_opts:
-    #   type: none
-    #   o: bind
-    #   device: /home/ubuntu/code/backend_media
   backend_static:
     driver: local
-    # driver_opts:
-    #   type: none
-    #   o: bind
-    #   device: /home/ubuntu/code/backend_static
 
 networks:
   backend:
@@ -98,4 +94,6 @@ secrets:
   postgres_password:
     external: true
   env_file:
+    external: true
+  domain:
     external: true

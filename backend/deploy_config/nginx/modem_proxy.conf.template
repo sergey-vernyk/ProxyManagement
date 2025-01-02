@@ -1,22 +1,14 @@
 upstream socket_backend {
-	server backend:8000;
+  server backend:8000;
 }
 
 server {
-	if ($host = www.${DOMAIN}) {
-		return 301 https://$host$request_uri;
-	} 
-
-	if ($host = ${DOMAIN}) {
-		return 301 https://$host$request_uri; 
-	}
-	    
-	if ($host = stage.${DOMAIN}) {
-		return 301 https://$host$request_uri;
-	} 
-
 	server_name     ${DOMAIN} www.${DOMAIN} stage.${DOMAIN};
 	listen          80 default_server;
+
+	location / {
+		return 301 https://$host$request_uri;
+	} 
 
 	location /.well-known/acme-challenge/ {
 		root /var/www/certbot;
@@ -33,64 +25,58 @@ map $server_port $x_forwarded_port {
 }
 
 server {
-        server_name     	${DOMAIN} www.${DOMAIN};
-        listen          	80;
-		# ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-		# ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
-		# include             /etc/letsencrypt/options-ssl-nginx.conf;
-		# ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
-		include				/etc/nginx/includes/proxy_headers.conf;
+        server_name     	  ${DOMAIN} www.${DOMAIN};
+        listen          	  443 ssl;
+		    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+		    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+		    include             /etc/letsencrypt/options-ssl-nginx.conf;
+		    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+		    include				      /etc/nginx/includes/proxy_headers.conf;
         server_tokens      	off;
 
-		proxy_set_header    X-Forwarded-Port    $x_forwarded_port;
+		    proxy_set_header    X-Forwarded-Port    $x_forwarded_port;
 
         # location for http        
-        location / {
-                
-        # proxy_cache name located in nginx.conf file
-		# proxy_cache             wireguard_cache;
-		# proxy_cache_valid       200 302 60m;
-		# proxy_cache_valid       404 1m;
-
-		# Handle preflight requests
-		if ($request_method = OPTIONS) {
-			include		/etc/nginx/includes/preflight_request_headers.conf;
-			return 204;
-		}
-		include			/etc/nginx/includes/cors_headers.conf;
-		proxy_pass		http://socket_backend;
+        location / {          
+		    # Handle preflight requests
+		    if ($request_method = OPTIONS) {
+			    include		/etc/nginx/includes/preflight_request_headers.conf;
+			    return 204;
+		    }
+          include			/etc/nginx/includes/cors_headers.conf;
+          proxy_pass		http://socket_backend;
         }
 
-		location /static {
-			alias /usr/src/app/backend/static;
-		}
+        location /static {
+          alias /vol/web/static/; 
+        }
 
         # location for websockets
         location /ws/ {
-			proxy_pass 			http://socket_backend;
-			proxy_http_version	1.1;
-			proxy_set_header 	Upgrade $http_upgrade;
-			proxy_set_header 	Connection "upgrade";
+          proxy_pass 			    http://socket_backend;
+          proxy_http_version	1.1;
+          proxy_set_header 	  Upgrade $http_upgrade;
+          proxy_set_header 	  Connection "upgrade";
         }
 
-		location /conf/ {
-			alias 					/home/ubuntu/code/vars/;
-			auth_basic 				"Configuration";
-			auth_basic_user_file 	/home/ubuntu/.htpasswd;
-		}
+        location /conf/ {
+          alias 					      /home/ubuntu/code/vars/;
+          auth_basic 				    "Configuration";
+          auth_basic_user_file 	/home/ubuntu/.htpasswd;
+        }
 
-		location /docs {
-			auth_basic 				"Documentation";
-			auth_basic_user_file 	/home/ubuntu/.htpasswd;
+        location /docs {
+          auth_basic 				    "Documentation";
+          auth_basic_user_file 	/home/ubuntu/.htpasswd;
 
-			if ($request_method = OPTIONS) {
-				include		/etc/nginx/includes/preflight_request_headers.conf;
-				return 204;
-			}
+          if ($request_method = OPTIONS) {
+            include		/etc/nginx/includes/preflight_request_headers.conf;
+            return 204;
+          }
 
-			include		/etc/nginx/includes/cors_headers.conf;
-			include		/etc/nginx/includes/proxy_headers.conf;
-			proxy_pass	http://socket_backend/docs;
+          include		/etc/nginx/includes/cors_headers.conf;
+          include		/etc/nginx/includes/proxy_headers.conf;
+          proxy_pass	http://socket_backend/docs;
 		}
 }
 
@@ -100,14 +86,14 @@ upstream backend_stage {
 }
 
 server {
-	listen 				80;
-	server_name 		stage.${DOMAIN};
-	# ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-	# ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
-	# include             /etc/letsencrypt/options-ssl-nginx.conf;
-	# ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
-	include				/etc/nginx/includes/proxy_headers.conf;
-	server_tokens   	off;
+	listen 				      443 ssl;
+	server_name 		    stage.${DOMAIN};
+	ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+	ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+	include             /etc/letsencrypt/options-ssl-nginx.conf;
+	ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+	include				      /etc/nginx/includes/proxy_headers.conf;
+	server_tokens   	  off;
 
 	proxy_set_header    X-Forwarded-Port    $x_forwarded_port;
 
@@ -124,6 +110,5 @@ server {
 	}
 
 	location /static {
-		alias /home/ubuntu/code/ProxyManagement/backend/static;
-	}
+		alias /vol/web/static/;
 }
