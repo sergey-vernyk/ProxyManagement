@@ -39,8 +39,13 @@ services:
       - backend_static:/usr/src/app/backend/static
     secrets:
       - env_file
+    deploy:
+      update_config:
+        order: start-first
+    depends_on:
+      - db
     networks:
-        - backend
+      - backend
 
   nginx:
     image: "ghcr.io/sergey-vernyk/reverse_proxy:latest"
@@ -59,8 +64,6 @@ services:
     deploy:
       update_config:
         order: start-first
-    depends_on:
-      - db
     #secrets:
     #   - domain
     networks:

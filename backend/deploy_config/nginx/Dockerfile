@@ -9,7 +9,7 @@ ARG group=www-data
 
 RUN addgroup $user $group
 
-COPY ./modem_proxy.conf.template /etc/nginx/
+COPY ./modem_proxy.conf.template ./options-ssl-nginx.conf /etc/nginx/
 COPY ./includes/ /etc/nginx/includes/
 
 COPY ./run.sh /run.sh
