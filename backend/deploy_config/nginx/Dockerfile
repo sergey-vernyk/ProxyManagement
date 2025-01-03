@@ -1,8 +1,6 @@
 FROM nginx:1.27-alpine
 
-RUN mkdir -p /vol/web/static && \
-    mkdir -p /vol/web/media && \
-    mkdir -p /etc/nginx/includes
+RUN mkdir -p /vol/web/static /vol/web/media /etc/nginx/includes
 
 ARG user=nginx
 ARG group=www-data
