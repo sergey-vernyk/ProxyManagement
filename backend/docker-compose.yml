@@ -83,6 +83,8 @@ volumes:
     driver: local
   backend_static:
     driver: local
+  proxy_dhparams:
+    driver: local
 
 networks:
   backend:
