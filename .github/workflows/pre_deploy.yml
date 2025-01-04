@@ -70,7 +70,7 @@ jobs:
         run: ls -la
 
       - name: Debug - List nginx directory
-        run: ls -la ./backend/deploy_config/nginx
+        run: ls -la ./deploy_config/nginx
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -98,7 +98,7 @@ jobs:
       - name: Build and push nginx image
         uses: docker/build-push-action@v6
         with:
-          file: ./backend/deploy_config/nginx/Dockerfile
+          file: ./deploy_config/nginx/Dockerfile
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-nginx-image.outputs.tags }}
