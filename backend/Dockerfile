@@ -23,12 +23,12 @@ RUN mkdir -p /usr/src/app/backend/static && \
 
 USER $user
 ADD ./pyproject.toml ./poetry.lock ./
+ENV PATH "$PATH:/home/$user/.local/bin"
     
 RUN pip install --upgrade pip && \
     pip install poetry && \
     python -m poetry install --no-root --no-cache --no-interaction
     
-ENV PATH "$PATH:/home/$user/.local/bin"
 COPY . /usr/src/app/backend
 
 CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--reload"]
