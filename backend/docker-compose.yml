@@ -55,6 +55,7 @@ services:
       - webroot:/var/www/certbot
       - certbot_data:/etc/letsencrypt
       - certbot_logs:/var/log/letsencrypt
+      - proxy_dhparams:/vol/proxy
     environment:
       - DOMAIN=proxman.pp.ua
       - SERVER_PORT=443

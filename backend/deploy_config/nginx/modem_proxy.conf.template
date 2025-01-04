@@ -30,7 +30,7 @@ server {
 	ssl_certificate     	/etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
 	ssl_certificate_key 	/etc/letsencrypt/live/${DOMAIN}/privkey.pem;
 	include             	/etc/nginx/options-ssl-nginx.conf;
-	ssl_dhparam         	/etc/nginx/ssl-dhparams.pem;
+	ssl_dhparam         	/vol/proxy/ssl-dhparams.pem;
 	include				    /etc/nginx/includes/proxy_headers.conf;
 	server_tokens      		off;
 
@@ -90,7 +90,7 @@ server {
 	ssl_certificate     	/etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
 	ssl_certificate_key 	/etc/letsencrypt/live/${DOMAIN}/privkey.pem;
 	include             	/etc/nginx/options-ssl-nginx.conf;
-	ssl_dhparam         	/etc/nginx/ssl-dhparams.pem;
+	ssl_dhparam         	/vol/proxy/ssl-dhparams.pem;
 	include					/etc/nginx/includes/proxy_headers.conf;
 	server_tokens   	  	off;
 
