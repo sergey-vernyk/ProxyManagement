@@ -65,8 +65,8 @@ services:
     deploy:
       update_config:
         order: start-first
-    #secrets:
-    #   - domain
+    secrets:
+       - domain
     networks:
       - backend
 
