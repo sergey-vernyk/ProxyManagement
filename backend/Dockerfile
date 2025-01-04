@@ -22,7 +22,7 @@ RUN mkdir -p /usr/src/app/backend/static && \
     chown -R $user /usr/src/app/backend /usr/src/app/backend/static
 
 USER $user
-ADD pyproject.toml poetry.lock ./
+ADD ./pyproject.toml ./poetry.lock ./
     
 RUN pip install --upgrade pip && \
     pip install poetry && \
