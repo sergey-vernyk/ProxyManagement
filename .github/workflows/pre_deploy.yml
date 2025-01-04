@@ -45,8 +45,8 @@ jobs:
       id-token: write
 
     steps:
-      # - name: Checkout code
-      #   uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Extract Metadata for Docker Backend image
@@ -84,10 +84,20 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha
+
+      - name: Debug - Check current working directory
+        run: pwd
+
+      - name: Debug - List backend directory
+        run: ls -la
+
+      - name: Debug - List nginx directory
+        run: ls -la ../deploy_config/nginx
+
       - name: Build and push nginx image
         uses: docker/build-push-action@v6
         with:
-          file: ./backend/deploy_config/nginx/Dockerfile
+          # file: ./backend/deploy_config/nginx/Dockerfile
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-nginx-image.outputs.tags }}
