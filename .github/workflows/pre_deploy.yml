@@ -9,7 +9,7 @@ on:
   #     - pre-deploy
   push:
     branches:
-      - pre-deploy
+      - main
 
 env:
   BACKEND_IMAGE_NAME: proxy_management
@@ -62,11 +62,21 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha
+
+      - name: Debug - Check current working directory
+        run: pwd
+
+      - name: Debug - List backend directory
+        run: ls -la
+
+      - name: Debug - List nginx directory
+        run: ls -la ./backend/deploy_config/nginx
+
       - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./backend/Dockerfile
+          # file: ./backend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-backend-image.outputs.tags }}
           labels: ${{ steps.meta-backend-image.outputs.labels }}
@@ -85,19 +95,10 @@ jobs:
             type=semver,pattern={{major}}
             type=sha
 
-      - name: Debug - Check current working directory
-        run: pwd
-
-      - name: Debug - List backend directory
-        run: ls -la
-
-      - name: Debug - List nginx directory
-        run: ls -la ../deploy_config/nginx
-
       - name: Build and push nginx image
         uses: docker/build-push-action@v6
         with:
-          # file: ./backend/deploy_config/nginx/Dockerfile
+          file: ./backend/deploy_config/nginx/Dockerfile
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-nginx-image.outputs.tags }}
