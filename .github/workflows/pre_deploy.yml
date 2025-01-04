@@ -66,7 +66,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          file: ./backend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-backend-image.outputs.tags }}
           labels: ${{ steps.meta-backend-image.outputs.labels }}
@@ -87,7 +87,7 @@ jobs:
       - name: Build and push nginx image
         uses: docker/build-push-action@v6
         with:
-          file: ./deploy_config/nginx/Dockerfile
+          file: ./backend/deploy_config/nginx/Dockerfile
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-nginx-image.outputs.tags }}
