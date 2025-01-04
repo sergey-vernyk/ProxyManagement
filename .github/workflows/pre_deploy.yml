@@ -63,14 +63,14 @@ jobs:
             type=semver,pattern={{major}}
             type=sha
 
-      - name: Debug - Check current working directory
-        run: pwd
+      # - name: Debug - Check current working directory
+      #   run: pwd
 
-      - name: Debug - List backend directory
-        run: ls -la
+      # - name: Debug - List backend directory
+      #   run: ls -la
 
-      - name: Debug - List nginx directory
-        run: ls -la ./deploy_config/nginx
+      # - name: Debug - List nginx directory
+      #   run: ls -la ./deploy_config/nginx
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
