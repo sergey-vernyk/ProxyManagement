@@ -36,6 +36,12 @@ on:
         description: "Image tags which will be assigned to the image being built."
         value: ${{ jobs.build-push-image.outputs.image_tag }}
 
+permissions:
+  contents: read
+  packages: write
+  attestations: write
+  id-token: write
+
 jobs:
   build-push-image:
     runs-on:
