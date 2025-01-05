@@ -142,15 +142,17 @@ jobs:
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
           cd ~/code/ProxyManagement/backend &&
 
-          BACKEND_TAG=$(echo "${{ needs.build-push-image.outputs.backend_image_tag }}" | cut -d: -f2) &&
-          NGINX_TAG=$(echo "${{ needs.build-push-image.outputs.nginx_image_tag }}" | cut -d: -f2) &&
+          # BACKEND_TAG=$(echo "${{ needs.build-push-image.outputs.backend_image_tag }}" | cut -d: -f2) &&
+          # NGINX_TAG=$(echo "${{ needs.build-push-image.outputs.nginx_image_tag }}" | cut -d: -f2) &&
 
-          sed -i 's/^IMAGE_BACKEND_TAG=.*/IMAGE_BACKEND_TAG=${BACKEND_TAG}/' .env &&
-          sed -i 's/^IMAGE_NGINX_TAG=.*/IMAGE_NGINX_TAG=${NGINX_TAG}/' .env &&
+          export IMAGE_BACKEND_TAG=$(echo "${{ needs.build-push-image.outputs.backend_image_tag }}" | cut -d: -f2)
+          export IMAGE_NGINX_TAG=$(echo "${{ needs.build-push-image.outputs.nginx_image_tag }}" | cut -d: -f2)
+          # sed -i 's/^IMAGE_BACKEND_TAG=.*/IMAGE_BACKEND_TAG=${BACKEND_TAG}/' .env &&
+          # sed -i 's/^IMAGE_NGINX_TAG=.*/IMAGE_NGINX_TAG=${NGINX_TAG}/' .env &&
 
-          source .env &&  
-          if docker secret ls --format '{{.Name}}' | grep -q "env_file"; then docker secret rm env_file; fi &&
-          docker secret create env_file .env &&
+          # source .env &&  
+          # if docker secret ls --format '{{.Name}}' | grep -q "env_file"; then docker secret rm env_file; fi &&
+          # docker secret create env_file .env &&
           git checkout ${{ env.BRANCH }} &&
           git pull origin ${{ env.BRANCH }} &&
           docker stack deploy --compose-file docker-compose.yml fastapi --with-registry-auth
