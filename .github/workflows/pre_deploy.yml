@@ -109,11 +109,6 @@ jobs:
     name: Pre-Deploy to Staging
     runs-on: ubuntu-latest
 
-    # defaults:
-    #   run:
-    #     shell: sh
-    #     working-directory: ./backend
-
     steps:
       - name: Download SSH Config Artifact
         uses: actions/download-artifact@v4
@@ -145,10 +140,15 @@ jobs:
       - name: Pull Changes and Start Staging Server
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-          cd ./backend &&
-          sed -i 's/^IMAGE_BACKEND_TAG=.*/IMAGE_BACKEND_TAG=${{ needs.build-push-image.outputs.backend_image_tag }}/' .env &&
-          sed -i 's/^IMAGE_NGINX_TAG=.*/IMAGE_NGINX_TAG=${{ needs.build-push-image.outputs.nginx_image_tag }}/' .env &&
-          source .env &&
+          cd ~/code/ProxyManagement/backend &&
+
+          BACKEND_TAG=$(echo "${{ needs.build-push-image.outputs.backend_image_tag }}" | cut -d: -f2) &&
+          NGINX_TAG=$(echo "${{ needs.build-push-image.outputs.nginx_image_tag }}" | cut -d: -f2) &&
+
+          sed -i 's/^IMAGE_BACKEND_TAG=.*/IMAGE_BACKEND_TAG=${BACKEND_TAG}/' .env &&
+          sed -i 's/^IMAGE_NGINX_TAG=.*/IMAGE_NGINX_TAG=${NGINX_TAG}/' .env &&
+
+          source .env &&  
           if docker secret ls --format '{{.Name}}' | grep -q "env_file"; then docker secret rm env_file; fi &&
           docker secret create env_file .env &&
           git checkout ${{ env.BRANCH }} &&
