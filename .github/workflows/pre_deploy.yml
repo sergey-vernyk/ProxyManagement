@@ -58,7 +58,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.BACKEND_IMAGE_NAME }}
-          labels: 
+          labels: |
             org.opencontainers.image.licenses=MIT
             org.opencontainers.image.description=Image with backend and frontend implementation for proxy management
           tags: |
@@ -81,12 +81,12 @@ jobs:
           tags: ${{ steps.meta-backend-image.outputs.tags }}
           labels: ${{ steps.meta-backend-image.outputs.labels }}
 
-      - name: Extract Metadata for Docker Backend image
+      - name: Extract Metadata for Docker Nginx image
         id: meta-nginx-image
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.NGINX_IMAGE_NAME }}
-          labels: 
+          labels: |
             org.opencontainers.image.licenses=MIT
             org.opencontainers.image.description=Image with custom Nginx configuration
           tags: |
@@ -142,26 +142,14 @@ jobs:
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
           cd ~/code/ProxyManagement/backend &&
 
-          # BACKEND_TAG=$(echo "${{ needs.build-push-image.outputs.backend_image_tag }}" | cut -d: -f2) &&
-          # NGINX_TAG=$(echo "${{ needs.build-push-image.outputs.nginx_image_tag }}" | cut -d: -f2) &&
+          export IMAGE_BACKEND_TAG=$(echo "${{ needs.build-push-image.outputs.backend_image_tag }}" | cut -d: -f2) &&
+          export IMAGE_NGINX_TAG=$(echo "${{ needs.build-push-image.outputs.nginx_image_tag }}" | cut -d: -f2) &&
 
-          export IMAGE_BACKEND_TAG=$(echo "${{ needs.build-push-image.outputs.backend_image_tag }}" | cut -d: -f2)
-          export IMAGE_NGINX_TAG=$(echo "${{ needs.build-push-image.outputs.nginx_image_tag }}" | cut -d: -f2)
-          # sed -i 's/^IMAGE_BACKEND_TAG=.*/IMAGE_BACKEND_TAG=${BACKEND_TAG}/' .env &&
-          # sed -i 's/^IMAGE_NGINX_TAG=.*/IMAGE_NGINX_TAG=${NGINX_TAG}/' .env &&
-
-          # source .env &&  
-          # if docker secret ls --format '{{.Name}}' | grep -q "env_file"; then docker secret rm env_file; fi &&
-          # docker secret create env_file .env &&
           git checkout ${{ env.BRANCH }} &&
           git pull origin ${{ env.BRANCH }} &&
           docker stack deploy --compose-file docker-compose.yml fastapi --with-registry-auth
           "
-
-          # cd ./backend/deploy_config
-          # chmod +x start_staging_server.sh
-          # ./start_staging_server.sh ${{ secrets.SSH_USER }} ${{ secrets.SSH_HOST }} ${{ secrets.WORK_DIR }} ${{ github.repository }}
-
+  
       - name: Disable Cloudflare Under Attack Mode
         if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
         uses: ./.github/actions/setup_cloudflare_security
@@ -170,37 +158,37 @@ jobs:
           cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
           api_key_cloudflare: ${{ secrets.API_KEY_CLOUDFLARE }}
 
-      # - name: Wait for Server Startup
-      #   run: |
-      #     for i in {1..5}; do
-      #       response_code=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGE_BASE_URL }}/health_check)
-      #       if [ "$response_code" -eq 200 ]; then
-      #         echo "Server is up!"
-      #         break
-      #       fi
-      #       echo "Waiting for server..."
-      #       sleep 5
-      #     done
-      #     if [ "$response_code" -ne 200 ]; then
-      #       echo "Server did not start in time."
-      #       exit 1
-      #     fi
+      - name: Wait for Server Startup
+        run: |
+          for i in {1..5}; do
+            response_code=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGE_BASE_URL }}/health_check)
+            if [ "$response_code" -eq 200 ]; then
+              echo "Server is up!"
+              break
+            fi
+            echo "Waiting for server..."
+            sleep 5
+          done
+          if [ "$response_code" -ne 200 ]; then
+            echo "Server did not start in time."
+            exit 1
+          fi
 
-      # - name: Delay for Security Mode Change
-      #   if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
-      #   run: sleep 10 
+      - name: Delay for Security Mode Change
+        if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+        run: sleep 10 
           
-      # - name: Health Check
-      #   run: |
-      #     response_code=$(curl -s -w "%{http_code}" -o /tmp/stage_health_response.json ${{ secrets.STAGE_BASE_URL }}/health_check)
-      #     if [ "$response_code" -ne 200 ]; then
-      #         echo "Health check failed with status $response_code"
-      #         exit 1
-      #     else
-      #         echo "Health check passed!"
-      #         echo "Server Health Status:"
-      #         cat /tmp/stage_health_response.json | jq
-      #     fi
+      - name: Health Check
+        run: |
+          response_code=$(curl -s -w "%{http_code}" -o /tmp/stage_health_response.json ${{ secrets.STAGE_BASE_URL }}/health_check)
+          if [ "$response_code" -ne 200 ]; then
+              echo "Health check failed with status $response_code"
+              exit 1
+          else
+              echo "Health check passed!"
+              echo "Server Health Status:"
+              cat /tmp/stage_health_response.json | jq
+          fi
 
       - name: Enable Cloudflare Under Attack Mode
         if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
