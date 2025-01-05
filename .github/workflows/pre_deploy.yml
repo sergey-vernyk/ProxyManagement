@@ -117,7 +117,7 @@ jobs:
 
           git checkout ${{ env.BRANCH }} &&
           git pull origin ${{ env.BRANCH }} &&
-          # docker stack deploy --compose-file docker-compose.yml fastapi --with-registry-auth
+          # docker stack deploy --compose-file docker-compose.yml ${{ vars.DOCKER_STACK_NAME }} --with-registry-auth
           
           if docker service ls --format {{.Name}} | grep -q '${{ env.SERVICE_NAME }}'; then
             docker service rm ${{ env.SERVICE_NAME }}
@@ -129,7 +129,7 @@ jobs:
               --secret ${{ env.SECRET_ENV_FILE }} \
               --network fastapi_backend \
               -p 8001:8001 --with-registry-auth \
-              --entrypoint "/usr/local/bin/poetry run uvicorn main:app --env-file /run/secrets/env_file --port 8001 --host 0.0.0.0 --reload" \
+              --entrypoint '/usr/local/bin/poetry run uvicorn main:app --env-file /run/secrets/env_file --port 8001 --host 0.0.0.0 --reload' \
                 ghcr.io/sergey-vernyk/proxy_management:${IMAGE_BACKEND_TAG}
             else
               echo \"Docker secret 'env_file' does not exist.\"
