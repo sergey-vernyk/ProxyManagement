@@ -109,10 +109,10 @@ jobs:
     name: Pre-Deploy to Staging
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        shell: sh
-        working-directory: ./backend
+    # defaults:
+    #   run:
+    #     shell: sh
+    #     working-directory: ./backend
 
     steps:
       - name: Download SSH Config Artifact
@@ -145,6 +145,7 @@ jobs:
       - name: Pull Changes and Start Staging Server
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+          cd ./backend &&
           sed -i 's/^IMAGE_BACKEND_TAG=.*/IMAGE_BACKEND_TAG=${{ needs.build-push-image.outputs.backend_image_tag }}/' .env &&
           sed -i 's/^IMAGE_NGINX_TAG=.*/IMAGE_NGINX_TAG=${{ needs.build-push-image.outputs.nginx_image_tag }}/' .env &&
           source .env &&
