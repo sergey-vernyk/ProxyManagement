@@ -11,6 +11,10 @@ on:
     branches:
       - main
 
+env:
+  IMAGE_BACKEND_NAME: proxy_management
+  IMAGE_NGINX_NAME: reverse_proxy
+
 jobs:
   setup-ssh:
     uses: ./.github/workflows/setup_ssh.yml
@@ -29,7 +33,7 @@ jobs:
     name: Build And Push Backend Image
     with:
       registry: ${{ vars.REGISTRY }}
-      image-name: proxy_management
+      image-name: $IMAGE_BACKEND_NAME
       context-path: backend
       dockerfile-path: backend/Dockerfile
       working-directory: ./backend
@@ -49,7 +53,7 @@ jobs:
     name: Build And Push Nginx Image
     with:
       registry: ${{ vars.REGISTRY }}
-      image-name: reverse_proxy
+      image-name: $IMAGE_NGINX_NAME
       context-path: backend/deploy_config/nginx
       dockerfile-path: backend/deploy_config/nginx/Dockerfile
       working-directory: ./backend
@@ -130,7 +134,7 @@ jobs:
           fi
 
           export IMAGE_BACKEND_TAG=${IMAGE_BACKEND_TAG} &&
-          
+
           # check for and create service if secret exists
           if docker secret ls --format={{.Name}} | grep -q '${{ env.SECRET_ENV_FILE }}'; then 
             docker service create \
@@ -139,8 +143,8 @@ jobs:
               --network ${{ env.NETWORK_NAME }} \
               --publish 8001:8001 \
               --with-registry-auth \
-              --entrypoint '/usr/local/bin/poetry run uvicorn main:app --env-file /run/secrets/env_file --port 8001 --host 0.0.0.0 --reload' \
-              ghcr.io/sergey-vernyk/proxy_management:${IMAGE_BACKEND_TAG}
+              --entrypoint \"/bin/sh -c '~/.local/bin/poetry run uvicorn main:app --env-file /run/secrets/env_file --port 8001 --host 0.0.0.0 --reload'\" \
+              ghcr.io/sergey-vernyk/${IMAGE_BACKEND_NAME}:${IMAGE_BACKEND_TAG}
           else
             echo \"Docker secret '${{ env.SECRET_ENV_FILE }}' does not exist.\"
           fi
