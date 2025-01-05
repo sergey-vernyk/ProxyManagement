@@ -53,6 +53,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
       - name: Extract Metadata for Docker Backend image
         id: meta-backend-image
         uses: docker/metadata-action@v5
@@ -80,8 +83,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-backend-image.outputs.tags }}
           labels: ${{ steps.meta-backend-image.outputs.labels }}
-          cache-to: gha
-          cache-from: gha
+          cache-to: type=gha
+          cache-from: type=gha
 
       - name: Extract Metadata for Docker Nginx image
         id: meta-nginx-image
