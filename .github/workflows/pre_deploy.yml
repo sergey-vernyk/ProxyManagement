@@ -44,7 +44,11 @@ jobs:
         org.opencontainers.image.description=Image with backend and frontend implementation for proxy management
       tags: |
         type=sha
-    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
 
   build-push-nginx-image:
     uses: ./.github/workflows/build_and_push_image.yml
@@ -60,7 +64,12 @@ jobs:
         org.opencontainers.image.description=Image with custom Nginx configuration
       tags: |
         type=sha
-    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
 
   # build-push-image:
   #   runs-on:
