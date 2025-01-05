@@ -22,6 +22,9 @@ services:
       - postgres_user
       - postgres_password
       - postgres_db
+    deploy:
+      update_config:
+        order: start-first
     networks:
       - backend
 

@@ -23,7 +23,7 @@ RUN mkdir -p /usr/src/app/backend/static && \
 
 USER $user
 ADD ./pyproject.toml ./poetry.lock ./
-ENV PATH "$PATH:/home/$user/.local/bin"
+ENV PATH="$PATH:/home/$user/.local/bin"
     
 RUN pip install --upgrade pip && \
     pip install poetry && \
