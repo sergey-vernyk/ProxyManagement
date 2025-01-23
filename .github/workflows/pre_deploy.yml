@@ -138,7 +138,9 @@ jobs:
           "
 
       - name: Start Staging Server
-        if: ${{ contains(needs.*.result, 'skipped') || contains(needs.*.result, 'failure') || contains(needs.*.result, 'success') }}
+        if: |
+          always()
+          && contains(needs.*.result, 'skipped') || contains(needs.*.result, 'failure') || contains(needs.*.result, 'success')
         env:
           SERVICE_NAME: stage_backend
           SECRET_ENV_FILE: env_file
