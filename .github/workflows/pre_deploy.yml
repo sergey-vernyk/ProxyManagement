@@ -138,9 +138,10 @@ jobs:
           "
 
       - name: Start Staging Server
-        if: |
-          always()
-          && contains(needs.*.result, 'skipped') || contains(needs.*.result, 'failure') || contains(needs.*.result, 'success')
+        if: ${{ 
+          (needs.build-push-backend-image.result == 'skipped' || needs.build-push-backend-image.result == 'success') && 
+          (needs.build-push-build-push-nginx-image.result == 'skipped' || needs.build-push-nginx-image.result == 'success')
+          }}
         env:
           SERVICE_NAME: stage_backend
           SECRET_ENV_FILE: env_file
