@@ -140,7 +140,7 @@ jobs:
       - name: Start Staging Server
         if: ${{ 
           (needs.build-push-backend-image.result == 'skipped' || needs.build-push-backend-image.result == 'success') && 
-          (needs.build-push-build-push-nginx-image.result == 'skipped' || needs.build-push-nginx-image.result == 'success')
+          (needs.build-push-nginx-image.result == 'skipped' || needs.build-push-nginx-image.result == 'success')
           }}
         env:
           SERVICE_NAME: stage_backend
