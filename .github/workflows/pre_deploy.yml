@@ -23,8 +23,28 @@ jobs:
       gh_artifacts_gpg_private: ${{ secrets.GH_ARTIFACTS_GPG_PRIVATE }}
       gh_artifacts_gpg_public: ${{ secrets.GH_ARTIFACTS_GPG_PUBLIC }}
       gpg_id: ${{ secrets.GPG_ID }}
+
+  changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      nginx: ${{ steps.filter.outputs.nginx }}
+      
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          working-directory: ./backend
+          filters: |
+            backend:
+              - './**'
+            nginx:
+              - './deploy_config/nginx/**'
     
   build-push-backend-image:
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    needs: changes
     uses: ./.github/workflows/build_and_push_image.yml
     name: Build And Push Backend Image
     with:
@@ -45,6 +65,8 @@ jobs:
       id-token: write
 
   build-push-nginx-image:
+    if: ${{ needs.changes.outputs.nginx == 'true' }}
+    needs: changes
     uses: ./.github/workflows/build_and_push_image.yml
     name: Build And Push Nginx Image
     with:
@@ -70,8 +92,10 @@ jobs:
 
     needs:
       - setup-ssh
+      - changes
       - build-push-backend-image
       - build-push-nginx-image
+
 
     name: Pre-Deploy to Staging
     runs-on: ubuntu-latest
@@ -104,47 +128,79 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Pull Changes and Start Staging Server
+      - name: Pull Changes
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+          cd ${{ vars.CODE_WORK_DIR }} &&
+          git checkout ${{ env.BRANCH }} &&
+          git pull origin ${{ env.BRANCH }}
+          "
+
+      - name: Start Staging Server
         env:
           SERVICE_NAME: stage_backend
           SECRET_ENV_FILE: env_file
           NETWORK_NAME: ${{ vars.DOCKER_STACK_NAME }}_backend
         run: |
-          IMAGE_BACKEND_TAG=$(echo '${{ needs.build-push-backend-image.outputs.image-tag }}' | cut -d: -f2)
-          IMAGE_NGINX_TAG=$(echo '${{ needs.build-push-nginx-image.outputs.image-tag }}' | cut -d: -f2)
+          IMAGE_BACKEND_TAG=$(echo "${{ needs.build-push-backend-image.outputs.image-tag || 'no-build' }}" | cut -d: -f2)
+          IMAGE_NGINX_TAG=$(echo "${{ needs.build-push-nginx-image.outputs.image-tag || 'no-build' }}" | cut -d: -f2)
 
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
           cd ${{ vars.CODE_WORK_DIR }} &&
-
-          # extract and validate image tags  
-          export IMAGE_BACKEND_TAG=${IMAGE_BACKEND_TAG} &&
-          export IMAGE_NGINX_TAG=${IMAGE_NGINX_TAG} &&
-
-          git checkout ${{ env.BRANCH }} &&
-          git pull origin ${{ env.BRANCH }} &&
-          # docker stack deploy --compose-file docker-compose.yml ${{ vars.DOCKER_STACK_NAME }} --with-registry-auth
           
-          # remove existing service if it exists
-          if docker service ls --format {{.Name}} | grep -q '${{ env.SERVICE_NAME }}'; then
-            docker service rm ${{ env.SERVICE_NAME }}
-          fi
+          if [[ "$IMAGE_NGINX_TAG" != "no-build" ]]; then
+            export IMAGE_NGINX_TAG=${IMAGE_NGINX_TAG}
+            docker service update --image ${{ vars.REGISTRY}}/${{github.actor}}/reverse_proxy:${IMAGE_BACKEND_TAG} nginx 
+          fi &&
 
-          export IMAGE_BACKEND_TAG=${IMAGE_BACKEND_TAG} &&
+          # extract and validate image tags
+          if [[ "$IMAGE_BACKEND_TAG" != "no-build" ]]; then
+            export IMAGE_BACKEND_TAG=${IMAGE_BACKEND_TAG}
+            # remove existing service if it exists
+            if docker service ls --format {{.Name}} | grep -q '${{ env.SERVICE_NAME }}'; then
+              docker service rm ${{ env.SERVICE_NAME }}
+            fi
 
-          # check for and create service if secret exists
-          if docker secret ls --format={{.Name}} | grep -q '${{ env.SECRET_ENV_FILE }}'; then 
-            docker service create \
-              --name ${{ env.SERVICE_NAME }}  \
-              --secret ${{ env.SECRET_ENV_FILE }} \
-              --network ${{ env.NETWORK_NAME }} \
-              --publish 8001:8001 \
-              --with-registry-auth \
-              --entrypoint \"/bin/sh -c '~/.local/bin/poetry run uvicorn main:app --env-file /run/secrets/env_file --port 8001 --host 0.0.0.0 --reload'\" \
-              ghcr.io/sergey-vernyk/proxy_management:${IMAGE_BACKEND_TAG}
-          else
-            echo \"Docker secret '${{ env.SECRET_ENV_FILE }}' does not exist.\"
+            # check for and create service if secret exists
+            if docker secret ls --format={{.Name}} | grep -q '${{ env.SECRET_ENV_FILE }}'; then 
+              docker service create \
+                --name ${{ env.SERVICE_NAME }}  \
+                --secret ${{ env.SECRET_ENV_FILE }} \
+                --network ${{ env.NETWORK_NAME }} \
+                --publish 8001:8001 \
+                --with-registry-auth \
+                --entrypoint \"/bin/sh -c '~/.local/bin/poetry run uvicorn main:app --env-file /run/secrets/env_file --port 8001 --host 0.0.0.0 --reload'\" \
+              ${{ vars.REGISTRY }}/${{ github.actor }}/proxy_management:${IMAGE_BACKEND_TAG}
+            else
+              echo \"Docker secret '${{ env.SECRET_ENV_FILE }}' does not exist.\"
+            fi
           fi
           "
+          #--------------------
+          # docker stack deploy --compose-file docker-compose.yml ${{ vars.DOCKER_STACK_NAME }} --with-registry-auth
+          #-------------------
+
+          # # remove existing service if it exists
+          # if docker service ls --format {{.Name}} | grep -q '${{ env.SERVICE_NAME }}'; then
+          #   docker service rm ${{ env.SERVICE_NAME }}
+          # fi
+
+          # export IMAGE_BACKEND_TAG=${IMAGE_BACKEND_TAG} &&
+
+          # check for and create service if secret exists
+          # if docker secret ls --format={{.Name}} | grep -q '${{ env.SECRET_ENV_FILE }}'; then 
+          #   docker service create \
+          #     --name ${{ env.SERVICE_NAME }}  \
+          #     --secret ${{ env.SECRET_ENV_FILE }} \
+          #     --network ${{ env.NETWORK_NAME }} \
+          #     --publish 8001:8001 \
+          #     --with-registry-auth \
+          #     --entrypoint \"/bin/sh -c '~/.local/bin/poetry run uvicorn main:app --env-file /run/secrets/env_file --port 8001 --host 0.0.0.0 --reload'\" \
+          #     ${{ vars.REGISTRY }}/${{ github.actor }}/proxy_management:${IMAGE_BACKEND_TAG}
+          # else
+          #   echo \"Docker secret '${{ env.SECRET_ENV_FILE }}' does not exist.\"
+          # fi
+          #"
   
       - name: Disable Cloudflare Under Attack Mode
         if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
