@@ -87,6 +87,17 @@ jobs:
       attestations: write
       id-token: write
 
+  debug-needs:
+    runs-on: ubuntu-latest
+    needs: [build-push-backend-image, build-push-nginx-image]
+    steps:
+      - name: Debug Dependent Jobs
+        run: |
+          echo "Backend Job Result: ${{ needs.build-push-backend-image.result }}"
+          echo "Nginx Job Result: ${{ needs.build-push-nginx-image.result }}"
+          echo "Backend Image Tag: ${{ needs.build-push-backend-image.outputs.image-tag }}"
+          echo "Nginx Image Tag: ${{ needs.build-push-nginx-image.outputs.image-tag }}"
+
   pre-deploy:
     env:
       BRANCH: main
@@ -136,10 +147,6 @@ jobs:
           git checkout ${{ env.BRANCH }} &&
           git pull origin ${{ env.BRANCH }}
           "
-      - name: Debug Job Results
-        run: |
-          echo "Backend Job Result: ${{ needs.build-push-backend-image.result }}"
-          echo "Nginx Job Result: ${{ needs.build-push-nginx-image.result }}"
 
       - name: Start Staging Server
         if: ${{ 
