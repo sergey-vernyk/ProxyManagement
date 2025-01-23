@@ -136,6 +136,10 @@ jobs:
           git checkout ${{ env.BRANCH }} &&
           git pull origin ${{ env.BRANCH }}
           "
+      - name: Debug Job Results
+        run: |
+          echo "Backend Job Result: ${{ needs.build-push-backend-image.result }}"
+          echo "Nginx Job Result: ${{ needs.build-push-nginx-image.result }}"
 
       - name: Start Staging Server
         if: ${{ 
