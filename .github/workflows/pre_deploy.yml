@@ -36,12 +36,12 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          working-directory: ./backend
+          # working-directory: ./backend
           filters: |
             backend:
-              - './**'
+              - './backend/**'
             nginx:
-              - './deploy_config/nginx/**'
+              - './backend/deploy_config/nginx/**'
     
   build-push-backend-image:
     if: ${{ needs.changes.outputs.backend == 'true' }}
@@ -91,12 +91,11 @@ jobs:
     env:
       BRANCH: main
 
-    needs:
-      - setup-ssh
-      - changes
-      - build-push-backend-image
-      - build-push-nginx-image
-
+    needs: [setup-ssh, changes, build-push-backend-image, build-push-nginx-image]
+    if: ${{ 
+          (needs.build-push-backend-image.result == 'skipped' || needs.build-push-backend-image.result == 'success') && 
+          (needs.build-push-nginx-image.result == 'skipped' || needs.build-push-nginx-image.result == 'success')
+      }}
 
     name: Pre-Deploy to Staging
     runs-on: ubuntu-latest
@@ -138,7 +137,6 @@ jobs:
           "
 
       - name: Start Staging Server
-        if: always()
         env:
           SERVICE_NAME: stage_backend
           SECRET_ENV_FILE: env_file
