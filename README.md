@@ -26,7 +26,7 @@
 
 ## Description
 
-Proxy Management System for interactions with proxies based on LTE modems. This application provides a robust and efficient way to manage and interact with LTE modems, allowing for seamless proxy management.
+Proxy Management System for interactions with proxies based on LTE modems using 3proxy. This application provides efficient way to manage and interact with LTE Huawei modems, allowing for seamless proxy management.
 
 ## Features
 
@@ -101,7 +101,7 @@ Proxy Management System for interactions with proxies based on LTE modems. This 
 
 #### *CRUD operations for user proxy credentials*
 ```sh
-    poetry run proxy-conf-users [OPTIONS] COMMAND [ARGS]
+poetry run proxy-conf-users [OPTIONS] COMMAND [ARGS]
 ```
 Commands:
 - `create-user-list`: Create a user list file with proxy credentials
@@ -116,7 +116,7 @@ Options:
 
 #### *Start the socket server, stop the server, show its logs and accepted connections*
 ```sh
-    poetry run socket-server [OPTIONS] ENV_FILE COMMAND [ARGS]
+poetry run socket-server [OPTIONS] ENV_FILE COMMAND [ARGS]
 ```
 Commands:
 - `connection-number`: Show the current numbers of accepted connection to the socket server
@@ -130,7 +130,7 @@ Options:
 
 #### *Create different connection protocol types for proxy (http, socks, ftp, etc.)*
 ```sh
-    poetry run proxy-conf-protocols [OPTIONS] COMMAND [ARGS]
+poetry run proxy-conf-protocols [OPTIONS] COMMAND [ARGS]
 ```
 Commands:
 - `create-connection-protocol`: Create one line for protocol in the proxy conf file (e.g. proxy -n -a -p49153 -i192.168.1.105 -e192.168.8.100)
@@ -142,7 +142,7 @@ Options:
 
 ### *Run uvicorn server with parameters*
 ```sh
-    poetry run web-server [OPTIONS] COMMAND [ARGS]
+poetry run web-server [OPTIONS] COMMAND [ARGS]
 ```
 Commands:
 - `runserver`: Run the FastAPI server with the provided options
