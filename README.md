@@ -111,8 +111,8 @@ Commands:
   
 Options:
 - `--env-file TEXT`: Location or URL of the environment configuration file
-- `-u, --username TEXT`: Username for authenticating if the provided 'env_file' is URL.
-- `-pass, --password TEXT`: Password for authenticating if the provided
+- `-u, --username TEXT`: Username for authenticating if the provided 'env_file' is URL
+- `-pass, --password TEXT`: Password for authenticating if the provided 'env_file' is URL
 
 #### *Start the socket server, stop the server, show its logs and accepted connections*
 ```sh
