@@ -10,7 +10,7 @@
     - [Authentication](#authentication)
     - [Modems](#modems)
     - [Users](#users)
-    - [CLI](#cli)
+  - [Command Line Interface (CLI)](#command-line-interface-cli)
       - [*CRUD operations for user proxy credentials*](#crud-operations-for-user-proxy-credentials)
       - [*Start the socket server, stop the server, show its logs and accepted connections*](#start-the-socket-server-stop-the-server-show-its-logs-and-accepted-connections)
       - [*Create different connection protocol types for proxy (http, socks, ftp, etc.)*](#create-different-connection-protocol-types-for-proxy-http-socks-ftp-etc)
@@ -97,7 +97,7 @@ Proxy Management System for interactions with proxies based on LTE modems. This 
 - `PUT /users/{email}`: Update a specific user by email
 - `DELETE /users/{email}`: Delete a specific user by email
 
-### CLI
+## Command Line Interface (CLI)
 
 #### *CRUD operations for user proxy credentials*
 ```sh
