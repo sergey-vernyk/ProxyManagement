@@ -1,17 +1,22 @@
 import pathlib
 
 import click
-from db_connection import engine
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from tabulate import tabulate
 
+from db_connection import engine
+
 from .schemas import EnvPathOrEnvUrl
-from .utils import (build_credentials_for_config, fetch_env_file,
-                    get_proxy_credentials_from_db, load_env_in_memory,
-                    load_env_in_shell_env)
+from .utils import (
+    build_credentials_for_config,
+    fetch_env_file,
+    get_proxy_credentials_from_db,
+    load_env_in_memory,
+    load_env_in_shell_env,
+)
 
 
 @click.group(help="CLI for making CRUD operations for user proxy credentials.")
@@ -132,7 +137,13 @@ def create_user_list(ctx: click.Context, filename: pathlib.Path, users: str) -> 
     except PermissionError:
         click.echo(click.style(f"Error: Permission denied to write to: {filename}", fg="red", bold=True))
     except UnicodeEncodeError:
-        click.echo(click.style("Error: Could not encode the file with the provided encoding.", fg="red", bold=True))
+        click.echo(
+            click.style(
+                "Error: Could not encode the file with the provided encoding.",
+                fg="red",
+                bold=True,
+            )
+        )
     except ValueError as e:
         click.echo(click.style(str(e), bold=True, fg="red"))
     else:
@@ -186,7 +197,11 @@ def insert_into_user_list(ctx: click.Context, filename: pathlib.Path, users: str
             return
 
         click.confirm(
-            click.style(f"Are you sure for ADDING new lines in the '{filename}'?", fg="green", bold=True),
+            click.style(
+                f"Are you sure for ADDING new lines in the '{filename}'?",
+                fg="green",
+                bold=True,
+            ),
             abort=True,
         )
 
@@ -198,12 +213,22 @@ def insert_into_user_list(ctx: click.Context, filename: pathlib.Path, users: str
     except PermissionError:
         click.echo(click.style(f"Error: Permission denied to write to: {filename}", fg="red", bold=True))
     except UnicodeEncodeError:
-        click.echo(click.style("Error: Could not encode the file with the provided encoding.", fg="red", bold=True))
+        click.echo(
+            click.style(
+                "Error: Could not encode the file with the provided encoding.",
+                fg="red",
+                bold=True,
+            )
+        )
     except ValueError as e:
         click.echo(click.style(str(e), bold=True, fg="red"))
     else:
         click.echo(
-            click.style(f"{lines_inserted} credential(s) have been inserted.", fg="green", bold=True),
+            click.style(
+                f"{lines_inserted} credential(s) have been inserted.",
+                fg="green",
+                bold=True,
+            ),
         )
 
 
@@ -233,12 +258,18 @@ def get_from_user_list(ctx: click.Context, filename: pathlib.Path) -> None:
         with open(filename, encoding=encoding) as file:
             creds_from_file = file.read()
     except UnicodeEncodeError:
-        click.echo(click.style("Error: Could not encode the file with the provided encoding.", fg="red", bold=True))
+        click.echo(
+            click.style(
+                "Error: Could not encode the file with the provided encoding.",
+                fg="red",
+                bold=True,
+            )
+        )
 
     # pylint: disable=C0415
     # pylint: disable=W0611
-    from auth.otp.models import OTP
-    from modems.models import Modem
+    from auth.otp.models import OTP  # noqa: F401
+    from modems.models import Modem  # noqa: F401
     from users.models import User
 
     # credential config file looks like "X1C-HpxeWHnsdup2tie:CR:$1$5Cb2O1Da$r/BJBfSGuQt4it9ASUJiI/"
@@ -334,12 +365,22 @@ def delete_from_user_list(ctx: click.Context, filename: pathlib.Path, users: str
             file.writelines(remaining_creds)
             file.truncate()
     except UnicodeEncodeError:
-        click.echo(click.style("Error: Could not encode the file with the provided encoding.", fg="red", bold=True))
+        click.echo(
+            click.style(
+                "Error: Could not encode the file with the provided encoding.",
+                fg="red",
+                bold=True,
+            )
+        )
     except PermissionError:
         click.echo(click.style(f"Error: Permission denied to write to: {filename}", fg="red", bold=True))
     else:
         click.echo(
-            click.style(f"{creds_to_delete} credential(s) have been deleted.", fg="green", bold=True),
+            click.style(
+                f"{creds_to_delete} credential(s) have been deleted.",
+                fg="green",
+                bold=True,
+            ),
         )
 
 

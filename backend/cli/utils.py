@@ -12,6 +12,7 @@ from sqlalchemy import Row, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+
 from users.schemas import HashType
 
 
@@ -114,8 +115,6 @@ def get_proxy_credentials_from_db(users_emails: list[str]) -> Sequence[Row[tuple
     """
     # pylint: disable=C0415
     # pylint: disable=W0611
-    from auth.otp.models import OTP
-    from modems.models import Modem
     from users.models import User
 
     engine = EngineSingleton.get_instance()

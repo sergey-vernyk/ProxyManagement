@@ -1,18 +1,19 @@
 from secrets import compare_digest
 from typing import Annotated, Any, Generator, NoReturn, Protocol
 
-from common.utils import get_caller_info
-from config import get_settings
-from db_connection import SessionLocal
 from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.exceptions import GoogleAuthError
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from jose import JWTError, jwt
-from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+
+from common.utils import get_caller_info
+from config import get_settings
+from db_connection import SessionLocal
+from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from users import crud, models
 
 logger = get_endpoint_logger()
@@ -222,17 +223,8 @@ async def jwt_verification(
 
 def verify_csrf_token(
     request: Request,
-    cookie_token: str = Cookie(
-        default=None,
-        include_in_schema=False,
-        alias="csrftoken",
-    ),
-    header_token: str = Header(
-        default=None,
-        convert_underscores=False,
-        include_in_schema=False,
-        alias="X-CSRFToken",
-    ),
+    cookie_token: str = Cookie(default=None, include_in_schema=False, alias="csrftoken"),
+    header_token: str = Header(default=None, convert_underscores=False, include_in_schema=False, alias="X-CSRFToken"),
 ) -> None:
     """
     Verifies the CSRF tokens provided by the client in the request's cookie and header.

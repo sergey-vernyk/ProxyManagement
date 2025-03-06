@@ -93,10 +93,6 @@ jobs:
 
     needs: [setup-ssh, changes, build-push-backend-image, build-push-nginx-image]
     if: ${{ ! failure() }}
-    # if: ${{ 
-    #       (needs.build-push-backend-image.result == 'skipped' || needs.build-push-backend-image.result == 'success' || needs.build-push-backend-image.result == 'failure') && 
-    #       (needs.build-push-nginx-image.result == 'skipped' || needs.build-push-nginx-image.result == 'success' || needs.build-push-nginx-image.result == 'failure')
-    #   }}
 
     name: Pre-Deploy to Staging
     runs-on: ubuntu-latest
