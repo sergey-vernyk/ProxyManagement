@@ -1,7 +1,8 @@
 from typing import Any
 
-from security import get_password_hash
 from sqlalchemy.orm import Session
+
+from security import get_password_hash
 
 from . import models, schemas
 

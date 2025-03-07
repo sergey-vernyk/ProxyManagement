@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from db_connection import Base
 from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
 from sqlalchemy.orm import relationship
+
+from db_connection import Base
 
 from .schemas import HashType, UserRole
 

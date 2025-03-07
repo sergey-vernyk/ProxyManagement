@@ -11,21 +11,20 @@ import random
 from secrets import token_urlsafe
 from typing import Annotated, Any
 
-from auth.otp.utils import send_otp_email_handler
-from auth.utils import delete_cookie
-from common.utils import build_full_endpoint_url, get_caller_info
-from config import get_settings
-from dependencies import (CsrfVerifyDependency, DatabaseDependency,
-                          jwt_verification)
-from exceptions import ClientRequestError, EntityDoesNotExistError
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import EmailStr
-from security import (encrypt_modem_password, generate_md5_crypt_hash_password,
-                      get_password_hash, verify_password)
+
+from auth.otp.utils import send_otp_email_handler
+from auth.utils import delete_cookie
+from common.utils import build_full_endpoint_url, get_caller_info
+from config import get_settings
+from dependencies import CsrfVerifyDependency, DatabaseDependency, jwt_verification
+from exceptions import ClientRequestError, EntityDoesNotExistError
+from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
+from security import encrypt_modem_password, generate_md5_crypt_hash_password, get_password_hash, verify_password
 from validators import validate_email_format
 
 from . import crud, models, schemas

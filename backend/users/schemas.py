@@ -1,8 +1,9 @@
 from datetime import datetime
 from enum import Enum
 
-from modems.schemas import ShowModemForUser
 from pydantic import BaseModel, EmailStr, Field
+
+from modems.schemas import ShowModemForUser
 
 
 class UserRole(str, Enum):
