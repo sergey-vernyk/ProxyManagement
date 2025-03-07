@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from db_connection import Base
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import relationship
+
+from db_connection import Base
 
 
 class Modem(Base):

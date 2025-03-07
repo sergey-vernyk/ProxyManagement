@@ -2,11 +2,12 @@ import datetime
 from ipaddress import IPv4Address
 from typing import cast
 
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
 from common.utils import get_caller_info
 from config import get_settings
 from conn_utils import send_data_to_socket_server
 from dependencies import DatabaseDependency
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from logs.logging_conf import build_ip_address_for_log, get_endpoint_logger
 from users.models import User
 

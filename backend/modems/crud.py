@@ -1,6 +1,7 @@
 from typing import Any
 
 from sqlalchemy.orm import Session
+
 from users.models import User
 
 from . import models

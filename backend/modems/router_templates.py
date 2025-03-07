@@ -1,12 +1,13 @@
 from typing import Annotated, Any, cast
 
 import httpx
-from common.decorators import template_jwt_verification
-from common.utils import build_full_endpoint_url
-from dependencies import DatabaseDependency
 from fastapi import APIRouter, Path, Request, status
 from fastapi.templating import Jinja2Templates
 from starlette.templating import _TemplateResponse
+
+from common.decorators import template_jwt_verification
+from common.utils import build_full_endpoint_url
+from dependencies import DatabaseDependency
 from users.models import User
 
 from . import models

@@ -70,8 +70,7 @@ class CreateModem(BaseModel):
     )
     external_server_port: int = Field(
         description=(
-            "Server port, where a proxy is located and "
-            "the socket client can connect via this port to the socket server."
+            "Server port, where a proxy is located and the socket client can connect via this port to the socket server."
         ),
         le=65535,
         ge=65000,
@@ -133,7 +132,7 @@ class UpdateModem(BaseModel):
     ip: IPvAnyAddress
     external_server_ip: IPvAnyAddress | None = None
     internal_server_ip: IPvAnyAddress | None = None
-    external_server_port: int = Field(le=65535, ge=65000, default=None)
+    external_server_port: int | None = Field(le=65535, ge=65000, default=None)
     external_server_host: HttpUrl
     update_hashed_value: bool = Field(
         description="Flag for indicating a user intention to update modem 'hashed_value' field.",
