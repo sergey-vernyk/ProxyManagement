@@ -144,13 +144,16 @@ jobs:
 
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
           cd ${{ vars.CODE_WORK_DIR }} &&
-          
+
+          echo ${{secrets.GITHUB_TOKEN}} | docker login ${{vars.REGISTRY}} -u ${{github.actor}}
+
+          # extract and validate image tags          
           if [[ "$IMAGE_NGINX_TAG" != "no-build" ]]; then
             export IMAGE_NGINX_TAG=${IMAGE_NGINX_TAG}
-            docker service update --image ${{ vars.REGISTRY}}/${{github.actor}}/reverse_proxy:${IMAGE_BACKEND_TAG} nginx 
+            docker pull ${{vars.REGISTRY}}/${{github.actor}}/reverse_proxy:${IMAGE_NGINX_TAG}
+            docker service update --image ${{ vars.REGISTRY}}/${{github.actor}}/reverse_proxy:${IMAGE_NGINX_TAG} nginx 
           fi &&
 
-          # extract and validate image tags
           if [[ "$IMAGE_BACKEND_TAG" != "no-build" ]]; then
             export IMAGE_BACKEND_TAG=${IMAGE_BACKEND_TAG}
             # remove existing service if it exists
@@ -159,7 +162,8 @@ jobs:
             fi
 
             # check for and create service if secret exists
-            if docker secret ls --format={{.Name}} | grep -q '${{ env.SECRET_ENV_FILE }}'; then 
+            if docker secret ls --format={{.Name}} | grep -q '${{ env.SECRET_ENV_FILE }}'; then
+              docker pull ${{vars.REGISTRY}}/${{github.actor}}/proxy_management:${IMAGE_BACKEND_TAG}
               docker service create \
                 --name ${{ env.SERVICE_NAME }}  \
                 --secret ${{ env.SECRET_ENV_FILE }} \
