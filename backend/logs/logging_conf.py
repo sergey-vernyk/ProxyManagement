@@ -9,8 +9,7 @@ from typing import Any
 
 from fastapi import Request
 
-from . import (client_logging_dir, endpoint_logging_dir, server_logging_dir,
-               settings)
+from . import client_logging_dir, endpoint_logging_dir, server_logging_dir, settings
 
 ENCODING = settings.default_encoding
 
