@@ -2,6 +2,7 @@
 
 set -e
 
+# generate dhparams is it's not exists
 if [ ! -f "/vol/proxy/ssl-dhparams.pem" ]; then
     echo "dhparams.pem doesn't exist - creating it..."
     openssl dhparam -out /vol/proxy/ssl-dhparams.pem 2048
