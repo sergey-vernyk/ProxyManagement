@@ -151,13 +151,13 @@ jobs:
           if [[ "$IMAGE_NGINX_TAG" != "no-build" ]]; then
             export IMAGE_NGINX_TAG=${IMAGE_NGINX_TAG}
             docker pull ${{vars.REGISTRY}}/${{github.actor}}/reverse_proxy:${IMAGE_NGINX_TAG}
-            docker service update --image ${{ vars.REGISTRY}}/${{github.actor}}/reverse_proxy:${IMAGE_NGINX_TAG} nginx 
+            docker service update --image ${{ vars.REGISTRY}}/${{github.actor}}/reverse_proxy:${IMAGE_NGINX_TAG} fastapi_nginx 
           fi &&
 
           if [[ "$IMAGE_BACKEND_TAG" != "no-build" ]]; then
             export IMAGE_BACKEND_TAG=${IMAGE_BACKEND_TAG}
             docker pull ${{vars.REGISTRY}}/${{github.actor}}/proxy_management:${IMAGE_BACKEND_TAG}
-            docker service update --image ${{ vars.REGISTRY}}/${{github.actor}}/proxy_management:${IMAGE_BACKEND_TAG} backend
+            docker service update --image ${{ vars.REGISTRY}}/${{github.actor}}/proxy_management:${IMAGE_BACKEND_TAG} fastapi_backend
 
             # remove existing service if it exists
             # if docker service ls --format {{.Name}} | grep -q '${{ env.SERVICE_NAME }}'; then
