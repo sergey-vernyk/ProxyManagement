@@ -150,7 +150,7 @@ jobs:
           if [[ "$IMAGE_NGINX_TAG" != "no-build" && "$IMAGE_BACKEND_TAG" != "no-build" ]]; then
             docker stack deploy --compose-file docker-compose.yml ${{ vars.DOCKER_STACK_NAME }} --with-registry-auth
             exit 0
-          fi &&
+          fi
 
           # extract and validate image tags          
           if [[ "$IMAGE_NGINX_TAG" != "no-build" ]]; then
