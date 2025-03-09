@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from config import get_settings
 from jose import jwt
+
+from config import get_settings
 
 settings = get_settings()
 
