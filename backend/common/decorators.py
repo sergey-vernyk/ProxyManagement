@@ -1,19 +1,20 @@
 from functools import wraps
 from typing import Awaitable, Callable
 
-from config import get_settings
-from dependencies import DatabaseDependency, jwt_verification
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from starlette.templating import _TemplateResponse
+
+from config import get_settings
+from dependencies import DatabaseDependency, jwt_verification
 from users.models import User
 
 settings = get_settings()
 
 
 def template_jwt_verification(
-    func: Callable[..., Awaitable[_TemplateResponse]]
+    func: Callable[..., Awaitable[_TemplateResponse]],
 ) -> Callable[..., Awaitable[_TemplateResponse | RedirectResponse]]:
     """
     Decorator to verify a JWT token from the request cookies before processing the request.

@@ -147,6 +147,11 @@ jobs:
 
           echo ${{secrets.GITHUB_TOKEN}} | docker login ${{vars.REGISTRY}} -u ${{github.actor}} --password-stdin
 
+          if [[ "$IMAGE_NGINX_TAG" != "no-build" && "$IMAGE_BACKEND_TAG" != "no-build" ]]; then
+            docker stack deploy --compose-file docker-compose.yml ${{ vars.DOCKER_STACK_NAME }} --with-registry-auth
+            exit 0
+          fi &&
+
           # extract and validate image tags          
           if [[ "$IMAGE_NGINX_TAG" != "no-build" ]]; then
             export IMAGE_NGINX_TAG=${IMAGE_NGINX_TAG}
