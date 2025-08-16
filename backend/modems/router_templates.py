@@ -91,7 +91,7 @@ async def change_ip_page(
     responses={200: {"description": "Successful"}},
 )
 @template_jwt_verification
-async def modems_list_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:  # pylint: disable=W0613
+async def modems_list_page(request: Request, db: DatabaseDependency) -> _TemplateResponse:  # pylint: disable=unused-argument
     """
     Fetches and renders a list of user modems with additional data.
 
@@ -106,7 +106,7 @@ async def modems_list_page(request: Request, db: DatabaseDependency) -> _Templat
     proxies_list_endpoint = build_full_endpoint_url(
         request,
         "change_ip_urls",
-        {"email": str(authenticated_user.email)},
+        {"email": authenticated_user.email},
     )
     async with httpx.AsyncClient() as client:
         response = await client.get(proxies_list_endpoint)

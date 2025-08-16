@@ -15,8 +15,7 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.requests import Request
-from pydantic import EmailStr, IPvAnyAddress
-from pydantic_core import Url
+from pydantic import EmailStr, HttpUrl, IPvAnyAddress
 
 from common.utils import get_base_url, get_caller_info
 from config import get_settings
@@ -50,9 +49,7 @@ ENCODING: str = settings.default_encoding
     },
 )
 async def create_modem(request: Request, body: schemas.CreateModem, db: DatabaseDependency) -> schemas.ShowModem:
-    """
-    Create modem or raise an exception if modem with provided IP is already exists.
-    """
+    """Create modem or raise an exception if modem with provided IP is already exists."""
     db_modem = crud.get_modem_by_ip(db, str(body.ip))
     if db_modem is not None:
         raise ClientRequestError(
@@ -117,9 +114,7 @@ async def create_modem(request: Request, body: schemas.CreateModem, db: Database
     },
 )
 async def get_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency) -> schemas.ShowModem:
-    """
-    Return a modem by its `ip`.
-    """
+    """Return a modem by its `ip`."""
     db_modem = crud.get_modem_by_ip(db, str(ip))
     if db_modem is None:
         raise EntityDoesNotExistError(
@@ -133,7 +128,7 @@ async def get_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency)
     db_modem_user = cast(User, db_modem.bind_user)
     show_modem = schemas.ShowModem(
         **jsonable_encoder(db_modem),
-        bind_user_email=str(db_modem_user.email) if db_modem.bind_user is not None else None,
+        bind_user_email=db_modem_user.email if db_modem.bind_user is not None else None,
     )
     return show_modem
 
@@ -148,14 +143,12 @@ async def get_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency)
     responses={200: {"description": "Successfully"}},
 )
 async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100) -> list[schemas.ShowModem]:
-    """
-    Return all modems within `skip` and `limit` params.
-    """
+    """Return all modems within `skip` and `limit` params."""
     modems: list[models.Modem] = crud.get_all_modems(db, skip, limit)
     return [
         schemas.ShowModem(
             **jsonable_encoder(modem),
-            bind_user_email=str(modem.bind_user.email) if modem.bind_user is not None else None,
+            bind_user_email=modem.bind_user.email if modem.bind_user is not None else None,
         )
         for modem in modems
     ]
@@ -172,9 +165,7 @@ async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100
 async def update_modem(
     request: Request, ip: IPvAnyAddress, body: schemas.UpdateModem, db: DatabaseDependency
 ) -> schemas.ShowModem:
-    """
-    Update modem by its IP address.
-    """
+    """Update modem by its IP address."""
     db_modem = crud.get_modem_by_ip(db, str(ip))
     if db_modem is None:
         raise EntityDoesNotExistError(
@@ -227,9 +218,7 @@ async def update_modem(
     responses={204: {"description": "Successfully"}},
 )
 async def delete_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency) -> None:
-    """
-    Delete a modem with `ip`.
-    """
+    """Delete a modem with `ip`."""
     db_modem = crud.get_modem_by_ip(db, str(ip))
     if db_modem is None:
         raise EntityDoesNotExistError(
@@ -262,9 +251,7 @@ async def get_change_ip_urls(
     email: EmailStr,
     order_by: Annotated[str, Query(description="Sorting criteria: ip, public_server_ip, port, etc.")] = "ip",
 ) -> list[schemas.ChangeIPUrl]:
-    """
-    Get url(s) for changing IP (by rebooting a modem) for a modem(s) for a user with the given email.
-    """
+    """Get url(s) for changing IP (by rebooting a modem) for a modem(s) for a user with the given email."""
     try:
         valid_email = validate_email_format(email)
     except ValueError as e:
@@ -317,16 +304,16 @@ async def get_change_ip_urls(
         for modem in user_modems:
             data = schemas.ChangeIPUrl(
                 ip=IPv4Address(modem.ip),
-                port=int(modem.port),  # type: ignore
+                port=modem.port,
                 external_server_ip=(
                     IPv4Address(modem.external_server_ip) if modem.external_server_ip is not None else None
                 ),
-                external_server_host=Url(str(modem.external_server_host)),
+                external_server_host=HttpUrl(modem.external_server_host),
                 internal_server_ip=(
                     IPv4Address(modem.internal_server_ip) if modem.internal_server_ip is not None else None
                 ),
                 last_change_ip=f"{modem.rebooted:%Y-%m-%d %H:%M}" if modem.rebooted is not None else "---",
-                url=Url(f"{base_url}/modems/{db_user.token}/{modem.hashed_value}"),
+                url=HttpUrl(f"{base_url}/modems/{db_user.token}/{modem.hashed_value}"),
             )
             urls.append(data)
 

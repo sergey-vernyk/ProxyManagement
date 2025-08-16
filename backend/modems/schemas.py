@@ -7,9 +7,7 @@ from pydantic import BaseModel, EmailStr, Field, HttpUrl, IPvAnyAddress
 
 
 class ModemAction(str, Enum):
-    """
-    Actions for interaction with a modem.
-    """
+    """Actions for interaction with a modem."""
 
     REBOOT = "reboot"
     GET_IP = "get_ip"
@@ -17,9 +15,7 @@ class ModemAction(str, Enum):
 
 @dataclass(kw_only=True)
 class ModemActionsData:
-    """
-    Class holds data which used for interaction with a modem.
-    """
+    """Class holds data which used for interaction with a modem."""
 
     ip: IPv4Address
     port: int
@@ -54,9 +50,7 @@ class ModemActionsData:
 
 
 class CreateModem(BaseModel):
-    """
-    Class represents fields for creating a modem.
-    """
+    """Class represents fields for creating a modem."""
 
     ip: IPvAnyAddress = Field(
         description="Modem IP address in the server network.",
@@ -104,9 +98,7 @@ class CreateModem(BaseModel):
 
 
 class ShowModem(BaseModel):
-    """
-    Class represents fields for displaying a modem.
-    """
+    """Class represents fields for displaying a modem."""
 
     id: int
     ip: IPvAnyAddress
@@ -125,9 +117,7 @@ class ShowModem(BaseModel):
 
 
 class UpdateModem(BaseModel):
-    """
-    Class represents fields for updating a modem.
-    """
+    """Class represents fields for updating a modem."""
 
     ip: IPvAnyAddress
     external_server_ip: IPvAnyAddress | None = None
@@ -146,9 +136,7 @@ class UpdateModem(BaseModel):
 
 
 class ShowModemForUser(BaseModel):
-    """
-    Class represents modem info for displaying modem info for a user.
-    """
+    """Class represents modem info for displaying modem info for a user."""
 
     ip: IPvAnyAddress
     external_server_ip: IPvAnyAddress | None
@@ -161,9 +149,7 @@ class ShowModemForUser(BaseModel):
 
 
 class ChangeIPUrl(BaseModel):
-    """
-    Class represents fields for changing ip of a modem (via rebooting it).
-    """
+    """Class represents fields for changing ip of a modem (via rebooting it)."""
 
     ip: IPv4Address
     port: int

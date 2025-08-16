@@ -1,6 +1,5 @@
 import datetime
 from ipaddress import IPv4Address
-from typing import cast
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -9,7 +8,6 @@ from config import get_settings
 from conn_utils import send_data_to_socket_server
 from dependencies import DatabaseDependency
 from logs.logging_conf import build_ip_address_for_log, get_endpoint_logger
-from users.models import User
 
 from . import models, schemas
 
@@ -51,24 +49,21 @@ async def change_ip(websocket: WebSocket, db: DatabaseDependency) -> None:
         modem: models.Modem | None = db.query(models.Modem).get(int(modem_id))
 
         if modem is not None:
-            modem_bind_user = cast(User, modem.bind_user)
             reboot_data = schemas.ModemActionsData(
                 ip=IPv4Address(modem.ip),
-                port=int(modem.port),  # type: ignore
+                port=modem.port,
                 internal_server_ip=IPv4Address(modem.internal_server_ip),
-                proxy_login=str(modem_bind_user.proxy_login),
-                proxy_password_plain=str(modem_bind_user.proxy_password_plain),
-                username=str(modem.username) if modem.username is not None else None,
-                password=str(modem.password) if modem.password is not None else None,
+                proxy_login=modem.bind_user.proxy_login,
+                proxy_password_plain=modem.bind_user.proxy_password_plain,
+                username=modem.username if modem.username is not None else None,
+                password=modem.password if modem.password is not None else None,
                 action=schemas.ModemAction.REBOOT,
             )
 
             reboot_data_str = reboot_data.convert_to_string_to_send()
 
             received_data = await send_data_to_socket_server(
-                reboot_data_str,
-                str(modem.internal_server_ip),
-                int(modem.external_server_port),  # type: ignore
+                reboot_data_str, modem.internal_server_ip, modem.external_server_port
             )
             if received_data is not None:
                 if b"Failed" in received_data:
