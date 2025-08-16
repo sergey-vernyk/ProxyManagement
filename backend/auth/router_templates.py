@@ -1,10 +1,11 @@
-from common.utils import build_full_endpoint_url
-from config import get_settings
 from fastapi import APIRouter, status
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.templating import _TemplateResponse
+
+from common.utils import build_full_endpoint_url
+from config import get_settings
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter()
@@ -92,15 +93,7 @@ async def verify_email_page(request: Request, uid: str, token: str) -> _Template
     responses={200: {"description": "Successful"}},
 )
 async def login_page(request: Request) -> _TemplateResponse:
-    """
-    Renders the user login page.
-
-    Args:
-        request (Request): Incoming HTTP request.
-
-    Returns:
-        _TemplateResponse: Renders `authentication.html`.
-    """
+    """Renders the user login page."""
     reg_url = build_full_endpoint_url(request, "signup")
     basic_login_url = build_full_endpoint_url(request, "basic_login")
     google_login_url = build_full_endpoint_url(request, "login_google")
@@ -133,15 +126,7 @@ async def login_page(request: Request) -> _TemplateResponse:
     responses={200: {"description": "Successful"}},
 )
 async def reset_password_page(request: Request) -> _TemplateResponse:
-    """
-    Page which will be displayed form for enter user email for reset password.
-
-    Args:
-        request (Request): HTTP request.
-
-    Returns:
-        _TemplateResponse: template `reset_password.html` with the reset password url link.
-    """
+    """Page which will be displayed form for enter user email for reset password."""
     reset_password_url = build_full_endpoint_url(request, "reset_password")
     login_url = build_full_endpoint_url(request, "login_page")
     captcha_verify_url = build_full_endpoint_url(request, "captcha_verify")

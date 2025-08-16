@@ -9,15 +9,14 @@ settings = get_settings()
 
 
 def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
-    """
-    Returns generated jwt access token.
-    """
+    """Returns generated access JWT."""
     to_encode = data.copy()
-    if expires_delta is not None:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+    expire = (
+        datetime.now(timezone.utc) + expires_delta
+        if expires_delta is not None
+        else datetime.now(timezone.utc) + timedelta(minutes=15)
+    )
 
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, key=settings.secret_key, algorithm=settings.algorithm)
-    return encoded_jwt
+    return jwt.encode(to_encode, key=settings.secret_key, algorithm=settings.algorithm)

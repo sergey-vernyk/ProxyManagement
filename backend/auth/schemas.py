@@ -2,26 +2,20 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class TokenData(BaseModel):
-    """
-    Class represents data which contains JWT.
-    """
+    """Class represents data which contains JWT."""
 
     email: str | None = None
 
 
 class RegisterUser(BaseModel):
-    """
-    Class represents fields for user registration.
-    """
+    """Class represents fields for user registration."""
 
     email: EmailStr
     password: str = Field(min_length=10, max_length=30)
 
 
 class ResetPassword(BaseModel):
-    """
-    Class represents fields for requesting password reset.
-    """
+    """Class represents fields for requesting password reset."""
 
     email: EmailStr = Field(
         description="User email, which the user used while registration.",
@@ -30,9 +24,7 @@ class ResetPassword(BaseModel):
 
 
 class ResetPasswordConfirm(BaseModel):
-    """
-    Class represents fields for confirm password reset.
-    """
+    """Class represents fields for confirm password reset."""
 
     new_password: str = Field(max_length=30, min_length=10)
     confirm_password: str = Field(max_length=30, min_length=10)
@@ -46,14 +38,13 @@ class ResetPasswordConfirm(BaseModel):
 
 class EnteredCheckOTP(BaseModel):
     """
-    Class represents fields for verifying entered OTP
-    along with identifying a user by the given uid and token from URL.
+    Class represents fields for verifying entered `OTP`
+    along with identifying a user by the given `uid` and `token` from URL.
     """
 
     entered_otp: str = Field(
         description=(
-            "OTP which user entered in the browser after "
-            "following by the link in the user's email after registration."
+            "OTP which user entered in the browser after following by the link in the user's email after registration."
         )
     )
     uid: str
@@ -62,8 +53,8 @@ class EnteredCheckOTP(BaseModel):
 
 class RecheckOTPOnDemand(BaseModel):
     """
-    Class represents fields for re-checking entered OTP,
-    if a user requested another one OTP when the OTP was
+    Class represents fields for re-checking entered `OTP`,
+    if a user requested another one `OTP` when the `OTP` was
     expired or not correct.
     """
 
@@ -72,10 +63,7 @@ class RecheckOTPOnDemand(BaseModel):
 
 
 class CloudflareCaptcha(BaseModel):
-    """
-    Class represents fields for verification Cloudflare
-    captcha token from frontend.
-    """
+    """Class represents fields for verification `Cloudflare` captcha token from frontend."""
 
     token: str | None = Field(
         max_length=2048,

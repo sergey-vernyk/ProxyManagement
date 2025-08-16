@@ -5,27 +5,25 @@ from secrets import compare_digest, token_urlsafe
 from typing import Annotated, Any, cast
 
 import httpx
-from auth.schemas import EnteredCheckOTP
-from auth.utils import delete_cookie, set_cookie
-from common.utils import build_full_endpoint_url, get_caller_info
-from config import get_settings
-from dependencies import CsrfVerifyDependency, DatabaseDependency
-from exceptions import (ClientRequestError, EntityDoesNotExistError,
-                        UserUnauthorizedError)
 from fastapi import APIRouter, BackgroundTasks, Form, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from google.auth.exceptions import GoogleAuthError
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import EmailStr
-from security import (generate_csrf_token, generate_hashed_otp,
-                      get_password_hash, verify_password)
 from sqlalchemy import delete, update
+
+import security
+from auth.schemas import EnteredCheckOTP
+from auth.utils import delete_cookie, set_cookie
+from common.utils import build_full_endpoint_url, get_caller_info
+from config import get_settings
+from dependencies import CsrfVerifyDependency, DatabaseDependency
+from exceptions import ClientRequestError, EntityDoesNotExistError, UserUnauthorizedError
+from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
+from users import models, utils
 from users.crud import get_user_by_email
-from users.models import User
-from users.utils import create_user_from_google
 from validators import validate_email_format
 
 from . import auth_bearer, crud, schemas, tasks
@@ -267,10 +265,10 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
         user_info = cast(dict[str, Any], user_info.json())
         user_email: str = user_info.get("email", "")
         if user_email and get_user_by_email(db, user_email) is None:
-            create_user_from_google(user_email, db)
+            utils.create_user_from_google(user_email, db)
 
         response = RedirectResponse(str(request.url_for("index")))
-        csrf_token = generate_csrf_token(n_bytes=settings.csrf_number_of_bytes)
+        csrf_token = security.generate_csrf_token(n_bytes=settings.csrf_number_of_bytes)
         set_cookie(response, settings.cookies_key_jwt, idtoken, max_age=token_data["expires_in"])
         set_cookie(response, settings.cookies_google_access_token, access_token, max_age=token_data["expires_in"])
         set_cookie(response, settings.cookies_key_csrf, value=csrf_token, http_only=False)
@@ -323,7 +321,7 @@ async def basic_login(
             },
         ) from e
 
-    user = db.query(User).filter(User.email == valid_email).first()
+    user = db.query(models.User).filter(models.User.email == valid_email).first()
     if user is None:
         raise EntityDoesNotExistError(
             message={"user_not_exists": "User with the given email does not exist."},
@@ -342,7 +340,7 @@ async def basic_login(
             },
         )
 
-    if not verify_password(password, str(user.hashed_password)):
+    if not security.verify_password(password, str(user.hashed_password)):
         raise ClientRequestError(
             {"incorrect_email_or_password": "Incorrect email or password."},
             logger_extra_data={
@@ -353,7 +351,7 @@ async def basic_login(
 
     access_token_expires = timedelta(seconds=settings.access_token_expire_seconds)
     access_token: str = auth_bearer.create_access_token({"sub": user.email}, access_token_expires)
-    csrf_token = generate_csrf_token(n_bytes=settings.csrf_number_of_bytes)
+    csrf_token = security.generate_csrf_token(n_bytes=settings.csrf_number_of_bytes)
     response = JSONResponse({"redirect_url": str(request.url_for("index"))})
     set_cookie(response, settings.cookies_key_jwt, access_token, max_age=settings.access_token_expire_seconds)
     set_cookie(response, settings.cookies_key_csrf, value=csrf_token, http_only=False)
@@ -491,7 +489,7 @@ async def reset_password(
     Returns:
         JSONResponse: response with message, which will be displayed to a client.
     """
-    db_user = db.query(User).filter(User.email == body.email).first()
+    db_user = db.query(models.User).filter(models.User.email == body.email).first()
     if db_user is None:
         raise EntityDoesNotExistError(
             message="User with the given email does not exist.",
@@ -578,7 +576,7 @@ async def reset_password_confirm(
         )
 
     user_id = int(urlsafe_b64decode(body.uid).decode(ENCODING))
-    db_user = db.query(User).filter(User.id == user_id, User.token == body.token).first()
+    db_user = db.query(models.User).filter(models.User.id == user_id, models.User.token == body.token).first()
     if db_user is None:
         raise ClientRequestError(
             "Password reset link is invalid.",
@@ -589,10 +587,10 @@ async def reset_password_confirm(
         )
 
     db.execute(
-        update(User.__table__)
-        .where(User.id == user_id)
+        update(models.User.__table__)
+        .where(models.User.id == user_id)
         .values(
-            hashed_password=get_password_hash(new_password),
+            hashed_password=security.get_password_hash(new_password),
         )
     )
     db.commit()
@@ -675,13 +673,13 @@ async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDep
         db.commit()
 
     entered_otp_plain = body.entered_otp
-    entered_otp_hashed = generate_hashed_otp(entered_otp_plain)
+    entered_otp_hashed = security.generate_hashed_otp(entered_otp_plain)
 
     db_otp_hashed = (
         db.query(OTP)
-        .join(User)
+        .join(models.User)
         .filter(
-            User.id == urlsafe_b64decode(body.uid).decode(ENCODING),
+            models.User.id == urlsafe_b64decode(body.uid).decode(ENCODING),
             OTP.code == entered_otp_hashed,
         )
     ).first()
