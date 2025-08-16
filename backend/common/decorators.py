@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable
 
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -29,12 +29,15 @@ def template_jwt_verification(
     """
 
     @wraps(func)
-    async def wrapper(request: Request, db: DatabaseDependency, *args, **kwargs) -> RedirectResponse | _TemplateResponse:
+    async def wrapper(
+        request: Request, db: DatabaseDependency, *args: Any, **kwargs: Any
+    ) -> RedirectResponse | _TemplateResponse:
         no_authorized_response = RedirectResponse(str(request.url_for("login_page")))
         access_token = request.cookies.get(settings.cookies_key_jwt)
 
         if access_token is None:
             return no_authorized_response
+
         try:
             credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=access_token)
             user: User = await jwt_verification(db, credentials)

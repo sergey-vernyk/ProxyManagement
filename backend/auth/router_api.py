@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from google.auth.exceptions import GoogleAuthError
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from pydantic import EmailStr
+from pydantic import EmailStr, SecretStr
 from sqlalchemy import delete, update
 
 import security
@@ -290,7 +290,7 @@ async def google_login(request: Request, db: DatabaseDependency) -> RedirectResp
 async def basic_login(
     request: Request,
     email: Annotated[EmailStr, Form()],
-    password: Annotated[str, Form(min_length=10, max_length=30)],
+    password: Annotated[SecretStr, Form(min_length=10, max_length=30)],
     db: DatabaseDependency,
 ) -> JSONResponse:
     """
@@ -340,7 +340,7 @@ async def basic_login(
             },
         )
 
-    if not security.verify_password(password, str(user.hashed_password)):
+    if not security.verify_password(password.get_secret_value(), user.hashed_password):
         raise ClientRequestError(
             {"incorrect_email_or_password": "Incorrect email or password."},
             logger_extra_data={

@@ -10,7 +10,7 @@ Module contains endpoints for modems:
 
 import hashlib
 from ipaddress import IPv4Address
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
@@ -95,7 +95,7 @@ async def create_modem(request: Request, body: schemas.CreateModem, db: Database
     modem = crud.create_modem(db, modem_data)
     show_modem = schemas.ShowModem(
         **jsonable_encoder(modem, exclude={"bind_user"}),
-        bind_user_email=str(bind_db_user.email) if bind_db_user is not None else None,
+        bind_user_email=bind_db_user.email if bind_db_user is not None else None,
     )
 
     return show_modem
@@ -125,10 +125,9 @@ async def get_modem(request: Request, ip: IPvAnyAddress, db: DatabaseDependency)
             },
         )
 
-    db_modem_user = cast(User, db_modem.bind_user)
     show_modem = schemas.ShowModem(
-        **jsonable_encoder(db_modem),
-        bind_user_email=db_modem_user.email if db_modem.bind_user is not None else None,
+        **jsonable_encoder(db_modem, exclude={"bind_user"}),
+        bind_user_email=db_modem.bind_user.email if db_modem.bind_user is not None else None,
     )
     return show_modem
 
@@ -147,7 +146,7 @@ async def get_all_modems(db: DatabaseDependency, skip: int = 0, limit: int = 100
     modems: list[models.Modem] = crud.get_all_modems(db, skip, limit)
     return [
         schemas.ShowModem(
-            **jsonable_encoder(modem),
+            **jsonable_encoder(modem, exclude={"bind_user"}),
             bind_user_email=modem.bind_user.email if modem.bind_user is not None else None,
         )
         for modem in modems
@@ -204,7 +203,7 @@ async def update_modem(
     modem = crud.update_modem(db, db_modem, data_to_update)
     show_modem = schemas.ShowModem(
         **jsonable_encoder(modem, exclude={"bind_user"}),
-        bind_user_email=str(bind_db_user.email) if bind_db_user is not None else None,
+        bind_user_email=bind_db_user.email if bind_db_user is not None else None,
     )
     return show_modem
 

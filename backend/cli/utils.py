@@ -4,7 +4,6 @@ from typing import Sequence
 
 import click
 import requests
-import requests.auth
 from dotenv import load_dotenv
 from fastapi import status
 from requests.auth import HTTPBasicAuth
@@ -35,7 +34,7 @@ class EngineSingleton:
             Engine: The database engine instance.
         """
         if cls._instance is None:
-            from db_connection import engine  # pylint: disable=C0415
+            from db_connection import engine  # pylint: disable=import-outside-toplevel
 
             cls._instance = engine
         return cls._instance
@@ -95,7 +94,7 @@ def fetch_env_file(url: str, username: str, password: str) -> str:
     """
     basic_auth = HTTPBasicAuth(username, password)
     response = requests.get(url, auth=basic_auth, timeout=5)
-    if response.status_code == status.HTTP_200_OK:
+    if response.ok == status.HTTP_200_OK:
         return response.text
 
     click.echo(f"Failed to fetch .env file: {response.status_code}")
@@ -113,8 +112,10 @@ def get_proxy_credentials_from_db(users_emails: list[str]) -> Sequence[Row[tuple
         Sequence[Row[tuple[str, str, str]]]: List of tuples containing proxy login, hashed password,
             and password hash type.
     """
-    # pylint: disable=C0415
-    # pylint: disable=W0611
+    # pylint: disable=import-outside-toplevel
+    # pylint: disable=unused-import
+    from auth.otp.models import OTP  # noqa F401
+    from modems.models import Modem  # noqa F401
     from users.models import User
 
     engine = EngineSingleton.get_instance()

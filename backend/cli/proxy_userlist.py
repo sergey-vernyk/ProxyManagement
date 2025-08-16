@@ -110,7 +110,7 @@ def create_user_list(ctx: click.Context, filename: pathlib.Path, users: str) -> 
         )
         return
 
-    # pylint: disable=C0415
+    # pylint: disable=import-outside-toplevel
     from config import get_settings
 
     encoding = get_settings().default_encoding
@@ -174,8 +174,7 @@ def insert_into_user_list(ctx: click.Context, filename: pathlib.Path, users: str
 
     # ensure that filename is a path not str
     filename = pathlib.Path(filename)
-
-    # pylint: disable=C0415
+    # pylint: disable=import-outside-toplevel
     from config import get_settings
 
     encoding = get_settings().default_encoding
@@ -266,8 +265,7 @@ def get_from_user_list(ctx: click.Context, filename: pathlib.Path) -> None:
             )
         )
 
-    # pylint: disable=C0415
-    # pylint: disable=W0611
+    # pylint: disable=unused-import
     from auth.otp.models import OTP  # noqa: F401
     from modems.models import Modem  # noqa: F401
     from users.models import User

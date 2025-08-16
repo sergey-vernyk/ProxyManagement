@@ -25,10 +25,7 @@ security = HTTPBearer(
 
 
 class JWTDecoderProtocol(Protocol):
-    """
-    A callable that takes a token and returns a dictionary
-    containing the decoded JWT payload.
-    """
+    """A callable that takes a token and returns a dictionary containing the decoded JWT payload."""
 
     def __call__(self, token: str | bytes, *args: Any, **kwargs: Any) -> dict[str, Any]: ...
 
@@ -58,52 +55,48 @@ class JWTBearer(HTTPBearer):
                            authentication fails. Defaults to True.
     """
 
-    def __init__(self, decoder: JWTDecoderProtocol, auto_error: bool = True) -> None:
+    def __init__(self, decoder: JWTDecoderProtocol, db: Session, auto_error: bool = True) -> None:
         self.decoder = decoder
+        self.db = db
         super().__init__(auto_error=auto_error)
 
-    async def __call__(self, request: Request, db: DatabaseDependency) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
+    async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
         """
         Extract and validate the Bearer token from the request.
 
         Args:
-            request (Request): The incoming HTTP request containing the
-                               authorization header.
-            db (Session): The SQLAlchemy database session used to query the
-                          database.
+            request (Request): The incoming HTTP request containing the authorization header.
 
         Returns:
             str: The valid JWT token if authentication is successful.
 
         Raises:
-            HTTPException: If the authentication scheme is not 'Bearer',
-                           or if the token is invalid or the user is not found.
+            HTTPException: If the authentication scheme is not `Bearer`,
+                or if the token is invalid or the user is not found.
         """
         credentials: HTTPAuthorizationCredentials | None = await super().__call__(request)
         if credentials:
             if not credentials.scheme == "Bearer":
                 raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid authentication credentials.")
 
-            if await self.verify_jwt(credentials.credentials, db):
-                return credentials.credentials
+            if await self.verify_jwt(credentials.credentials):
+                return credentials
 
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid authorization code.")
 
-    async def verify_jwt(self, token: str, db: Session) -> models.User:
+    async def verify_jwt(self, token: str) -> models.User:
         """
         Verify the JWT token's validity and check if the user exists in the database.
 
         Args:
             token (str): The JWT token to be verified.
-            db (Session): The SQLAlchemy database session used to query the
-                          database.
 
         Returns:
             models.User: current authenticated user.
 
         Raises:
             HTTPException: If the token cannot be validated, or if the user
-                           associated with the token does not exist.
+                associated with the token does not exist.
         """
         try:
             payload = self.decoder(token, key=settings.secret_key, algorithms=[settings.algorithm])
@@ -115,7 +108,7 @@ class JWTBearer(HTTPBearer):
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            user = db.query(models.User).filter(models.User.email == email).first()
+            user = self.db.query(models.User).filter(models.User.email == email).first()
             if user is None:
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST,
@@ -182,12 +175,11 @@ async def verify_google_id_token(
 
 
 async def jwt_verification(
-    db: Annotated[Session, Depends(get_db)],
+    db: DatabaseDependency,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
 ) -> models.User:
     """
-    Verifies the provided authentication credentials
-    by checking both Google ID tokens and JWT tokens.
+    Verifies the provided authentication credentials by checking both Google ID tokens and JWT tokens.
 
     The function attempts to verify the Google ID token first, followed by the JWT token.
 
@@ -209,8 +201,8 @@ async def jwt_verification(
         exceptions.append(e)
 
     try:
-        jwt_bearer = JWTBearer(decoder=jwt.decode)
-        return await jwt_bearer.verify_jwt(credentials.credentials, db)
+        jwt_bearer = JWTBearer(decoder=jwt.decode, db=db)
+        return await jwt_bearer.verify_jwt(credentials.credentials)
     except HTTPException as e:
         exceptions.append(e)
 
