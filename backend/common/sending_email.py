@@ -1,9 +1,9 @@
 """
 The module provides functionality for sending email messages with optional attachments using the SMTP protocol.
 
-It defines an abstract base class `EmailSender` for sending emails, 
-and a concrete implementation `SMTPEmailSender` that uses the SMTP protocol over SSL. 
-The `EmailWithAttachments` class is responsible for constructing the email with various content types 
+It defines an abstract base class `EmailSender` for sending emails,
+and a concrete implementation `SMTPEmailSender` that uses the SMTP protocol over SSL.
+The `EmailWithAttachments` class is responsible for constructing the email with various content types
 (plain text, HTML, files, images) and sending it using the provided `EmailSender` implementation.
 
 Custom exceptions and utility functions are also included for error handling and content management.
@@ -20,8 +20,9 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
-from config import get_settings
 from jinja2 import Environment, FileSystemLoader
+
+from config import get_settings
 
 settings = get_settings()
 environment = Environment(loader=FileSystemLoader("templates"))  # define templates location
@@ -115,8 +116,7 @@ class SMTPEmailSender(EmailSender):
             msg = list(result.keys())[0]
             raise smtplib.SMTPResponseException(
                 code=code,
-                msg=f"Check your email `{msg}` for accuracy. "
-                f"Probably you made typo mistake or provided wrong address.",
+                msg=f"Check your email `{msg}` for accuracy. Probably you made typo mistake or provided wrong address.",
             )
 
 

@@ -1,0 +1,84 @@
+name: Build and Push Image
+
+on:
+  workflow_call:
+    inputs:
+      registry:
+        description: "Registry for persisting the image (e.g. ghcr.io)."
+        required: true
+        type: string
+      image-name:
+        description: "The image name being build."
+        required: true
+        type: string
+      context-path:
+        description: "Path to the context from which will be build the image. Commonly where the Dockerfile is located."
+        required: true
+        type: string
+      dockerfile-path:
+        description: "Path to the Dockerfile to build image from."
+        required: true
+        type: string
+      working-directory:
+        description: "Initial directory for building and pushing operations."
+        required: true
+        type: string
+      additional-labels:
+        description: "The image labels, that will be added to the labels composed by 'metadata-action'."
+        required: false
+        type: string
+      tags:
+        description: "The image tags for the image being build (see docker/metadata-action documentation)."
+        required: true
+        type: string
+    outputs:
+      image-tag:
+        description: "Image tags which will be assigned to the image being built."
+        value: ${{ jobs.build-push-image.outputs.image_tag }}
+
+jobs:
+  build-push-image:
+    runs-on:
+      ubuntu-latest
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+
+    defaults:
+      run:
+        shell: sh
+        working-directory: ./backend
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Extract Metadata for Docker image
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ inputs.registry }}/${{ github.actor }}/${{ inputs.image-name }}
+        labels: ${{ inputs.additional-labels }}
+        tags: ${{ inputs.tags }}
+
+    - name: Login to GitHub Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push image
+      uses: docker/build-push-action@v6
+      with:
+        context: ${{ inputs.context-path }}
+        file: ${{ inputs.dockerfile-path }}
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-to: type=gha
+        cache-from: type=gha

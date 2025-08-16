@@ -1,8 +1,9 @@
 from secrets import token_urlsafe
 
+from sqlalchemy.orm import Session
+
 from auth.crud import register_regular_user_from_google
 from config import get_settings
-from sqlalchemy.orm import Session
 
 settings = get_settings()
 

@@ -12,17 +12,17 @@ import hashlib
 from ipaddress import IPv4Address
 from typing import Annotated, Any, cast
 
-from common.utils import get_base_url, get_caller_info
-from config import get_settings
-from dependencies import (CsrfVerifyDependency, DatabaseDependency,
-                          jwt_verification)
-from exceptions import ClientRequestError, EntityDoesNotExistError
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.requests import Request
-from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from pydantic import EmailStr, IPvAnyAddress
 from pydantic_core import Url
+
+from common.utils import get_base_url, get_caller_info
+from config import get_settings
+from dependencies import CsrfVerifyDependency, DatabaseDependency, jwt_verification
+from exceptions import ClientRequestError, EntityDoesNotExistError
+from logs.logging_conf import build_logger_extra_data, get_endpoint_logger
 from users.crud import get_user_by_email
 from users.models import User
 from validators import validate_email_format

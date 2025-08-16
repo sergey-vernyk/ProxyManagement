@@ -1,14 +1,16 @@
 name: Run Tests
 
 on:
-  push:
-    branches:
-      - development
-      - pre-deploy
-  pull_request:
-    branches:
-      - development
-      - pre-deploy
+  # push:
+  #   branches:
+  #     - development
+  #     - pre-deploy
+  # pull_request:
+  #   branches:
+  #     - development
+  #     - pre-deploy
+
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -1,11 +1,12 @@
 from typing import Literal
 
 import click
-from db_connection import engine
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+
+from db_connection import engine
 
 from .schemas import EnvPathOrEnvUrl
 from .utils import fetch_env_file, load_env_in_memory, load_env_in_shell_env
@@ -74,8 +75,7 @@ def cli_proxy_protocols(ctx: click.Context, env_file: str, username: str | None,
 
 @click.command(
     help=(
-        "Create one line for protocol in the proxy conf file "
-        "(e.g. proxy -n -a -p49153 -i192.168.1.105 -e192.168.8.100)"
+        "Create one line for protocol in the proxy conf file (e.g. proxy -n -a -p49153 -i192.168.1.105 -e192.168.8.100)"
     )
 )
 @click.argument("users", type=click.STRING)
@@ -98,7 +98,10 @@ def cli_proxy_protocols(ctx: click.Context, env_file: str, username: str | None,
 @click.option(
     "--protocol",
     "-p",
-    type=click.Choice(["proxy", "socks", "ftppr", "pop3p", "smtpp", "dns", "tcppm", "udppm"], case_sensitive=False),
+    type=click.Choice(
+        ["proxy", "socks", "ftppr", "pop3p", "smtpp", "dns", "tcppm", "udppm"],
+        case_sensitive=False,
+    ),
     show_choices=True,
     required=True,
     help="Proxy protocol.",
@@ -137,7 +140,7 @@ def create_connection_protocol(
     """
     # pylint: disable=C0415
     # pylint: disable=W0611
-    from auth.otp.models import OTP
+    from auth.otp.models import OTP  # noqa: F401
     from modems.models import Modem
     from users.models import User
 

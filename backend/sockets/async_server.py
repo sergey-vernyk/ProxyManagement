@@ -9,8 +9,7 @@ from conn_utils import build_default_route_ip, parse_modem_data_to_reboot
 from logs.logging_conf import get_socket_server_logger
 from modem_api import reboot_modem
 
-from . import (CONN_COUNT_FILE, ENCODING, PID_FILE, START_CONNECTION,
-               STOP_CONNECTION)
+from . import CONN_COUNT_FILE, ENCODING, PID_FILE, START_CONNECTION, STOP_CONNECTION
 
 settings = get_settings()
 

@@ -15,8 +15,7 @@ from .utils import fetch_env_file, load_env_in_memory, load_env_in_shell_env
 
 @click.group(
     help=(
-        "CLI provides functionality to start the socket server, "
-        "stop the server, show its logs and accepted connections."
+        "CLI provides functionality to start the socket server, stop the server, show its logs and accepted connections."
     )
 )
 @click.argument("env_file", type=click.STRING)
@@ -91,7 +90,13 @@ def cli_socket_server(ctx: click.Context, env_file: str, username: str | None, p
     show_default=True,
     help="The host the server is running on.",
 )
-@click.option("--port", "-p", type=click.INT, required=True, help="Location of the environment configuration file.")
+@click.option(
+    "--port",
+    "-p",
+    type=click.INT,
+    required=True,
+    help="Location of the environment configuration file.",
+)
 @click.pass_context
 def run(ctx: click.Context, host: str, port: int) -> None:
     """
@@ -148,8 +153,7 @@ def stop(ctx: click.Context) -> None:
 
     logger: logging.Logger = ctx.obj["logger"]  # pylint: disable=W0621
 
-    from sockets import (CONN_COUNT_FILE, ENCODING,  # pylint: disable=C0415
-                         PID_FILE)
+    from sockets import CONN_COUNT_FILE, ENCODING, PID_FILE  # pylint: disable=C0415
 
     server_pid_file = pathlib.Path(PID_FILE)
 
@@ -222,7 +226,10 @@ def logs(lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
         # e.g, 2024-09-03.log2
         last_log_name = sorted(
             os.listdir(logs_dir),
-            key=lambda l: (datetime.strptime(l.split(".")[0], "%Y-%m-%d"), l.split(".")[1]),
+            key=lambda log: (
+                datetime.strptime(log.split(".")[0], "%Y-%m-%d"),
+                log.split(".")[1],
+            ),
         ).pop()
 
         last_log_file = logs_dir / last_log_name
@@ -253,7 +260,13 @@ def logs(lines_count: int = 0, last: bool = True, follow: bool = False) -> None:
                         else:
                             time.sleep(1)
                 except KeyboardInterrupt:
-                    click.echo(click.style("Interrupt following logs by pushing Ctrl+C.", bold=True, fg="red"))
+                    click.echo(
+                        click.style(
+                            "Interrupt following logs by pushing Ctrl+C.",
+                            bold=True,
+                            fg="red",
+                        )
+                    )
     else:
         click.echo(click.style("Log file not found.", fg="red", bold=True))
 
@@ -270,7 +283,13 @@ def connection_number() -> None:
     conn_count_file = pathlib.Path(CONN_COUNT_FILE)
     if conn_count_file.exists():
         conn_number = int(conn_count_file.read_text(encoding=ENCODING))
-        click.echo(click.style(f"Current number of connection to the server is {conn_number}.", bold=True, fg="cyan"))
+        click.echo(
+            click.style(
+                f"Current number of connection to the server is {conn_number}.",
+                bold=True,
+                fg="cyan",
+            )
+        )
     else:
         click.echo(
             click.style(
