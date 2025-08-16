@@ -54,9 +54,7 @@ async def create_user(
     db: DatabaseDependency,
     bg_tasks: BackgroundTasks,
 ) -> models.User:
-    """
-    Create a user or raise an exception if user with provided email is already exists.
-    """
+    """Create a user or raise an exception if user with provided email is already exists."""
     try:
         valid_email = validate_email_format(body.email)
     except ValueError as e:
@@ -125,9 +123,7 @@ async def get_users(
     skip: int = 0,
     limit: int = 100,
 ) -> list[models.User]:
-    """
-    Returns all users between `skip` and `limit` that are `admin`, `regular`, or any of them.
-    """
+    """Returns all users between `skip` and `limit` that are `admin`, `regular`, or any of them."""
     return crud.get_users(db, user_type, is_verified, offset=skip, limit=limit)
 
 
@@ -145,9 +141,7 @@ async def get_users(
     },
 )
 async def get_user(request: Request, email: EmailStr, db: DatabaseDependency) -> models.User:
-    """
-    Returns a user by its `email`.
-    """
+    """Returns a user by its `email`."""
     try:
         valid_email = validate_email_format(email)
     except ValueError as e:
@@ -188,9 +182,7 @@ async def get_user(request: Request, email: EmailStr, db: DatabaseDependency) ->
 async def update_user(
     request: Request, email: EmailStr, body: schemas.UpdateUser, db: DatabaseDependency
 ) -> models.User:
-    """
-    Update user info with `email`.
-    """
+    """Update user info with `email`."""
     try:
         valid_email = validate_email_format(email)
     except ValueError as e:

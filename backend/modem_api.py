@@ -2,8 +2,7 @@ from huawei_lte_api.Client import Client
 from huawei_lte_api.Connection import Connection
 from huawei_lte_api.enums.client import ResponseEnum
 from huawei_lte_api.enums.device import ControlModeEnum
-from huawei_lte_api.exceptions import (LoginErrorInvalidCredentialsException,
-                                       ResponseErrorException)
+from huawei_lte_api.exceptions import LoginErrorInvalidCredentialsException, ResponseErrorException
 
 
 def reboot_modem(url: str, username: str | None, password: str | None) -> bool | str:

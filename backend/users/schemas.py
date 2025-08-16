@@ -7,36 +7,28 @@ from modems.schemas import ShowModemForUser
 
 
 class UserRole(str, Enum):
-    """
-    Users roles in the system.
-    """
+    """Users roles in the system."""
 
     ADMIN = "admin"
     REGULAR = "regular"
 
 
 class HashType(str, Enum):
-    """
-    Type of the hash for a password.
-    """
+    """Type of the hash for a password."""
 
     MD5 = "md5"
     SHA256 = "sha256"
 
 
 class UserBase(BaseModel):
-    """
-    Base class for user.
-    """
+    """Base class for user."""
 
     email: EmailStr = Field(examples=["example@example.com"], description="Email address of the user.")
     password: str = Field(min_length=10, max_length=30, examples=["strongspassword"])
 
 
 class CreateRegularUser(UserBase):
-    """
-    Class represents fields for creating a regular user.
-    """
+    """Class represents fields for creating a regular user."""
 
     proxy_password_plain: str = Field(
         min_length=10,
@@ -52,18 +44,14 @@ class CreateRegularUser(UserBase):
 
 
 class CreateAdminUser(UserBase):
-    """
-    Class represents fields for creating an admin user.
-    """
+    """Class represents fields for creating an admin user."""
 
     password: str = Field(min_length=10, max_length=30)
     role: UserRole = Field(default=UserRole.ADMIN)
 
 
 class ShowUser(BaseModel):
-    """
-    Class represents fields for displaying a user.
-    """
+    """Class represents fields for displaying a user."""
 
     id: int
     email: str

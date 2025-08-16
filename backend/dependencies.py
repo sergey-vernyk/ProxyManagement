@@ -62,7 +62,7 @@ class JWTBearer(HTTPBearer):
         self.decoder = decoder
         super().__init__(auto_error=auto_error)
 
-    async def __call__(self, request: Request, db: DatabaseDependency) -> str:
+    async def __call__(self, request: Request, db: DatabaseDependency) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Extract and validate the Bearer token from the request.
 
