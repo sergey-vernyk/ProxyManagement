@@ -98,7 +98,7 @@ async def create_user(
         proxy_password_hashed,
     )
 
-    await send_otp_email_handler(bg_tasks, request, str(user.token), db)
+    await send_otp_email_handler(bg_tasks, request, user.token, db)
     return user
 
 

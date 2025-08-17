@@ -18,17 +18,16 @@ ARG user=proxy
 
 RUN adduser $user --disabled-password
 
-RUN mkdir -p /usr/src/app/backend/static && \
-    chown -R $user /usr/src/app/backend /usr/src/app/backend/static
+RUN mkdir -p ./assets && chown -R $user ./assets
 
 USER $user
-ADD ./pyproject.toml ./poetry.lock ./
+ADD pyproject.toml poetry.lock ./
 ENV PATH="$PATH:/home/$user/.local/bin"
-    
+
 RUN pip install --upgrade pip && \
     pip install poetry && \
-    python -m poetry install --no-root --no-cache --no-interaction
-    
-COPY . /usr/src/app/backend
+    python -m poetry install --no-root --no-cache --no-interaction --without dev
+
+COPY . .
 
 CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--reload"]

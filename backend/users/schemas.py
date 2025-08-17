@@ -104,7 +104,7 @@ class UpdateUser(BaseModel):
         default=False,
     )
     proxy_password_plain: str | None = Field(
-        description="New proxy password. Must used with the flag 'update_proxy_login'.",
+        description="New proxy password. Must used with the flag 'update_proxy_password'.",
         default=None,
     )
     proxy_password_hash_type: HashType | None = None

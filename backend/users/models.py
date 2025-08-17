@@ -40,7 +40,7 @@ class User(UserAbstract):
     proxy_password_hash_type: Mapped[str] = mapped_column(Enum(HashType), nullable=True)
 
     user_modems: Mapped[list["Modem"]] = relationship("Modem", back_populates="bind_user", lazy="selectin")
-    user_otps: Mapped[list["OTP"]] = relationship("OTP", back_populates="user", lazy="selectin")
+    user_otps: Mapped[list["OTP"]] = relationship("OTP", uselist=True, back_populates="user", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"{self.email}"
