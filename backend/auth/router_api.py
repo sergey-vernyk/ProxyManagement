@@ -698,7 +698,7 @@ async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDep
         )
 
     if db_otp_hashed.is_expired:
-        delete_otp(db_otp_hashed.id)  # type: ignore
+        delete_otp(db_otp_hashed.id)
         return JSONResponse(
             {"error": "Code is expired."},
             status.HTTP_400_BAD_REQUEST,
@@ -707,7 +707,7 @@ async def compare_codes(request: Request, body: EnteredCheckOTP, db: DatabaseDep
     # mark the user as verified their email
     setattr(db_otp_hashed.user, "is_verified", True)
     db.commit()
-    delete_otp(db_otp_hashed.id)  # type: ignore
+    delete_otp(db_otp_hashed.id)
 
     return JSONResponse(
         {"success": "The code you entered is correct. Email has been verified."},

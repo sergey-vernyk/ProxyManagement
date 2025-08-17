@@ -21,7 +21,7 @@ class OTP(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
-    user: Mapped[list["User"]] = relationship("User", uselist=True, back_populates="user_otps", lazy="selectin")
+    user: Mapped["User"] = relationship("User", uselist=False, back_populates="user_otps", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"{self.user}: {self.code}"
