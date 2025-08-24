@@ -1,0 +1,56 @@
+[tool.poetry]
+name = "proxy-management"
+version = "0.2.0"
+description = "Proxy management system for interactions with proxy which based on LTE modem."
+authors = ["Sergey Vernigora <volt.awp.dev@gmail.com>"]
+readme = "README.md"
+
+exclude = [".env"]
+
+[tool.coverage.report]
+skip_empty = true
+sort = "-cover"
+exclude_lines = ["@abstractmethod"]
+
+[tool.coverage.run]
+branch = true
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-dotenv = "^1.0.1"
+click = "^8.1.7"
+fastapi = "^0.112.0"
+uvicorn = "^0.30.5"
+sqlalchemy = "^2.0.31"
+huawei-lte-api = "^1.9.3"
+alembic = "^1.13.2"
+email-validator = "^2.2.0"
+pydantic-settings = "^2.4.0"
+psycopg2-binary = "^2.9.9"
+bcrypt = "^4.2.0"
+python-jose = "^3.3.0"
+python-multipart = "^0.0.9"
+passlib = "^1.7.4"
+websockets = "^12.0"
+jinja2 = "^3.1.4"
+tabulate = "^0.9.0"
+gunicorn = "^23.0.0"
+httpx = "^0.27.2"
+google-auth = "^2.35.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+pytest-cov = "^6.0.0"
+ruff = "^0.9.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+socket-server = "proxy_management.cli.socket_server:cli_socket_server"
+web-server = "proxy_management.cli.web_server:cli_web"
+proxy-conf-users = "proxy_management.cli.proxy_userlist:cli_proxy_userlist"
+proxy-conf-protocols = "proxy_management.cli.proxy_protocol_types:cli_proxy_protocols"
