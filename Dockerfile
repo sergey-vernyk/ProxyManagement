@@ -14,7 +14,7 @@ RUN apk update && \
 RUN curl -sSL https://install.python-poetry.org | python3 -
 ENV PATH="/root/.local/bin:$PATH"
 
-WORKDIR /usr/src/app
+WORKDIR /app
 COPY pyproject.toml poetry.lock ./
 
 RUN poetry config virtualenvs.in-project true && \
@@ -26,13 +26,13 @@ FROM python:3.12.5-alpine AS prod
 ARG user=proxy
 RUN adduser $user --disabled-password
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 COPY . .
-COPY --from=builder /usr/src/app/.venv .venv
+COPY --from=builder /app/.venv .venv
 
 RUN mkdir -p ./assets && chown -R $user ./assets
-ENV PATH="/usr/src/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH"
 
 USER $user
 EXPOSE 8000
