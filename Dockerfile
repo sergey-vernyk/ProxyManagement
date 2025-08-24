@@ -23,6 +23,8 @@ RUN poetry config virtualenvs.in-project true && \
 
 FROM python:3.12.5-alpine AS prod
 
+ENV PYTHONPATH=/app/src
+
 ARG user=proxy
 RUN adduser $user --disabled-password
 
@@ -33,6 +35,7 @@ COPY --from=builder /app/.venv .venv
 
 RUN mkdir -p ./assets && chown -R $user ./assets
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app/src:$PYTHONPATH"
 
 USER $user
 EXPOSE 8000
