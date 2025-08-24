@@ -32,7 +32,7 @@ COPY . .
 COPY --from=builder /usr/src/app/.venv .venv
 
 RUN mkdir -p ./assets && chown -R $user ./assets
-ENV PATH="/usr/src/app/backend/.venv/bin:$PATH"
+ENV PATH="/usr/src/app/.venv/bin:$PATH"
 
 USER $user
 EXPOSE 8000
