@@ -7,9 +7,10 @@ on:
   #   types: ["completed"]
   #   branches:
   #     - pre-deploy
-  push:
-    branches:
-      - main
+  # push:
+  #   branches:
+  #     - main
+  workflow_dispatch:
 
 jobs:
   setup-ssh:

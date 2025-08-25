@@ -86,9 +86,10 @@ jobs:
         run: |
           echo "PYTHONPATH=$(pwd)/src:$PYTHONPATH" >> $GITHUB_ENV
 
-
       - name: Create Env File
-        run: echo "${{ secrets.ENV_FILE }}" > .env
+        working-directory: src/proxy_management
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
 
       - name: Pytest And Coverage
         run: poetry run pytest --cov
