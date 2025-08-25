@@ -25,7 +25,7 @@ jobs:
       gpg_id: ${{ secrets.GPG_ID }}
 
   build-push-image:
-    if: ${{ ! failure() }}
+    if: ${{ !failure() }}
     needs: setup-ssh
     uses: ./.github/workflows/build_and_push_image.yml
     name: Build And Push Image
