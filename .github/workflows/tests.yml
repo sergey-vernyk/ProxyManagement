@@ -45,7 +45,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: .
+
     steps:
       - uses: actions/checkout@v4
       - name: Set Up Python 3.12
@@ -88,8 +88,7 @@ jobs:
 
       - name: Create Env File
         working-directory: src/proxy_management
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
+        run: echo "${{ secrets.ENV_FILE }}" > .env
 
       - name: Pytest And Coverage
         run: poetry run pytest --cov
