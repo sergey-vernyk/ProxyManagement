@@ -1,25 +1,22 @@
-name: SSH Setup 
+name: SSH Setup
 
 on:
   workflow_call:
     secrets:
       ssh_user:
-        description: "SSH username for the server"
+        description: SSH username for the server.
         required: true
       ssh_host:
-        description: "Server hostname or IP"
-        required: true
-      work_dir:
-        description: "Directory on the server where the code should be pulled"
+        description: Server hostname or IP.
         required: true
       ssh_private_key:
-        description: "Private SSH key for authentication"
+        description: Private SSH key for authentication.
         required: true
       gh_artifacts_gpg_private:
-        description: Private key for GPG encryption/decryption.
+        description: Private key for GPG encryption/decryption for ssh config.
         required: true
       gh_artifacts_gpg_public:
-        description: Public key fo GPG encryption/decryption.
+        description: Public key fo GPG encryption/decryption for ssh config.
         required: true
       gpg_id:
         description: GPG identifier for the key (email or ID).
@@ -30,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up SSH keys
+      - name: Set Up SSH Keys
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.ssh_private_key }}" > ~/.ssh/id_rsa
@@ -44,13 +41,10 @@ jobs:
           echo "${{ secrets.gh_artifacts_gpg_private }}" | gpg --import
           echo "${{ secrets.gh_artifacts_gpg_public }}" | gpg --import
 
-          echo "$(gpg --list-keys --fingerprint \
-            | grep -B 1 '${{ secrets.gpg_id }}' \
-            | head -1 \
-            | tr -d '[:space:]' \
-            | cut -d '=' -f 2):6" | gpg --import-ownertrust
- 
-      - name: Save SSH Configuration as Artifacts
+          FPR=$(gpg --with-colons --list-keys "${{ secrets.gpg_id }}" | awk -F: '/^fpr:/ {print $10; exit}')
+          echo "${FPR}:6:" | gpg --import-ownertrust
+          
+      - name: Encrypt And Save SSH Configuration As Artifacts
         run: |
           tar -czf ssh_config.tar.gz -C ~/.ssh .          
           gpg --encrypt -r ${{ secrets.gpg_id }} -a ssh_config.tar.gz

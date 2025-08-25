@@ -1,117 +1,141 @@
-name: Deploy Project To Own Server
+name: Deploy Kubernetes
 
 on:
   workflow_run:
     workflows: 
       # - Qodana
-      - Run Tests
+      - Test FastAPI Application
     types: ["completed"]
     branches:
       - main
 
   workflow_dispatch:
 
-env:
-  SUPERVISOR_PROGRAM_NAME: ${{ vars.SUPERVISOR_PROGRAM_NAME }}
-
 jobs:
   setup-ssh:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/setup_ssh.yml
-    name: Deploy
+    name: Setup SSH
     secrets:
       ssh_user: ${{ secrets.SSH_USER }}
       ssh_host: ${{ secrets.SSH_HOST }}
-      work_dir: ${{ secrets.WORK_DIR }}
       ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
       gh_artifacts_gpg_private: ${{ secrets.GH_ARTIFACTS_GPG_PRIVATE }}
       gh_artifacts_gpg_public: ${{ secrets.GH_ARTIFACTS_GPG_PUBLIC }}
       gpg_id: ${{ secrets.GPG_ID }}
+
+  build-push-image:
+    if: ${{ ! failure() }}
+    needs: setup-ssh
+    uses: ./.github/workflows/build_and_push_image.yml
+    name: Build And Push Image
+    with:
+      git-ref: ${{ github.event.workflow_run.head_branch }}
+      registry: ${{ vars.REGISTRY }}
+      image-name: ${{ vars.IMAGE_NAME }}
+      context-path: .
+      dockerfile-path: Dockerfile
+      working-directory: .
+      registry-username: ${{ vars.GHCR_USERNAME }}
+      additional-labels: |
+        org.opencontainers.image.description=Docker image with backend, frontend and CLI.
+        org.opencontainers.image.title=Proxy Management
+      tags: |
+        type=sha
+    secrets:
+      registry-token: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
       
   deploy:
-    needs: setup-ssh
+    needs: [setup-ssh, build-push-image]
+    if: ${{ ! failure() }}
+
+    name: Deploy Kubernetes
     runs-on: ubuntu-latest
-    env:
-      ENVIRONMENT: production
-    
+
     steps:
-    - name: Download SSH Config Artifact
-      uses: actions/download-artifact@v4
-      with:
-          name: ssh-config
+      - name: Download SSH Config Artifact
+        uses: actions/download-artifact@v4
+        with:
+            name: ssh-config
+            
+      - name: Setup GPG
+        run: |
+          echo "${{ secrets.GH_ARTIFACTS_GPG_PRIVATE }}" | gpg --import
+          echo "${{ secrets.GH_ARTIFACTS_GPG_PUBLIC }}" | gpg --import
 
-    - name: Setup GPG
-      run: |
-        echo "${{ secrets.GH_ARTIFACTS_GPG_PRIVATE }}" | gpg --import
-        echo "${{ secrets.GH_ARTIFACTS_GPG_PUBLIC }}" | gpg --import
-
-        echo "$(gpg --list-keys --fingerprint \
-          | grep -B 1 '${{ secrets.GPG_ID }}' \
-          | head -1 \
-          | tr -d '[:space:]' \
-          | cut -d '=' -f 2):6" | gpg --import-ownertrust
+          FPR=$(gpg --with-colons --list-keys "${{ secrets.GPG_ID }}" | awk -F: '/^fpr:/ {print $10; exit}')
+          echo "${FPR}:6:" | gpg --import-ownertrust
           
-    - name: Restore SSH Config
-      run: |
-        mkdir -p ~/.ssh
-        gpg --decrypt ssh_config.tar.gz.asc > ssh_config.tar.gz
-        tar -xzf ssh_config.tar.gz -C ~/.ssh
-        eval "$(ssh-agent -s)"
-        ssh-add ~/.ssh/id_rsa
+      - name: Decrypt And Restore SSH Config
+        run: |
+          mkdir -p ~/.ssh
+          gpg --decrypt ssh_config.tar.gz.asc > ssh_config.tar.gz
+          tar -xzf ssh_config.tar.gz -C ~/.ssh
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
 
-    - name: Checkout repository
-      uses: actions/checkout@v4
-        
-    - name: Connect to Server and Pull Changes
-      run: |
-        ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} "
-          cd '${{ secrets.WORK_DIR }}' || exit 1 &&
-          git remote set-url origin git@github.com:${{ github.repository }}.git &&
-          git checkout '${{ secrets.MAIN_BRANCH }}' &&
-          git pull origin '${{ secrets.MAIN_BRANCH }}' &&
-          exit
-        "
+      - name: Pre Rollout
+        env:
+          KUSTOMIZE_DIR: jobs
+        run: |
+          IMAGE_TAG=$(echo "${{ needs.build-push-image.outputs.image-tag }}" | cut -d: -f2)
+          
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
+            cd ${{ secrets.MANIFESTS_DIR }}
+            export IMAGE_TAG=$IMAGE_TAG
+            chmod 750 pre_rollout.sh
+            ./pre_rollout.sh ${{ env.KUSTOMIZE_DIR }} ${{ vars.REGISTRY }} ${{ vars.GHCR_USERNAME }} ${{ vars.IMAGE_NAME }} $IMAGE_TAG ${{ vars.K8S_NAMESPACE }}
+          EOF
 
-    - name: Disable Cloudflare Under Attack Mode
-      if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
-      uses: ./.github/actions/setup_cloudflare_security
-      with:
-        security_level: medium
-        cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        api_key_cloudflare: ${{ secrets.API_KEY_CLOUDFLARE }}
-
-    - name: Restart Gunicorn
-      run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-          cd '${{ secrets.WORK_DIR }}/backend' &&
-          /home/${{ secrets.SSH_USER }}/.local/bin/poetry install --no-interaction || exit 1 &&
-          cd ./deploy_config || exit 1 &&
-          chmod 755 gunicorn_actions_after_deploy.sh && 
-          ./gunicorn_actions_after_deploy.sh '${{ env.SUPERVISOR_PROGRAM_NAME }}' || exit 1
-        "
-
-    - name: Delay for Security Mode Change
-      if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
-      run: sleep 10
-
-    - name: Health Check
-      run: |
-        response_code=$(curl -s -w "%{http_code}" -o /tmp/production_health_response.json ${{ secrets.PRODUCTION_BASE_URL }}/health_check)
-        if [ "$response_code" -ne 200 ]; then
-            echo "Health check failed with status $response_code"
-            exit 1
-        else
-            echo "Health check passed!"
-            echo "Server Health Status:"
-            cat /tmp/production_health_response.json | jq
-        fi
-
-    - name: Enable Cloudflare Under Attack Mode
-      if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
-      uses: ./.github/actions/setup_cloudflare_security
-      with:
-          security_level: under_attack
+      - name: Disable Cloudflare Under Attack Mode
+        if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+        uses: ./.github/actions/setup_cloudflare_security
+        with:
+          security_level: medium
           cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
           api_key_cloudflare: ${{ secrets.API_KEY_CLOUDFLARE }}
 
-    - name: Cleanup
-      run: rm -rf ~/.ssh
+      - name: Rollout New Deployment
+        env:
+          KUSTOMIZE_DIR: deployments
+        run: |
+          IMAGE_TAG=$(echo "${{ needs.build-push-image.outputs.image-tag }}" | cut -d: -f2)
+
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
+            cd ${{ secrets.MANIFESTS_DIR }}
+            export IMAGE_TAG=$IMAGE_TAG
+            chmod 750 rollout.sh
+            ./rollout.sh ${{ env.KUSTOMIZE_DIR }} ${{ vars.REGISTRY }} ${{ vars.GHCR_USERNAME }} ${{ vars.IMAGE_NAME }} $IMAGE_TAG ${{ vars.K8S_NAMESPACE }}
+          EOF
+
+      - name: Delay for Security Mode Change
+        if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+        run: sleep 10
+
+      - name: Health Check
+        run: |
+          response_code=$(curl -s -w "%{http_code}" -o /tmp/production_health_response.json ${{ secrets.BASE_URL }}/health_check)
+          if [ "$response_code" -ne 200 ]; then
+              echo "Health check failed with status $response_code"
+              exit 1
+          else
+              echo "Health check passed!"
+              echo "Server Health Status:"
+              cat /tmp/production_health_response.json | jq
+          fi
+
+      - name: Enable Cloudflare Under Attack Mode
+        if: ${{ vars.ENABLED_UNDER_ATTACK == 'true' }}
+        uses: ./.github/actions/setup_cloudflare_security
+        with:
+            security_level: under_attack
+            cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+            api_key_cloudflare: ${{ secrets.API_KEY_CLOUDFLARE }}
+
+      - name: Cleanup
+        run: rm -rf ~/.ssh

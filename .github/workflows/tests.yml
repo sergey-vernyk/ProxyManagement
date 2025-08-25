@@ -1,14 +1,17 @@
-name: Run Tests
+name: Test FastAPI Application
 
 on:
-  # push:
-  #   branches:
-  #     - development
-  #     - pre-deploy
-  # pull_request:
-  #   branches:
-  #     - development
-  #     - pre-deploy
+  push:
+    branches:
+      - development
+      - main
+    paths:
+      - src/**
+      - tests/**
+  pull_request:
+    branches:
+      - development
+      - main
 
   workflow_dispatch:
 
@@ -21,7 +24,7 @@ jobs:
 
     strategy:
       matrix:
-        poetry-version: ["1.8.3"]
+        poetry-version: ["2.1.4"]
         python-version: ["3.12"]
 
     services:
@@ -42,48 +45,48 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: ./backend
+        working-directory: .
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.12
+      - name: Set Up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Create postgres user with 'CREATEDB' privilege
+      - name: Create Postgres User With 'CREATEDB' Privilege
         run: |
           sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE USER ${{ secrets.DATABASE_USER }} WITH PASSWORD '\''${{ secrets.DATABASE_PASSWORD }}'\'' CREATEDB;'"
           sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE DATABASE ${{ secrets.DATABASE_NAME }} OWNER ${{ secrets.DATABASE_USER }};'"
           sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE USER ${{ secrets.DATABASE_USER_TEST }} WITH PASSWORD '\''${{ secrets.DATABASE_PASSWORD_TEST}}'\'' CREATEDB;'"
           sudo docker exec ${{ job.services.postgres.id }} sh -c "psql -U postgres -p 5432 -c 'CREATE DATABASE ${{ secrets.DATABASE_NAME_TEST }} OWNER ${{ secrets.DATABASE_USER_TEST }};'"
 
-      - name: Cache poetry installation
+      - name: Cache Poetry Installation
         id: cache-poetry
         uses: actions/cache@v4
         with:
           path: ~/.local
           key: python-${{ matrix.python-version }}-poetry-v${{ matrix.poetry-version }}
 
-      - name: Install poetry
+      - name: Install Poetry
         run: |
           python -m pip install --upgrade pip
           python -m pip install poetry
 
-      - name: Cache dependencies
+      - name: Cache Dependencies
         id: cache-deps
         uses: actions/cache@v4
         with:
           path: ~/.cache/pypoetry
           key: python-${{ matrix.python-version }}-pydeps-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: poetry install --no-root --no-interaction
 
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$(pwd):$PYTHONPATH" >> $GITHUB_ENV
 
-      - name: Create env file
+      - name: Create Env File
         run: echo "${{ secrets.ENV_FILE }}" > .env
 
-      - name: Test with pytest and coverage
+      - name: Pytest And Coverage
         run: poetry run pytest --cov

@@ -3,14 +3,14 @@ description: An action for Cloudflare security management.
 
 inputs:
   security_level:
-    description: "Security level to set (essentially_off, low, medium, high, under_attack)"
+    description: Security level to set (essentially_off, low, medium, high, under_attack)
     required: true
     default: medium
   cloudflare_zone_id:
-    description: "Cloudflare domain zone ID."
+    description: Cloudflare domain zone ID.
     required: true
   api_key_cloudflare:
-    description: "Cloudflare API key for accessing to the API."
+    description: Cloudflare API key for accessing to the API.
 
 runs:
   using: composite
