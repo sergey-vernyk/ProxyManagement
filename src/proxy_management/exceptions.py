@@ -59,9 +59,7 @@ def custom_error_handler(
 
 
 class ProxyManagementApiError(Exception):
-    """
-    Base exceptions class.
-    """
+    """Base exceptions class."""
 
     def __init__(self, message: str | dict[str, str], logger_extra_data: dict[str, Any] | None = None) -> None:
         self.message = message
@@ -77,9 +75,7 @@ class UserUnauthorizedError(ProxyManagementApiError):
 
 
 class EntityDoesNotExistError(ProxyManagementApiError):
-    """
-    Entity is not found in the database. Typically returns a 404 status.
-    """
+    """Entity is not found in the database. Typically returns a 404 status."""
 
 
 class ClientRequestError(ProxyManagementApiError):

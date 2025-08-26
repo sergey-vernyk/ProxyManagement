@@ -59,10 +59,6 @@ class Settings(BaseSettings):
     pid_file: str
     conn_count_file: str
 
-    # GitHub OAuth
-    github_client_id: str
-    github_client_secret: str
-
     # Google OAuth
     google_client_id: str
     google_client_secret: str

@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase
 from starlette.templating import _TemplateResponse
 
@@ -130,7 +131,7 @@ async def index_page(request: Request, db: DatabaseDependency) -> _TemplateRespo
 
     if user is not None:
         context["user"] = user
-        context["delete_user_url"] = build_full_endpoint_url(request, "delete_user", {"email": str(user.email)})
+        context["delete_user_url"] = build_full_endpoint_url(request, "delete_user", {"email": user.email})
         context["modems_list_url"] = build_full_endpoint_url(request, "modems_list")
         context["logout_url"] = build_full_endpoint_url(request, "logout")
     else:
@@ -183,8 +184,8 @@ async def health_check(request: Request, db: DatabaseDependency) -> JSONResponse
     db_status = "connected"
     try:
         db.execute(select(1))
-    except Exception as e:
-        db_status = f"Error: {str(e)}"
+    except SQLAlchemyError as e:
+        db_status = f"Error: {e}"
 
     current_time = datetime.datetime.now()
     uptime = current_time - start_time

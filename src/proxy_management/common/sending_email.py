@@ -22,7 +22,7 @@ from typing import Any, Literal, Sequence
 
 from jinja2 import Environment, FileSystemLoader
 
-from ..config import get_settings
+from proxy_management.config import get_settings
 
 settings = get_settings()
 environment = Environment(loader=FileSystemLoader("templates"))  # define templates location
@@ -122,9 +122,7 @@ class SMTPEmailSender(EmailSender):
 
 @dataclass(kw_only=True)
 class EmailContent:
-    """
-    Content for email body.
-    """
+    """Content for email body."""
 
     plain: str | bytes | None = None
     html: str | bytes | None = None
@@ -132,9 +130,7 @@ class EmailContent:
     image: Path | str | None = None
 
     def __bool__(self) -> bool:
-        """
-        Instance must have one attribute as not None at least to return True.
-        """
+        """Instance must have one attribute as not None at least to return True."""
         return any([self.plain, self.html, self.file, self.image])
 
 
@@ -163,9 +159,7 @@ class EmailWithAttachments:
         doc_type: Literal["plain_text", "html", "file", "image"],
         content: str | bytes,
     ) -> MIMEText | MIMEImage | MIMEApplication:
-        """
-        Returns MIME `doc_type` document created with `content`.
-        """
+        """Returns MIME `doc_type` document created with `content`."""
         if doc_type == "html":
             return self.mime_types[doc_type](_text=content, _subtype="html")
 
@@ -173,34 +167,26 @@ class EmailWithAttachments:
 
     @staticmethod
     def _read_media_content(source: Path | str) -> bytes:
-        """
-        Reading media content from the given `source`.
-        """
+        """Reading media content from the given `source`."""
         try:
-            with open(source, "rb") as file:
-                return file.read()
+            return Path(source).read_bytes()
         except FileNotFoundError as e:
             raise e
 
     @staticmethod
     def _read_string_content(source: str | Path) -> str:
-        """
-        Reading string content from the given `source`.
-        """
+        """Reading string content from the given `source`."""
         if isinstance(source, str):
             return source
 
         try:
-            with open(source, "r", encoding=ENCODING) as file:
-                return file.read()
+            return Path(source).read_text(encoding=ENCODING)
         except FileNotFoundError as e:
             raise e
 
     @staticmethod
     def _read_bytes_content(source: bytes) -> str:
-        """
-        Reading bytes content from the given `source`.
-        """
+        """Reading bytes content from the given `source`."""
         return source.decode(ENCODING)
 
     def _compose_message_attachments(self, attachments: EmailContent) -> dict:
@@ -258,16 +244,12 @@ class EmailWithAttachments:
 
     @staticmethod
     def render_to_string(template_name: str, context: dict[str, Any]) -> str:
-        """
-        Return the rendered template with the as a string with the provided `context`.
-        """
+        """Return the rendered template with the as a string with the provided `context`."""
         template = environment.get_template(template_name)
         return template.render(context)
 
     def _build_message(self, content: EmailContent) -> MIMEMultipart:
-        """
-        Build message with attachments from the given `content`.
-        """
+        """Build message with attachments from the given `content`."""
         message = MIMEMultipart("alternative")
 
         # attach parts to the message

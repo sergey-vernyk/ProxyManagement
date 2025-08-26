@@ -4,10 +4,11 @@ import pathlib
 from dataclasses import dataclass, field
 from ipaddress import IPv4Address
 
-from ..config import get_settings
-from ..conn_utils import build_default_route_ip, parse_modem_data_to_reboot
-from ..logs.logging_conf import get_socket_server_logger
-from ..modem_api import reboot_modem
+from proxy_management.config import get_settings
+from proxy_management.conn_utils import build_default_route_ip, parse_modem_data_to_reboot
+from proxy_management.logs.logging_conf import get_socket_server_logger
+from proxy_management.modem_api import reboot_modem
+
 from . import CONN_COUNT_FILE, ENCODING, PID_FILE, START_CONNECTION, STOP_CONNECTION
 
 settings = get_settings()
@@ -41,9 +42,7 @@ class ServerConnectionData:
 async def fetch_ip(
     proxy_login: str, proxy_password: str, proxy_port: int, internal_server_ip: IPv4Address, fetch_attempts: int = 5
 ) -> str | None:
-    """
-    Fetches the current external IP using the modem's proxy settings.
-    """
+    """Fetches the current external IP using the modem's proxy settings."""
     for _ in range(fetch_attempts):
         try:
             process = await asyncio.create_subprocess_exec(
@@ -249,8 +248,7 @@ class AsyncSocketServer:
         This PID will be used for graceful terminated a server by CLI.
         """
         pid: int = os.getpid()
-        pid_file = pathlib.Path(PID_FILE)
-        pid_file.write_text(str(pid), encoding=ENCODING)
+        pathlib.Path(PID_FILE).write_text(str(pid), encoding=ENCODING)
 
     @staticmethod
     def _get_message_indexes(input_data: bytes) -> tuple[int, int]:

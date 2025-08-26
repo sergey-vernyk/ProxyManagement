@@ -3,8 +3,9 @@ import signal
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..config import get_settings
-from ..logs.logging_conf import get_socket_client_logger
+from proxy_management.config import get_settings
+from proxy_management.logs.logging_conf import get_socket_client_logger
+
 from . import ENCODING, START_CONNECTION, STOP_CONNECTION
 
 settings = get_settings()
@@ -68,15 +69,14 @@ class AsyncSocketClient:
         return self._received_data
 
     async def start_connection(self) -> None:
-        """
-        Initializes the client socket and starts connecting to the server.
-        """
+        """Initializes the client socket and starts connecting to the server."""
         try:
             logger.info("Establishing connection to %s:%d", self._host, self._port)
             self._reader, self._writer = await asyncio.wait_for(
                 asyncio.open_connection(self._host, self._port), timeout=10
             )
         except (ConnectionRefusedError, TimeoutError) as e:
+            logger.error("Connection wasn't established due to: %s", str(e))
             raise e
 
         # Initialize connection data
@@ -100,9 +100,7 @@ class AsyncSocketClient:
         await self._send_messages()
 
     async def _send_messages(self) -> None:
-        """
-        Handles sending data to the server from the outgoing buffer.
-        """
+        """Handles sending data to the server from the outgoing buffer."""
         if self._connection_data is None or self._writer is None:
             return
 
@@ -115,9 +113,7 @@ class AsyncSocketClient:
         await self._receive_response()
 
     async def _receive_response(self) -> None:
-        """
-        Handles receiving data from the server.
-        """
+        """Handles receiving data from the server."""
         if self._connection_data is None or self._reader is None:
             return
 
@@ -145,9 +141,7 @@ class AsyncSocketClient:
                 break
 
     async def _clean_up(self) -> None:
-        """
-        Cleans up the connection by closing the writer and setting data to None.
-        """
+        """Cleans up the connection by closing the writer and setting data to None."""
         if self._connection_data is not None:
             in_data: bytes = self._connection_data.inb
             if in_data:
@@ -164,9 +158,7 @@ class AsyncSocketClient:
         self._connection_data = None
 
     async def stop(self) -> None:
-        """
-        Method to close the connection programmatically.
-        """
+        """Method to close the connection programmatically."""
         await self._clean_up()
 
     async def run(self, sending_data: str) -> None:
@@ -185,9 +177,7 @@ class AsyncSocketClient:
 
 
 def handle_shutdown(client: AsyncSocketClient) -> None:
-    """
-    Handles shutdown signals like Ctrl+C to close the client connection gracefully.
-    """
+    """Handles shutdown signals like Ctrl+C to close the client connection gracefully."""
     logger.info("Shutdown signal received. Closing client connection...")
     asyncio.create_task(client.stop())
 

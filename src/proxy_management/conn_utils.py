@@ -37,10 +37,10 @@ def parse_modem_data_to_reboot(data: list[bytes]) -> ModemActionsData:
 
     modem_reboot_data = ModemActionsData(
         ip=IPv4Address(data_dict["ip"]),
-        port=int(data_dict["port"]),  # type: ignore
+        port=int(data_dict["port"]),  # pyright: ignore[reportArgumentType]
         internal_server_ip=IPv4Address(data_dict["internal_server_ip"]),
-        proxy_login=data_dict["proxy_login"],  # type: ignore
-        proxy_password_plain=data_dict["proxy_password_plain"],  # type: ignore
+        proxy_login=data_dict["proxy_login"],  # pyright: ignore[reportArgumentType]
+        proxy_password_plain=data_dict["proxy_password_plain"],  # pyright: ignore[reportArgumentType]
         username=data_dict["username"],
         password=data_dict["password"],
         action=ModemAction(data_dict["action"]),
