@@ -1,16 +1,10 @@
 import asyncio
 import itertools
-import selectors
-import socket
 from dataclasses import fields
 from ipaddress import IPv4Address
-from typing import TypeAlias
 
 from proxy_management.modems.schemas import ModemAction, ModemActionsData
 from proxy_management.sockets.async_client import AsyncSocketClient
-
-Socket: TypeAlias = socket.socket
-Selector: TypeAlias = selectors.DefaultSelector
 
 
 def parse_modem_data_to_reboot(data: list[bytes]) -> ModemActionsData:

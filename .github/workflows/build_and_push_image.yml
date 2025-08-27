@@ -79,6 +79,8 @@ jobs:
         images: ${{ inputs.registry }}/${{ inputs.registry-username }}/${{ inputs.image-name }}
         labels: ${{ inputs.additional-labels }}
         tags: ${{ inputs.tags }} 
+        flavor: |
+          latest=false
 
     - name: Login To Container Registry
       if: github.event_name != 'pull_request'
