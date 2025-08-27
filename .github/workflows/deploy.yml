@@ -41,7 +41,7 @@ jobs:
         org.opencontainers.image.description=Docker image with backend, frontend and CLI.
         org.opencontainers.image.title=Proxy Management
       tags: |
-        type=sha
+        type=semver,pattern={{version}}
     secrets:
       registry-token: ${{ secrets.GITHUB_TOKEN }}
     permissions:
