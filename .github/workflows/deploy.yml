@@ -6,8 +6,6 @@ on:
       # - Qodana
       - Test FastAPI Application
     types: ["completed"]
-    branches:
-      - main
 
   workflow_dispatch:
 

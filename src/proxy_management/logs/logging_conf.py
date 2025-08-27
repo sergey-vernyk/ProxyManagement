@@ -62,9 +62,7 @@ def build_logger_extra_data(request: Request, **kwargs: str | Any) -> dict[str, 
 
 
 def get_socket_server_logger() -> logging.Logger:
-    """
-    Returns logger using for socket server logging.
-    """
+    """Returns logger using for socket server logging."""
     logger = logging.getLogger("socket_server")
     if not logger.hasHandlers():  # Check if handlers are already set
         logger.setLevel(logging.INFO)
@@ -88,9 +86,7 @@ def get_socket_server_logger() -> logging.Logger:
 
 
 def get_socket_client_logger() -> logging.Logger:
-    """
-    Returns logger using for socket client logging.
-    """
+    """Returns logger using for socket client logging."""
     logger = logging.getLogger("socket_client")
     if not logger.hasHandlers():
         logger.setLevel(logging.INFO)
@@ -114,9 +110,7 @@ def get_socket_client_logger() -> logging.Logger:
 
 
 def get_endpoint_logger() -> logging.Logger:
-    """
-    Returns logger using in endpoints.
-    """
+    """Returns logger using in endpoints."""
     logger = logging.getLogger("endpoint")
     if not logger.hasHandlers():
         logger.setLevel(logging.INFO)
