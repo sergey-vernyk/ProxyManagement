@@ -2,7 +2,6 @@
 
 ## Table of Contents
 - [Proxy Management Application](#proxy-management-application)
-  - [Table of Contents](#table-of-contents)
   - [Description](#description)
   - [Features](#features)
   - [Installation](#installation)
@@ -15,11 +14,9 @@
       - [*Start the socket server, stop the server, show its logs and accepted connections*](#start-the-socket-server-stop-the-server-show-its-logs-and-accepted-connections)
       - [*Create different connection protocol types for proxy (http, socks, ftp, etc.)*](#create-different-connection-protocol-types-for-proxy-http-socks-ftp-etc)
     - [*Run uvicorn server with parameters*](#run-uvicorn-server-with-parameters)
-  - [Usage](#usage)
+  - [Run the FastAPI server](#run-the-fastapi-server)
   - [Project Structure](#project-structure)
-    - [Packages](#packages)
-    - [Modules](#modules)
-  - [Docker Deployment](#docker-deployment)
+  - [Docker Deployment With PostgreSQL](#docker-deployment-with-postgresql)
   - [Contributing](#contributing)
   - [License](#license)
   - [Authors](#authors)
@@ -33,35 +30,32 @@ Proxy Management System for interactions with proxies based on LTE modems using 
 - FastAPI for building APIs
 - SQLAlchemy for database interactions
 - Alembic for database migrations
-- Authentication using JWT and OAuth
-- WebSocket support
-- Environment configuration using `python-dotenv`
-- Command-line interface using Click
-- Templating with Jinja2
-- HTTP client with HTTPX
-- Google authentication
+- Authentication with JWT and Google OAuth2
+- WebSocket to handle IP address changes with long modem response times
+- Command-line interface (Click) for both client and server
+- Lightweight web interface (Jinja2, HTML, CSS, and jQuery). API ready for any JS framework
 
 ## Installation
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/sergey-vernyk/proxy-management.git
-    cd proxy-management/backend
+    $ git clone https://github.com/sergey-vernyk/ProxyManagement.git
+    $ cd ProxyManagement
     ```
 
 2. Install dependencies using Poetry:
     ```sh
-    poetry install
+    $ poetry install
     ```
 
 3. Create and configure the environment file:
     ```sh
-    cp .env.example .env
+    $ cp .env.example src/proxy_management/.env
     ```
 
 4. Apply database migrations:
     ```sh
-    poetry run alembic upgrade head
+    $ poetry run alembic upgrade head
     ```
 
 ## Endpoints
@@ -101,22 +95,24 @@ Proxy Management System for interactions with proxies based on LTE modems using 
 
 #### *CRUD operations for user proxy credentials*
 ```sh
-poetry run proxy-conf-users [OPTIONS] COMMAND [ARGS]
+$ proxy-conf-users [OPTIONS] ENV_FILE COMMAND [ARGS]
 ```
+Arguments:
+- `env_file`: Location or URL of the environment configuration file
+
 Commands:
 - `create-user-list`: Create a user list file with proxy credentials
 - `delete-from-user-list`: Delete user credentials from the user list file
 - `get-from-user-list`: Display user credentials from the user list file
-- `insert-into-user-list`: Insert new user credentials into the user list
+- `insert-into-user-list`: Insert new credentials into the user list file
   
 Options:
-- `--env-file TEXT`: Location or URL of the environment configuration file
 - `-u, --username TEXT`: Username for authenticating if the provided 'env_file' is URL
 - `-pass, --password TEXT`: Password for authenticating if the provided 'env_file' is URL
 
 #### *Start the socket server, stop the server, show its logs and accepted connections*
 ```sh
-poetry run socket-server [OPTIONS] ENV_FILE COMMAND [ARGS]
+$ socket-server [OPTIONS] ENV_FILE COMMAND [ARGS]
 ```
 Commands:
 - `connection-number`: Show the current numbers of accepted connection to the socket server
@@ -130,7 +126,7 @@ Options:
 
 #### *Create different connection protocol types for proxy (http, socks, ftp, etc.)*
 ```sh
-poetry run proxy-conf-protocols [OPTIONS] COMMAND [ARGS]
+$ proxy-conf-protocols [OPTIONS] COMMAND [ARGS]
 ```
 Commands:
 - `create-connection-protocol`: Create one line for protocol in the proxy conf file (e.g. proxy -n -a -p49153 -i192.168.1.105 -e192.168.8.100)
@@ -142,70 +138,217 @@ Options:
 
 ### *Run uvicorn server with parameters*
 ```sh
-poetry run web-server [OPTIONS] COMMAND [ARGS]
+$ web-server [OPTIONS] COMMAND [ARGS]
 ```
 Commands:
 - `runserver`: Run the FastAPI server with the provided options
 
-## Usage
+## Run the FastAPI server
 
 1. Run the application:
     ```sh
-    poetry run uvicorn main:app --reload
+    $ cd src/proxy_management
+    $ uvicorn main:app --reload
     ```
 
 2. Access the application at `http://127.0.0.1:8000`.
 
 ## Project Structure
-### Packages
-- `auth/`: Authentication module
-- `cli/`: Command-line interface module
-- `modems/`: Modems module
-- `users/`: Users module
-- `common/`: Common utilities and helpers
-- `sockets/`: Modules with SocketClient and SocketServer classes and related functions
-- `logs/`: Logging configuration and files with logging data
-- `migrations/`: Database migrations files and configuration
-- `static/`: JavaScript, CSS and images
-- `templates/`: HTML files
-- `deploy_config/`: Files used for deployment
+```sh
+.
+├── alembic.ini
+├── Dockerfile
+├── LICENSE
+├── poetry.lock
+├── pyproject.toml
+├── README.md
+├── ruff.toml
+├── src
+│   └── proxy_management
+│       ├── auth
+│       │   ├── auth_bearer.py
+│       │   ├── crud.py
+│       │   ├── __init__.py
+│       │   ├── otp
+│       │   │   ├── crud.py
+│       │   │   ├── __init__.py
+│       │   │   ├── models.py
+│       │   │   ├── schemas.py
+│       │   │   └── utils.py
+│       │   ├── router_api.py
+│       │   ├── router_templates.py
+│       │   ├── schemas.py
+│       │   ├── tasks.py
+│       │   └── utils.py
+│       ├── cli
+│       │   ├── __init__.py
+│       │   ├── proxy_protocol_types.py
+│       │   ├── proxy_userlist.py
+│       │   ├── schemas.py
+│       │   ├── socket_server.py
+│       │   ├── utils.py
+│       │   └── web_server.py
+│       ├── common
+│       │   ├── decorators.py
+│       │   ├── __init__.py
+│       │   ├── sending_email.py
+│       │   └── utils.py
+│       ├── config.py
+│       ├── conn_utils.py
+│       ├── db_connection.py
+│       ├── dependencies.py
+│       ├── exceptions.py
+│       ├── __init__.py
+│       ├── logs
+│       │   ├── __init__.py
+│       │   └── logging_conf.py
+│       ├── main.py
+│       ├── migrations
+│       │   ├── env.py
+│       │   ├── README
+│       │   └── script.py.mako
+│       ├── modem_api.py
+│       ├── modems
+│       │   ├── crud.py
+│       │   ├── __init__.py
+│       │   ├── models.py
+│       │   ├── router.py
+│       │   ├── router_templates.py
+│       │   ├── router_ws.py
+│       │   └── schemas.py
+│       ├── security.py
+│       ├── sockets
+│       │   ├── async_client.py
+│       │   ├── async_server.py
+│       │   └── __init__.py
+│       ├── static
+│       │   ├── css
+│       │   │   ├── authentication.css
+│       │   │   ├── base.css
+│       │   │   ├── change_ip.css
+│       │   │   ├── index.css
+│       │   │   ├── proxies.css
+│       │   │   ├── registration.css
+│       │   │   ├── reset_password_confirm.css
+│       │   │   ├── reset_password.css
+│       │   │   └── verify_otp.css
+│       │   ├── img
+│       │   │   └── favicon.png
+│       │   └── js
+│       │       ├── authentication.js
+│       │       ├── change_ip.js
+│       │       ├── check_opened_modal_windows.js
+│       │       ├── delete_account.js
+│       │       ├── disconnect_google_account.js
+│       │       ├── get_cookies.js
+│       │       ├── logout.js
+│       │       ├── registration.js
+│       │       ├── reset_password_confirm.js
+│       │       ├── reset_password.js
+│       │       ├── verify_cf_captcha.js
+│       │       └── verify_otp.js
+│       ├── templates
+│       │   ├── authentication.html
+│       │   ├── base.html
+│       │   ├── change_ip.html
+│       │   ├── email_verification.html
+│       │   ├── index.html
+│       │   ├── proxies.html
+│       │   ├── registration.html
+│       │   ├── reset_password_confirm.html
+│       │   ├── reset_password_email.html
+│       │   ├── reset_password.html
+│       │   ├── verify_email_deferred.html
+│       │   └── verify_otp.html
+│       ├── users
+│       │   ├── crud.py
+│       │   ├── __init__.py
+│       │   ├── models.py
+│       │   ├── router.py
+│       │   ├── schemas.py
+│       │   └── utils.py
+│       ├── validators.py
+│       └── wait-for.sh
+└── tests
+    ├── conftest.py
+    ├── __init__.py
+    ├── mocks.py
+    └── test_auth.py
+```
 
-### Modules
-- `config.py`: Configuration settings
-- `conn_utils.py`: Connection utilities
-- `db_connection.py`: Database connection setup
-- `main.py`: Main entry point of the application
-- `security.py`: Security functions (passwords, tokens, encrypting, etc)
-- `validators.py`: Custom validators
-- `modem_api.py`: API for LTE modem control
-- `dependencies.py`: Functions and classes used as dependency (DI) in the FastAPI routers
-- `conftest.py`: Configuration file for Pytest
-- `exceptions.py`: Custom exceptions
-
-## Docker Deployment
+## Docker Deployment with PostgreSQL
 
 1. Build the Docker image:
-    ```sh
-    docker build -t proxy-management .
-    ```
+  ```sh
+  $ docker build -t proxy-management .
+  ```
+2. Create docker network:
+  ```sh
+  $ docker network create proxy-management-network
+  ```
+  it will create the `bridge` type of docker network that we need to use for the FastAPI server connections with the PostgreSQL server.
 
-2. Run the Docker container:
-    ```sh
-    docker run -d -p 8000:8000 --env-file .env proxy-management
-    ```
+3. Run PostgreSQL server:
+  ```sh
+  $ docker run \
+      --name proxy-management-db \
+      -e POSTGRES_PASSWORD=mysecretpassword \
+      -e PGDATA=/var/lib/postgresql/data/pgdata \
+      -v /tmp/postgres_data:/var/lib/postgresql/data \
+      -e POSTGRES_USER=proxy_admin \
+      -e POSTGRES_DB=proxies \
+      --network=proxy-management-network postgres:16.3-alpine
+  ```
+  **Note:** is required to assign to `DATABASE_URL` environment variable the value: `postgresql://proxy_admin:mysecretpassword@proxy-management-db:5432/proxies` where `proxy-management-db` is the value defined while running PostgreSQL server above. With `127.0.0.1` it won't work as expected. The FastAPI server won't be able to connect to PostgreSQL server. You can choose any credentials for the PostgreSQL server as you want.
+  `/tmp/postgres_data` in `-v /tmp/postgres_data:/var/lib/postgresql/data` can be mount to other places you want.
+
+4. Run the Docker container:
+  ```sh
+  $ docker run \
+      -w /app/src/proxy_management \
+      -p 8000:8000 \
+      --name proxy-management-fastapi \
+      --network=proxy-management-network \
+      --env-file src/proxy_management/.env proxy-management uvicorn main:app --host 0.0.0.0
+  ```
+  You can chose `.env` file from other location where actual `.env` file is located.
+
+5. And after this you will see:
+  ```sh
+  INFO:     Started server process [1]
+  INFO:     Waiting for application startup.
+  INFO:     Application startup complete.
+  INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+  ```
+
+  Open a browser on `http://127.0.0.1:8000` and you will see the home page.
 
 ## Contributing
+We welcome contributions of all kinds — bug fixes, new features, documentation improvements, or suggestions!
 
-1. Fork the repository
-2. Create a new branch (`git checkout -b feature-branch`)
-3. Commit your changes (`git commit -am 'Add new feature'`)
-4. Push to the branch (`git push origin feature-branch`)
-5. Create a new Pull Request
+**To contribute:**
+- Fork this repository to your own GitHub account.
+- Clone your fork locally and create a new branch:
+
+```bash
+$ git clone https://github.com/sergey-vernyk/ProxyManagement.git
+$ git checkout -b my-feature-branch
+```
+- Make your changes and follow the existing coding style.
+- Test your changes if applicable.
+- Commit your changes with a clear message:
+
+```bash
+$ git commit -m "Add brief description of changes"
+```
+- Push your branch to your fork:
+
+```bash
+$ git push origin my-feature-branch
+```
+- Open a **Pull Request** from your branch to the main repository, explaining what you changed and why.
+
+We appreciate all contributions and will review pull requests as quickly as possible. Be respectful and constructive when interacting with others in this project.
 
 ## License
-
 This project is licensed under the MIT License. See the LICENSE file for details.
-
-## Authors
-
-Sergey Vernigora volt.awp.dev@gmail.com
