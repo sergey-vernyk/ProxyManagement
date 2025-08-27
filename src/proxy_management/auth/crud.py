@@ -1,7 +1,8 @@
 from sqlalchemy.orm import Session
 
-from ..security import get_password_hash
-from ..users.models import User
+from proxy_management.security import get_password_hash
+from proxy_management.users.models import User
+
 from .schemas import RegisterUser
 
 

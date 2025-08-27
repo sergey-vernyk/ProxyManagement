@@ -14,17 +14,18 @@ from google.oauth2 import id_token
 from pydantic import EmailStr, SecretStr
 from sqlalchemy import delete, update
 
-from .. import security
-from ..auth.schemas import EnteredCheckOTP
-from ..auth.utils import delete_cookie, set_cookie
-from ..common.utils import build_full_endpoint_url, get_caller_info
-from ..config import get_settings
-from ..dependencies import CsrfVerifyDependency, DatabaseDependency
-from ..exceptions import ClientRequestError, EntityDoesNotExistError, UserUnauthorizedError
-from ..logs.logging_conf import build_logger_extra_data, get_endpoint_logger
-from ..users import models, utils
-from ..users.crud import get_user_by_email
-from ..validators import validate_email_format
+from proxy_management import security
+from proxy_management.auth.schemas import EnteredCheckOTP
+from proxy_management.auth.utils import delete_cookie, set_cookie
+from proxy_management.common.utils import build_full_endpoint_url, get_caller_info
+from proxy_management.config import get_settings
+from proxy_management.dependencies import CsrfVerifyDependency, DatabaseDependency
+from proxy_management.exceptions import ClientRequestError, EntityDoesNotExistError, UserUnauthorizedError
+from proxy_management.logs.logging_conf import build_logger_extra_data, get_endpoint_logger
+from proxy_management.users import models, utils
+from proxy_management.users.crud import get_user_by_email
+from proxy_management.validators import validate_email_format
+
 from . import auth_bearer, crud, schemas, tasks
 from .otp.models import OTP
 from .otp.utils import send_otp_email_handler

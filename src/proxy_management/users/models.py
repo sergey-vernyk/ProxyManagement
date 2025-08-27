@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..db_connection import Base
+from proxy_management.db_connection import Base
+
 from .schemas import HashType, UserRole
 
 if TYPE_CHECKING:

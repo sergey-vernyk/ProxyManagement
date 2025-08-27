@@ -3,7 +3,7 @@ from typing import Any
 
 from jose import jwt
 
-from ..config import get_settings
+from proxy_management.config import get_settings
 
 settings = get_settings()
 

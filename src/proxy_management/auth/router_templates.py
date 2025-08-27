@@ -4,8 +4,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.templating import _TemplateResponse
 
-from ..common.utils import build_full_endpoint_url
-from ..config import get_settings
+from proxy_management.common.utils import build_full_endpoint_url
+from proxy_management.config import get_settings
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter()

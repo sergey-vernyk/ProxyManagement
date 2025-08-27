@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from ..db_connection import engine
+from proxy_management.db_connection import engine
+
 from .schemas import EnvPathOrEnvUrl
 from .utils import fetch_env_file, load_env_in_memory, load_env_in_shell_env
 
@@ -106,6 +107,7 @@ def cli_proxy_protocols(ctx: click.Context, env_file: str, username: str | None,
     help="Proxy protocol.",
 )
 def create_connection_protocol(
+    ctx: click.Context,
     users: str,
     protocol: Literal["proxy", "socks", "ftppr", "pop3p", "smtpp", "dns", "tcppm", "udppm"],
     anonymous: bool,
@@ -137,11 +139,14 @@ def create_connection_protocol(
     Returns:
         None: Outputs the proxy configuration line(s) to stdout.
     """
+    if not ctx.obj["ENV_VALID"]:
+        return
+
     # pylint: disable=C0415
     # pylint: disable=W0611
-    from ..auth.otp.models import OTP  # noqa: F401
-    from ..modems.models import Modem
-    from ..users.models import User
+    from proxy_management.auth.otp.models import OTP  # noqa: F401
+    from proxy_management.modems.models import Modem
+    from proxy_management.users.models import User
 
     users_emails = users.split(",")
     try:

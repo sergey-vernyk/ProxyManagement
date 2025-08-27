@@ -1,6 +1,6 @@
 from typing import Any
 
-from ..common.sending_email import EmailContent, email_sender
+from proxy_management.common.sending_email import EmailContent, email_sender
 
 
 def send_reset_password_email(user_email: str, context: dict[str, Any]) -> None:
