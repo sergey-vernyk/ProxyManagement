@@ -5,8 +5,8 @@ import httpx
 from fastapi import BackgroundTasks, Request, status
 from google.auth.exceptions import GoogleAuthError
 
-from src.proxy_management.config import get_settings
-from src.proxy_management.dependencies import DatabaseDependency
+from proxy_management.config import get_settings
+from proxy_management.dependencies import DatabaseDependency
 
 settings = get_settings()
 # pylint: disable=missing-docstring
@@ -53,27 +53,23 @@ class MockHttpXAsyncClient:
         )
 
     @staticmethod
-    async def mock_post_verify_cloudflare_captcha_success(
-        *args, **kwargs
-    ) -> httpx.Response:
+    async def mock_post_verify_cloudflare_captcha_success(*args, **kwargs) -> httpx.Response:
         request = httpx.Request("POST", "http://testserver/some_endpoint")
         return httpx.Response(
             status_code=status.HTTP_200_OK,
             json={
                 "success": True,
                 "error_codes": [],
-                "challenge_ts": datetime(
-                    year=2024, month=11, day=15, hour=8, minute=45, second=0
-                ).strftime("%Y-%m-%d %H:%M:%S.%"),
+                "challenge_ts": datetime(year=2024, month=11, day=15, hour=8, minute=45, second=0).strftime(
+                    "%Y-%m-%d %H:%M:%S.%"
+                ),
                 "hostname": "example.com",
             },
             request=request,
         )
 
     @staticmethod
-    async def mock_post_verify_cloudflare_captcha_error(
-        *args, **kwargs
-    ) -> httpx.Response:
+    async def mock_post_verify_cloudflare_captcha_error(*args, **kwargs) -> httpx.Response:
         request = httpx.Request("POST", "http://testserver/some_endpoint")
         return httpx.Response(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -94,9 +90,7 @@ class MockHttpXAsyncClient:
         )
 
     @staticmethod
-    async def mock_get_google_login_success_user_not_exists(
-        *args, **kwargs
-    ) -> httpx.Response:
+    async def mock_get_google_login_success_user_not_exists(*args, **kwargs) -> httpx.Response:
         request = httpx.Request("GET", "http://testserver/some_endpoint")
         return httpx.Response(
             status_code=status.HTTP_200_OK,
@@ -105,9 +99,7 @@ class MockHttpXAsyncClient:
         )
 
     @staticmethod
-    async def mock_get_google_login_success_user_exists(
-        *args, **kwargs
-    ) -> httpx.Response:
+    async def mock_get_google_login_success_user_exists(*args, **kwargs) -> httpx.Response:
         request = httpx.Request("GET", "http://testserver/some_endpoint")
         return httpx.Response(
             status_code=status.HTTP_200_OK,
@@ -151,9 +143,7 @@ def mock_generate_random_plain_otp(length: int = 8) -> str:
     return "12345678"
 
 
-def mock_verify_oauth2_token_success(
-    id_token: str, request: GoogleRequestAdapter, audience: str
-) -> dict[str, Any]:
+def mock_verify_oauth2_token_success(id_token: str, request: GoogleRequestAdapter, audience: str) -> dict[str, Any]:
     return {
         "iss": "https://accounts.google.com",
         "azp": "azp_value",
@@ -166,12 +156,8 @@ def mock_verify_oauth2_token_success(
     }
 
 
-def mock_verify_oauth2_token_invalid_issuer(
-    id_token: str, request: GoogleRequestAdapter, audience: str
-) -> NoReturn:
-    raise GoogleAuthError(
-        f"Wrong issuer. 'iss' should be one of the following: {_GOOGLE_ISSUERS}"
-    )
+def mock_verify_oauth2_token_invalid_issuer(id_token: str, request: GoogleRequestAdapter, audience: str) -> NoReturn:
+    raise GoogleAuthError(f"Wrong issuer. 'iss' should be one of the following: {_GOOGLE_ISSUERS}")
 
 
 def mock_verify_oauth2_token_verification_failed(
