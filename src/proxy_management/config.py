@@ -49,8 +49,9 @@ class Settings(BaseSettings):
     # email sending
     email_password: str
     email_host: str
-    email_from: str
+    email_from_user: str
     email_port: int
+    email_from: str
 
     # email verification
     otp_expire_time: int  # minutes

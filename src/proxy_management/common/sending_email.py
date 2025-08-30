@@ -289,7 +289,7 @@ class EmailWithAttachments:
 smtp_sender = SMTPEmailSender(
     host=settings.email_host,
     port=settings.email_port,
-    username=settings.email_from,
+    username=settings.email_from_user,
     password=settings.email_password,
 )
 
