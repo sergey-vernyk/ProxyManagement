@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "proxy-management"
-version = "0.2.4"
+version = "0.2.5"
 description = "Proxy management system for interactions with proxy which based on LTE modem."
 authors = ["Sergey Vernigora <volt.awp.dev@gmail.com>"]
 readme = "README.md"
