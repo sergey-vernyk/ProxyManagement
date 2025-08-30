@@ -103,7 +103,7 @@ class SMTPEmailSender(EmailSender):
         """
         context = ssl.create_default_context()
         with smtplib.SMTP_SSL(host=self.host, port=self.port, context=context) as server:
-            server.login(user=send_from, password=self.password)
+            server.login(user=self.username, password=self.password)
 
             result: dict[str, tuple[int, bytes]] = server.sendmail(
                 to_addrs=to_addrs,
@@ -289,7 +289,7 @@ class EmailWithAttachments:
 smtp_sender = SMTPEmailSender(
     host=settings.email_host,
     port=settings.email_port,
-    username=settings.email_from_user,
+    username=settings.email_user,
     password=settings.email_password,
 )
 
