@@ -6,9 +6,12 @@ on:
       - Test FastAPI Application
     types: ["completed"]
 
+  workflow_dispatch:
+
 jobs:
   setup-ssh:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/') }}
+    if: |
+      ${{ (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/')) || github.event_name == 'workflow_dispatch'}}
     uses: ./.github/workflows/setup_ssh.yml
     name: Setup SSH
     secrets:
@@ -20,7 +23,7 @@ jobs:
       gpg_id: ${{ secrets.GPG_ID }}
 
   build-push-image:
-    if: ${{ !failure() }}
+    if: ${{ success() }}
     needs: setup-ssh
     uses: ./.github/workflows/build_and_push_image.yml
     name: Build And Push Image
