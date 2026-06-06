@@ -32,16 +32,12 @@ def db_engine() -> Generator[Engine, Any, None]:
     """
     engine: Engine = create_engine(SQLALCHEMY_DATABASE_URL)
     db_base = cast(DeclarativeBase, Base)
-    with engine.connect() as connection:
-        db_base.metadata.create_all(bind=engine)
-        connection.begin()
+    db_base.metadata.create_all(bind=engine)
 
     yield engine
 
-    with engine.connect() as connection:
-        connection.rollback()
-        engine.dispose()
-        db_base.metadata.drop_all(bind=engine)
+    db_base.metadata.drop_all(bind=engine)
+    engine.dispose()
 
 
 @pytest.fixture(scope="function")
@@ -53,12 +49,14 @@ def db(db_engine: Engine) -> Generator[Any, Any, None]:  # pylint: disable=W0621
     Args:
         db_engine(Engine): database engine instance.
     """
-    with db_engine.begin() as connection:
-        test_db = Session(bind=connection, expire_on_commit=False)
+    connection = db_engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection, expire_on_commit=False)
 
-        yield test_db
+    yield session
 
-        test_db.rollback()
+    session.close()
+    transaction.rollback()
     connection.close()
 
 
@@ -76,7 +74,7 @@ def client(db: Session) -> Generator[Any, Any, None]:  # pylint: disable=W0621
     with TestClient(app=app, base_url="http://test:8000/") as c:
         yield c
 
-    c.close()
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -88,9 +86,7 @@ def mock_build_ip_address_for_log(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch (pytest.MonkeyPatch): patch fixture.
     """
-    monkeypatch.setattr(
-        logging_conf, "build_ip_address_for_log", lambda _: "192.168.x.x"
-    )
+    monkeypatch.setattr(logging_conf, "build_ip_address_for_log", lambda _: "192.168.x.x")
 
 
 @pytest.fixture

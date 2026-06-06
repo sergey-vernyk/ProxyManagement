@@ -73,6 +73,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 app.add_exception_handler(
     exc_class_or_status_code=EntityDoesNotExistError,
     handler=custom_error_handler(
